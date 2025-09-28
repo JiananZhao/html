@@ -76,7 +76,7 @@ def get_sp500_stock_data():
     st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
     
     try:
-        # Use concurrent downloads (threads) to handle large symbol list
+        # 使用 concurrent downloads (threads) 来处理大符号列表
         data = yf.download(
             tickers=sp500_symbols,
             start=start_date,
@@ -85,8 +85,8 @@ def get_sp500_stock_data():
             progress=False, 
             auto_adjust=True, 
             repair=True,
-            max_workers=10, 
-            threads=True,
+            # --- 关键修复：移除 'max_workers' 和 'threads' 参数 ---
+            # yfinance 默认会进行线程下载，不需要额外设置这些参数
         )
         
         # Filter out tickers that failed to download or are entirely empty
