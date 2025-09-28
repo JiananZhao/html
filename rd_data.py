@@ -40,6 +40,16 @@ with col_treasury:
 with col_market:
     st.header("S&P 500 市场宽度 (20 DMA)")
     
+    # ----------------------------------------------------
+    # 关键修复 1: 初始化 breadth_data 变量
+    # ----------------------------------------------------
+    # 初始化一个默认字典，确保即使 stock_data 为 None，侧边栏也能安全地访问它
+    breadth_data = {
+        "count": "N/A", 
+        "total": "N/A", 
+        "percentage": 0 # Percentage needs a number for the gauge chart setup, but we use 'N/A' for count/total
+    }
+    
     # 获取最新的成分股列表以显示总数
     current_sp500_symbols = get_sp500_symbols()
     
@@ -47,7 +57,7 @@ with col_market:
     stock_data = get_sp500_stock_data()
     
     if stock_data is not None:
-        # 2. 计算宽度指标
+        # 2. 计算宽度指标 (breadth_data 在这里被计算并更新)
         breadth_data = calculate_market_breadth(stock_data)
         
         # 3. 生成并显示仪表盘
@@ -60,7 +70,12 @@ with col_market:
     else:
         st.error("未能获取股票数据，无法计算市场宽度。")
 
-    st.sidebar.header("S&P 500 宽度信息")
-    st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
-    st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('total', 'N/A')}**")
-    st.sidebar.markdown(f"高于20日MA数量: **{breadth_data.get('count', 'N/A')}**")
+# ----------------------------------------------------
+# 侧边栏代码 (放在 col_market 之外，但放在 if/else 块之后)
+# ----------------------------------------------------
+st.sidebar.header("S&P 500 宽度信息")
+# 这里的 breadth_data 现在保证存在，即使数据获取失败，它也是初始化的默认字典
+st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
+st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('total', 'N/A')}**")
+st.sidebar.markdown(f"高于20日MA数量: **{breadth_data.get('count', 'N/A')}**")
+
