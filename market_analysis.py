@@ -6,7 +6,7 @@ import yfinance as yf
 from datetime import date, timedelta
 import requests
 from bs4 import BeautifulSoup
-import numpy as np # Needed for some pandas operations/type hinting
+import numpy as np 
 
 # ------------------------------------------------------------------
 # 1. Component List Retrieval
@@ -20,7 +20,7 @@ def get_sp500_symbols():
     st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     
-    # --- 关键修复: 添加 User-Agent 头部信息来模拟浏览器 ---
+    # --- 关键修复: 添加 User-Agent 头部信息来模拟浏览器，解决 403 Forbidden ---
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
@@ -28,9 +28,7 @@ def get_sp500_symbols():
     try:
         # 使用 requests 获取页面内容，并传入 headers
         response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status() # 检查 HTTP 错误 (如果仍然是 403，会抛出异常)
-        
-        # ... (其余的 BeautifulSoup 解析代码保持不变) ...
+        response.raise_for_status() # 检查 HTTP 错误 (如 403)
         
         # 使用 BeautifulSoup 解析 HTML
         soup = BeautifulSoup(response.text, 'lxml')
@@ -63,12 +61,12 @@ def get_sp500_symbols():
             return None
 
     except requests.exceptions.RequestException as e:
-        # 如果这里仍捕获到 403 错误，可能是IP被封锁，但 User-Agent 修复了大多数情况。
         st.error(f"获取 S&P 500 成分股列表失败 (网络错误): {e}")
         return None
     except Exception as e:
         st.error(f"获取 S&P 500 成分股列表失败 (解析错误): {e}")
         return None
+
 # ------------------------------------------------------------------
 # 2. Stock Data Download
 # ------------------------------------------------------------------
@@ -92,7 +90,7 @@ def get_sp500_stock_data():
     st.info(f"正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
     
     try:
-        # 使用 concurrent downloads (threads) 来处理大符号列表
+        # --- 关键修复：禁用多线程 (threads=False) 和忽略时区错误 (ignore_tz=True) ---
         data = yf.download(
             tickers=sp500_symbols,
             start=start_date,
@@ -101,7 +99,8 @@ def get_sp500_stock_data():
             progress=False, 
             auto_adjust=True, 
             repair=True,
-            # 确保移除了 max_workers 参数
+            threads=False,   # 提高稳定性
+            ignore_tz=True   # 忽略 YFTzMissingError (退市股票)
         )
         
         # 检查下载的数据是否为空
