@@ -29,7 +29,7 @@ st.markdown(f"**最新数据日期:** `{default_frame}`")
 
 # Optional: Add data info to the sidebar (using data from df_long)
 st.sidebar.header("数据信息")
-st.sidebar.markdown(f"总数据点: **{len(df_long)}**")
+st.sidebar.markdown(f"总数据点: **{len(df_long.index)}**")
 st.sidebar.markdown(f"起始日期: **{df_long['Date'].min().date()}**")
 
 # Generate the plot using the function from visualization.py
@@ -37,5 +37,6 @@ fig = create_yield_curve_chart(df_long, most_recent_date)
     
 # Display the figure
 st.plotly_chart(fig, use_container_width=True)
+
 
 
