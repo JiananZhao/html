@@ -102,25 +102,37 @@ def get_sp500_stock_data():
         return None
 
 # --- NEW FUNCTION: Get SPY Historical Data ---
-@st.cache_data(ttl=timedelta(hours=6)) # 缓存 SPY 数据
+@st.cache_data(ttl=timedelta(hours=6))
 def get_spy_data(start_date: date, end_date: date):
     """
     下载 SPY (S&P 500 ETF) 的历史收盘价。
     """
     ticker = "SPY"
     try:
-        spy_df = yf.download(
+        # 直接下载数据，不立即选择 'Close' 列
+        spy_df_raw = yf.download(
             tickers=ticker,
             start=start_date,
             end=end_date,
             progress=False,
-            auto_adjust=True, # 自动调整拆股和分红
-        )['Close']
-        spy_df.name = "SPY_Close" # 重命名列以便合并
-        return spy_df.to_frame() # 返回 DataFrame 格式
+            auto_adjust=True,
+        )
+        
+        # 确保 'Close' 列存在
+        if 'Close' not in spy_df_raw.columns:
+             st.error("SPY 数据中未找到 'Close' 列。")
+             return pd.DataFrame()
+
+        # 只选择 'Close' 列，并将其重命名为 'SPY_Close'
+        spy_df = spy_df_raw[['Close']].copy()
+        spy_df.rename(columns={'Close': 'SPY_Close'}, inplace=True)
+        
+        # 返回 DataFrame，无需再调用 .to_frame()
+        return spy_df
+        
     except Exception as e:
         st.error(f"下载 SPY 数据失败: {e}")
-        return pd.DataFrame() # 返回空 DataFrame
+        return pd.DataFrame() 
         
 # ----------------------------------------------------
 # Function to calculate market breadth
