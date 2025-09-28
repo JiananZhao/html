@@ -145,12 +145,12 @@ def create_breadth_bar_chart(breadth_data: dict):
     
     return fig
 
-def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
+def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFrame = None): # <-- NEW: Add df_spy parameter
     """
-    生成显示 20 DMA 和 60 DMA 市场宽度历史的线图。
+    生成显示 20 DMA 和 60 DMA 市场宽度历史的线图，并可选地叠加 SPY 指数价格。
     """
     
-    # 熔化数据以方便 Plotly Express 绘图（将 20DMA 和 60DMA 变成一列）
+    # 熔化数据以方便 Plotly Express 绘图
     df_long = df_breadth[['20DMA_Breadth', '60DMA_Breadth']].reset_index().rename(columns={'index': 'Date'})
     df_long = df_long.melt(
         id_vars=['Date'],
@@ -159,55 +159,102 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
         value_name='Breadth_Percentage'
     )
     
-    # 映射标签
     label_map = {
         '20DMA_Breadth': '高于 20 日均线 (%)',
         '60DMA_Breadth': '高于 60 日均线 (%)'
     }
     df_long['Label'] = df_long['Moving_Average'].map(label_map)
 
-    fig = px.line(
-        df_long,
-        x='Date',
-        y='Breadth_Percentage',
-        color='Label',
-        title="S&P 500 市场宽度历史趋势",
-        labels={'Breadth_Percentage': '股票百分比 (%)', 'Date': '日期', 'Label': '指标'},
-        color_discrete_map={
-            '高于 20 日均线 (%)': 'darkgreen',
-            '高于 60 日均线 (%)': 'orange'
-        }
-    )
+    # --- 开始创建图表 (使用 go.Figure 而不是 px.line 以便双 Y 轴) ---
+    fig = go.Figure()
+
+    # 添加市场宽度数据 (主 Y 轴)
+    for label in df_long['Label'].unique():
+        df_subset = df_long[df_long['Label'] == label]
+        fig.add_trace(
+            go.Scatter(
+                x=df_subset['Date'],
+                y=df_subset['Breadth_Percentage'],
+                mode='lines',
+                name=label,
+                line=dict(
+                    color='darkgreen' if '20' in label else 'orange',
+                    width=2
+                ),
+                yaxis='y1' # <-- 指定使用第一个Y轴
+            )
+        )
 
     # 添加 50% 基线
     fig.add_hline(y=50, line_dash="dash", line_color="red", 
                   annotation_text="50% 基线", 
-                  annotation_position="bottom right")
-                  
-    # --- 关键修改 1: 增加 Range Slider 和 Selector ---
-    fig.update_xaxes(
-        # 激活范围选择器 (Range Selector) 按钮
-        rangeselector=dict(
-            buttons=list([
-                dict(count=6, label="6m", step="month", stepmode="backward"),
-                dict(count=1, label="1y", step="year", stepmode="backward"),
-                dict(count=5, label="5y", step="year", stepmode="backward"),
-                dict(step="all")
-            ])
-        ),
-        # 激活范围滑动条 (Range Slider)
-        rangeslider=dict(visible=True, thickness=0.07), # thickness 增加滑动条的可见性
-        # 设置默认视图范围为过去 5 年 (确保数据够长)
-        range=[df_breadth.index[-1] - pd.DateOffset(years=5), df_breadth.index[-1]]
+                  annotation_position="bottom right",
+                  layer="below", # 确保基线在折线下方
+                  row="all", col="all", # 适用于所有子图，但这里只有一个主图
+                  yaxis="y1" # 适用于第一个Y轴
     )
 
-    # --- 关键修改 2: 调整布局高度/宽度，适应更长的X轴 ---
+    # --- NEW: 如果提供了 SPY 数据，则添加 SPY 价格到副 Y 轴 ---
+    if df_spy is not None and not df_spy.empty:
+        # 将 SPY 数据与市场宽度数据按日期对齐
+        # 确保 df_spy 的索引是日期，并且与 df_breadth 的日期范围一致
+        df_spy_aligned = df_spy.reindex(df_breadth.index).dropna() # 使用 reindex 来对齐日期
+
+        if not df_spy_aligned.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=df_spy_aligned.index,
+                    y=df_spy_aligned['SPY_Close'],
+                    mode='lines',
+                    name='SPY 收盘价',
+                    line=dict(color='blue', width=1.5, dash='dot'), # 使用虚线或不同样式
+                    yaxis='y2' # <-- 指定使用第二个Y轴
+                )
+            )
+        else:
+            st.warning("SPY 数据与市场宽度数据日期无法对齐或为空。")
+
+    # --- 更新布局以支持双 Y 轴 ---
     fig.update_layout(
         template="plotly_white",
-        yaxis_range=[0, 100],
+        title_text="S&P 500 市场宽度历史趋势与 SPY 指数", # 更新图表标题
+        xaxis_title="日期",
+        yaxis_title="股票百分比 (%)", # 主 Y 轴标题
         hovermode="x unified",
         legend_title_text='',
-        height=500,  # 适当增加高度
+        height=500,
+        
+        # 定义主 Y 轴 (y1)
+        yaxis=dict(
+            range=[0, 100],
+            title="股票百分比 (%)",
+            showgrid=True,
+            zeroline=False,
+            side='left'
+        ),
+        # 定义副 Y 轴 (y2)
+        yaxis2=dict(
+            title="SPY 收盘价",
+            overlaying='y', # 叠加在 'y' (即 y1) 之上
+            side='right', # 放在右侧
+            showgrid=False, # 不显示网格线以保持清晰
+            zeroline=False
+        ),
+        
+        # 范围选择器和滑动条
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(step="all")
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            # 确保默认范围是过去 5 年，且数据足够长
+            range=[df_breadth.index[-1] - pd.DateOffset(years=5), df_breadth.index[-1]] if not df_breadth.empty else None
+        )
     )
     
     return fig
