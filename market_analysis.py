@@ -20,10 +20,17 @@ def get_sp500_symbols():
     st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     
+    # --- 关键修复: 添加 User-Agent 头部信息来模拟浏览器 ---
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     try:
-        # 使用 requests 获取页面内容
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() # 检查 HTTP 错误
+        # 使用 requests 获取页面内容，并传入 headers
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status() # 检查 HTTP 错误 (如果仍然是 403，会抛出异常)
+        
+        # ... (其余的 BeautifulSoup 解析代码保持不变) ...
         
         # 使用 BeautifulSoup 解析 HTML
         soup = BeautifulSoup(response.text, 'lxml')
@@ -56,12 +63,12 @@ def get_sp500_symbols():
             return None
 
     except requests.exceptions.RequestException as e:
+        # 如果这里仍捕获到 403 错误，可能是IP被封锁，但 User-Agent 修复了大多数情况。
         st.error(f"获取 S&P 500 成分股列表失败 (网络错误): {e}")
         return None
     except Exception as e:
         st.error(f"获取 S&P 500 成分股列表失败 (解析错误): {e}")
         return None
-
 # ------------------------------------------------------------------
 # 2. Stock Data Download
 # ------------------------------------------------------------------
