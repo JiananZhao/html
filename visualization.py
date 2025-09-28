@@ -195,13 +195,12 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
         line_color="red", 
         annotation_text="50% 基线", 
         annotation_position="bottom right",
-        yref="y1"  # 关键修复: 绑定到 'y1' 轴
+        yref="y1"  # 关键修复: 使用 yref 绑定到 'y1' 轴
     )
 
     # --- 添加 SPY 数据到副 Y 轴 y2 ---
     if df_spy is not None and not df_spy.empty:
         # 将 SPY 数据与市场宽度数据按日期对齐
-        # reindex 确保日期对齐，dropna 移除缺失值
         df_spy_aligned = df_spy.reindex(df_breadth.index).dropna() 
 
         if not df_spy_aligned.empty:
@@ -236,7 +235,8 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
             overlaying='y', # 叠加在 'y' (即 y1) 之上
             side='right', # 放在右侧
             showgrid=False,
-            zeroline=False
+            zeroline=False,
+            autorange=True # 确保自动缩放以显示 SPY 价格
         ),
         
         # 范围选择器和滑动条
