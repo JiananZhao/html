@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import requests # Used indirectly by market_analysis
 from data_processing import load_and_transform_data 
-from visualization import create_yield_curve_chart, create_breadth_gauge_chart
+from visualization import create_yield_curve_chart, create_breadth_bar_chart
 from market_analysis import get_sp500_stock_data, calculate_market_breadth, get_sp500_symbols 
 
 # Set page configuration
@@ -88,5 +88,6 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
