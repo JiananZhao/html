@@ -1,11 +1,13 @@
 # visualization.py
 
 import plotly.express as px
-import plotly.graph_objects as go # Required for the Gauge chart
-import streamlit as st
+import plotly.graph_objects as go 
 import pandas as pd
+import numpy as np
 from datetime import datetime 
-from data_processing import CUSTOM_X_AXIS_TICKS_LABELS
+# Assuming data_processing.py is in the same directory and contains CUSTOM_X_AXIS_TICKS_LABELS
+from data_processing import CUSTOM_X_AXIS_TICKS_LABELS 
+
 
 def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     """
@@ -84,7 +86,7 @@ def create_breadth_bar_chart(breadth_data: dict):
     pct_60ma = breadth_data.get("60DMA_percentage", 0)
     total = breadth_data.get("eligible_total", 0)
     
-    if total == 0:
+    if total == 0 or total == 'N/A':
         return None
 
     # Prepare data for plotting
@@ -110,7 +112,7 @@ def create_breadth_bar_chart(breadth_data: dict):
             text=df_bar['Text'],
             textposition='inside',
             insidetextanchor='middle',
-            hoverinfo='none' # Hide hover info for the segment itself
+            hoverinfo='none' 
         ),
         # Bar 2: The percentage BELOW the MA (Gray/Red for context)
         go.Bar(
@@ -126,7 +128,7 @@ def create_breadth_bar_chart(breadth_data: dict):
     fig.update_layout(
         barmode='stack',
         xaxis=dict(range=[0, 100], showgrid=False, zeroline=False, title='股票百分比 (%)'),
-        yaxis=dict(autorange="reversed"), # 20 DMA at top, 60 DMA at bottom
+        yaxis=dict(autorange="reversed"), 
         title={
             'text': f"S&P 500 市场宽度 (总股票数: {total})",
             'y':0.95,
@@ -135,7 +137,7 @@ def create_breadth_bar_chart(breadth_data: dict):
             'yanchor': 'top'
         },
         showlegend=False,
-        height=200,
+        height=300,
         margin=dict(l=20, r=20, t=50, b=20),
         plot_bgcolor='white'
     )
@@ -145,7 +147,8 @@ def create_breadth_bar_chart(breadth_data: dict):
     
     return fig
 
-def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFrame = None): # <-- NEW: Add df_spy parameter
+
+def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFrame = None):
     """
     生成显示 20 DMA 和 60 DMA 市场宽度历史的线图，并可选地叠加 SPY 指数价格。
     """
@@ -165,10 +168,10 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
     }
     df_long['Label'] = df_long['Moving_Average'].map(label_map)
 
-    # --- 开始创建图表 (使用 go.Figure 而不是 px.line 以便双 Y 轴) ---
+    # --- 开始创建图表 (使用 go.Figure 以便双 Y 轴) ---
     fig = go.Figure()
 
-    # 添加市场宽度数据 (主 Y 轴)
+    # 添加市场宽度数据 (主 Y 轴 y1)
     for label in df_long['Label'].unique():
         df_subset = df_long[df_long['Label'] == label]
         fig.add_trace(
@@ -181,24 +184,25 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
                     color='darkgreen' if '20' in label else 'orange',
                     width=2
                 ),
-                yaxis='y1' # <-- 指定使用第一个Y轴
+                yaxis='y1' # 指定使用第一个Y轴
             )
         )
 
     # 添加 50% 基线
-    fig.add_hline(y=50, line_dash="dash", line_color="red", 
-                  annotation_text="50% 基线", 
-                  annotation_position="bottom right",
-                  layer="below", # 确保基线在折线下方
-                  row="all", col="all", # 适用于所有子图，但这里只有一个主图
-                  yaxis="y1" # 适用于第一个Y轴
+    fig.add_hline(
+        y=50, 
+        line_dash="dash", 
+        line_color="red", 
+        annotation_text="50% 基线", 
+        annotation_position="bottom right",
+        yref="y1"  # 关键修复: 绑定到 'y1' 轴
     )
 
-    # --- NEW: 如果提供了 SPY 数据，则添加 SPY 价格到副 Y 轴 ---
+    # --- 添加 SPY 数据到副 Y 轴 y2 ---
     if df_spy is not None and not df_spy.empty:
         # 将 SPY 数据与市场宽度数据按日期对齐
-        # 确保 df_spy 的索引是日期，并且与 df_breadth 的日期范围一致
-        df_spy_aligned = df_spy.reindex(df_breadth.index).dropna() # 使用 reindex 来对齐日期
+        # reindex 确保日期对齐，dropna 移除缺失值
+        df_spy_aligned = df_spy.reindex(df_breadth.index).dropna() 
 
         if not df_spy_aligned.empty:
             fig.add_trace(
@@ -207,24 +211,18 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
                     y=df_spy_aligned['SPY_Close'],
                     mode='lines',
                     name='SPY 收盘价',
-                    line=dict(color='blue', width=1.5, dash='dot'), # 使用虚线或不同样式
-                    yaxis='y2' # <-- 指定使用第二个Y轴
+                    line=dict(color='blue', width=1.5, dash='dot'),
+                    yaxis='y2' # 指定使用第二个Y轴
                 )
             )
-        else:
-            st.warning("SPY 数据与市场宽度数据日期无法对齐或为空。")
 
-    # --- 更新布局以支持双 Y 轴 ---
+    # --- 更新布局以支持双 Y 轴和范围选择 ---
     fig.update_layout(
         template="plotly_white",
-        title_text="S&P 500 市场宽度历史趋势与 SPY 指数", # 更新图表标题
+        title_text="S&P 500 市场宽度历史趋势与 SPY 指数", 
         xaxis_title="日期",
-        yaxis_title="股票百分比 (%)", # 主 Y 轴标题
-        hovermode="x unified",
-        legend_title_text='',
-        height=500,
         
-        # 定义主 Y 轴 (y1)
+        # 定义主 Y 轴 (y1) - 市场宽度百分比
         yaxis=dict(
             range=[0, 100],
             title="股票百分比 (%)",
@@ -232,12 +230,12 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
             zeroline=False,
             side='left'
         ),
-        # 定义副 Y 轴 (y2)
+        # 定义副 Y 轴 (y2) - SPY 价格
         yaxis2=dict(
             title="SPY 收盘价",
             overlaying='y', # 叠加在 'y' (即 y1) 之上
             side='right', # 放在右侧
-            showgrid=False, # 不显示网格线以保持清晰
+            showgrid=False,
             zeroline=False
         ),
         
@@ -252,9 +250,13 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame, df_spy: pd.DataFra
                 ])
             ),
             rangeslider=dict(visible=True, thickness=0.07),
-            # 确保默认范围是过去 5 年，且数据足够长
+            # 默认范围为过去 5 年
             range=[df_breadth.index[-1] - pd.DateOffset(years=5), df_breadth.index[-1]] if not df_breadth.empty else None
-        )
+        ),
+
+        hovermode="x unified",
+        legend_title_text='',
+        height=500,
     )
     
     return fig
