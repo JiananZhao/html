@@ -11,7 +11,7 @@ st.set_page_config(layout="wide", page_title="Yield Curve Visualization")
 # -----------------
 
 try:
-    # @st.cache_data
+    @st.cache_data
     def load_data():
         return pd.read_csv('daily-treasury-rates.csv')
     
@@ -124,4 +124,5 @@ else:
     st.warning("Plotly figure did not create a slider for animation_frame.")
     
 st.plotly_chart(fig, use_container_width=True)
+
 
