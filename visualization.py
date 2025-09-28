@@ -111,7 +111,7 @@ def create_breadth_gauge_chart(breadth_data: dict):
 
     fig.update_layout(
         margin=dict(l=20, r=20, t=50, b=20),
-        height=300,
+        height=500,
         title_text=f"当前宽度：{count}/{total} (股票数)"
     )
     
