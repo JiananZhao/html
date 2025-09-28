@@ -78,3 +78,48 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         fig.layout.sliders[0].active = default_index
 
     return fig
+
+def create_breadth_gauge_chart(breadth_data: dict):
+    """
+    生成一个仪表盘图表，显示位于20日均线上方的股票百分比。
+    """
+    percentage = breadth_data.get("percentage", 0)
+    count = breadth_data.get("count", 0)
+    total = breadth_data.get("total", 0)
+    
+    if total == 0:
+        return None
+
+    # 使用 Plotly go.Figure (需要导入 go)
+    import plotly.graph_objects as go
+
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = percentage,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "20日均线上方的股票百分比"},
+        gauge = {
+            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+            'bar': {'color': "green"},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 25], 'color': 'red'},
+                {'range': [25, 50], 'color': 'lightcoral'},
+                {'range': [50, 75], 'color': 'lightgreen'},
+                {'range': [75, 100], 'color': 'green'}],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 50}
+        }
+    ))
+
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=50, b=20),
+        height=300,
+        title_text=f"当前宽度：{count}/{total} (股票数)"
+    )
+    
+    return fig
