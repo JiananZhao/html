@@ -2,10 +2,10 @@
 
 import streamlit as st
 import pandas as pd
-# 导入新的模块
+import requests # <-- 新增：间接依赖于 market_analysis.py 中的 requests
 from data_processing import load_and_transform_data 
 from visualization import create_yield_curve_chart, create_breadth_gauge_chart
-from market_analysis import get_sp500_stock_data, calculate_market_breadth
+from market_analysis import get_sp500_stock_data, calculate_market_breadth, get_sp500_symbols # <-- 导入 get_sp500_symbols
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Yield Curve and Market Breadth")
@@ -40,6 +40,9 @@ with col_treasury:
 with col_market:
     st.header("S&P 500 市场宽度 (20 DMA)")
     
+    # 获取最新的成分股列表以显示总数
+    current_sp500_symbols = get_sp500_symbols()
+    
     # 1. 获取 S&P 500 数据
     stock_data = get_sp500_stock_data()
     
@@ -52,7 +55,12 @@ with col_market:
         if fig_gauge:
             st.plotly_chart(fig_gauge, use_container_width=True)
         else:
-            st.warning("无法计算宽度指标，可能是数据不足。")
+            st.warning("无法计算宽度指标，可能是数据不足或图表生成失败。")
 
     else:
         st.error("未能获取股票数据，无法计算市场宽度。")
+
+    st.sidebar.header("S&P 500 宽度信息")
+    st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
+    st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('total', 'N/A')}**")
+    st.sidebar.markdown(f"高于20日MA数量: **{breadth_data.get('count', 'N/A')}**")
