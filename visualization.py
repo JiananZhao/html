@@ -46,7 +46,7 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         yaxis_title="Yield (%)",
         template="plotly_white",
         yaxis_range=y_range, 
-        height=450,
+        height=400,
         width=600,
         hovermode="x unified",
         
