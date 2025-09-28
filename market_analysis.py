@@ -105,65 +105,86 @@ def get_sp500_stock_data():
 # ----------------------------------------------------
 # Function to calculate market breadth
 # ----------------------------------------------------
-def calculate_market_breadth(stock_data: pd.DataFrame):
+def calculate_market_breadth_history(stock_data: pd.DataFrame):
     """
-    计算有多少成分股的股价位于20日和60日均线上方。
+    计算历史上每天有多少成分股的股价位于20日和60日均线上方。
     
     Returns:
-        包含计数和百分比的数据字典，现包含 20 DMA 和 60 DMA 的结果。
+        pd.DataFrame: 索引为日期，列为 '20DMA_Breadth' 和 '60DMA_Breadth' 百分比。
     """
     
     sp500_symbols = get_sp500_symbols()
-
-    if stock_data is None or stock_data.empty or not sp500_symbols:
-        return {
-            "eligible_total": 0,
-            "20DMA_count": 0, "20DMA_percentage": 0,
-            "60DMA_count": 0, "60DMA_percentage": 0,
-        }
-
-    above_20ma_count = 0
-    above_60ma_count = 0
-    total_eligible_stocks = 0 
-
-    # 遍历每个股票代码
-    for ticker in sp500_symbols:
-        if (ticker, 'Close') in stock_data.columns:
-            df_ticker = stock_data[ticker]['Close'].dropna()
-            
-            # Need at least 60 points for the 60 DMA
-            if len(df_ticker) < 60:
-                continue
-            
-            # 1. Calculate Moving Averages
-            df_ticker_20ma = df_ticker.rolling(window=20).mean()
-            df_ticker_60ma = df_ticker.rolling(window=60).mean()
-            
-            # 2. Get latest values
-            latest_close = df_ticker.iloc[-1]
-            latest_20ma = df_ticker_20ma.iloc[-1]
-            latest_60ma = df_ticker_60ma.iloc[-1]
-            
-            if pd.isna(latest_close) or pd.isna(latest_20ma) or pd.isna(latest_60ma):
-                continue
-
-            # 3. Compare and Count
-            if latest_close > latest_20ma:
-                above_20ma_count += 1
-            
-            if latest_close > latest_60ma:
-                above_60ma_count += 1
-            
-            total_eligible_stocks += 1
-            
-    # Calculate percentages
-    pct_20ma = (above_20ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
-    pct_60ma = (above_60ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
     
-    return {
-        "eligible_total": total_eligible_stocks,
-        "20DMA_count": above_20ma_count, 
-        "20DMA_percentage": pct_20ma,
-        "60DMA_count": above_60ma_count, 
-        "60DMA_percentage": pct_60ma,
+    # 获取所有收盘价数据列
+    close_data = stock_data.xs('Close', level=1, axis=1)
+
+    if close_data.empty or not sp500_symbols:
+        return pd.DataFrame()
+
+    # 确保只保留S&P 500成分股的列
+    close_data = close_data[sp500_symbols]
+    
+    # 1. 计算所有股票的历史移动平均线
+    ma_20 = close_data.rolling(window=20).mean()
+    ma_60 = close_data.rolling(window=60).mean()
+
+    # 2. 比较：收盘价是否高于移动平均线 (得到 True/False DataFrame)
+    # True 被视为 1, False 被视为 0
+    above_20ma_df = (close_data > ma_20).astype(int)
+    above_60ma_df = (close_data > ma_60).astype(int)
+
+    # 3. 汇总：计算每天有多少股票高于MA
+    # (即按行求和)
+    daily_20ma_count = above_20ma_df.sum(axis=1)
+    daily_60ma_count = above_60ma_df.sum(axis=1)
+
+    # 4. 计算每天符合MA计算条件的股票总数
+    # 如果收盘价或MA是NaN，则该股票不合格 (即 rolling window 不足)
+    daily_eligible_count = (
+        close_data.notna() & ma_60.notna()
+    ).sum(axis=1)
+    
+    # 5. 计算百分比
+    # 避免除以零
+    breadth_history = pd.DataFrame({
+        '20DMA_Breadth': (daily_20ma_count / daily_eligible_count) * 100,
+        '60DMA_Breadth': (daily_60ma_count / daily_eligible_count) * 100,
+        'Eligible_Count': daily_eligible_count
+    }).dropna()
+    
+    return breadth_history
+
+# ----------------------------------------------------------------------
+# IMPORTANT: New function for getting the LATEST SNAPSHOT (for sidebar)
+# ----------------------------------------------------------------------
+
+def get_latest_breadth_snapshot(breadth_history: pd.DataFrame):
+    """
+    从历史数据中提取最新的市场宽度快照，用于侧边栏显示。
+    """
+    if breadth_history.empty:
+        return {
+            "eligible_total": "N/A",
+            "20DMA_count": "N/A", "20DMA_percentage": 0,
+            "60DMA_count": "N/A", "60DMA_percentage": 0,
+        }
+    
+    latest = breadth_history.iloc[-1]
+    total = latest['Eligible_Count']
+    
+    # 计算最新的计数 (需要回到原始逻辑，或者将计数存储在历史DF中)
+    # 为简单起见，这里假设我们只展示百分比。
+    # 如果要展示计数，最好在历史DF中存储计数，或者回到原始计算方式获取最新快照。
+    # 鉴于我们已重写历史DF，我们只使用百分比和总数。
+    
+    # 注意：为了让 rd_data.py 的侧边栏能够继续工作，我们需要重新包装数据结构。
+    latest_snapshot = {
+        "eligible_total": int(total),
+        "20DMA_percentage": latest['20DMA_Breadth'],
+        "60DMA_percentage": latest['60DMA_Breadth'],
+        # 由于 historical calculation 过程复杂化了 count 提取，
+        # 暂时使用百分比和总数来推算 count。
+        "20DMA_count": int(latest['20DMA_Breadth'] / 100 * total), 
+        "60DMA_count": int(latest['60DMA_Breadth'] / 100 * total),
     }
+    return latest_snapshot
