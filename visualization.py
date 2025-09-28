@@ -3,46 +3,77 @@
 import plotly.express as px
 import streamlit as st
 import pandas as pd
-from datetime import datetime # <--- 关键修改：导入 datetime 类
+from datetime import datetime # <-- MUST import datetime for type hinting
 from data_processing import CUSTOM_X_AXIS_TICKS_LABELS
 
 def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     """
-    Generates the interactive Plotly yield curve chart.
-    
-    Args:
-        df_long: The long-format DataFrame.
-        most_recent_date: The latest date in the dataset.
-        
-    Returns:
-        A Plotly Figure object.
+    Generates the interactive Plotly yield curve chart, defaulting to the latest date.
     """
     
-    # ... (其余的代码逻辑保持不变)
+    # --- Prepare data for Plotly animation ---
+    df_long['Date_str'] = df_long['Date'].astype(str) # For robust Plotly animation
     default_frame = str(most_recent_date.date())
 
     # Create the interactive animated plot
     fig = px.line(
-        # ...
+        df_long,
+        x='Maturity_Years',
+        y='Yield',
+        # Use string column names for robust animation grouping/frame definition
+        animation_frame='Date_str',
+        animation_group='Date_str', 
+        hover_data={'Maturity_Label': True, 'Yield': ':.2f'},
+        markers=True,
+        labels={
+            "Maturity_Years": "Time to Maturity (Years)",
+            "Yield": "Yield (%)",
+            "animation_frame": "Date"
+        },
+        title="U.S. Treasury Yield Curve Animation"
     )
+
+    # Calculate Y-axis range safely and dynamically
+    min_yield = df_long['Yield'].min()
+    max_yield = df_long['Yield'].max()
+    
+    # Set a safe floor and ceiling for Y-axis with a buffer
+    y_floor = max(-0.5, min_yield - 0.5) 
+    y_ceiling = max_yield * 1.05
+    y_range = [y_floor, y_ceiling] 
 
     # Customize the layout
     fig.update_layout(
-        # ...
+        xaxis_title="Time to Maturity (Years)",
+        yaxis_title="Yield (%)",
+        template="plotly_white",
+        yaxis_range=y_range, 
+        height=600,
+        width=600,
+        hovermode="x unified",
+        
+        # --- Custom X-axis ticks for better readability ---
+        xaxis=dict(
+            tickmode='array',
+            tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()),
+            ticktext=list(CUSTOM_X_AXIS_TICKS_LABELS.keys()),
+            range=[-1, 31],
+            type='linear' 
+        )
     )
 
-    # visualization.py
-    # ... (设置滑块的代码)
+    # --- Set default frame to the most recent date ---
     date_list = sorted(df_long['Date'].unique())
     most_recent_dt = pd.to_datetime(most_recent_date) 
     
-    # 修正：移除 .tolist()，因为 date_list 已经是 Python 列表了
     if most_recent_dt in date_list:
-        default_index = date_list.index(most_recent_dt) # <--- 关键修改
+        # Correctly use list.index() without .tolist()
+        default_index = date_list.index(most_recent_dt) 
     else:
-        # Fallback to the last item if exact match isn't found
+        # Fallback
         default_index = len(date_list) - 1
 
+    # Set the slider active index
     if fig.layout.sliders:
         fig.layout.sliders[0].active = default_index
 
