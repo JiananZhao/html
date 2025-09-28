@@ -71,7 +71,7 @@ def get_sp500_stock_data():
         return None
 
     end_date = date.today()
-    start_date = end_date - timedelta(days=90) # Need 90 days for 20 DMA calculation buffer
+    start_date = end_date - timedelta(days=900) # Need 90 days for 20 DMA calculation buffer
 
     st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
     
