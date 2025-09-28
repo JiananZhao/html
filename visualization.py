@@ -1,10 +1,10 @@
 # visualization.py
 
 import plotly.express as px
+import plotly.graph_objects as go # Required for the Gauge chart
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
-from datetime import datetime # <-- MUST import datetime for type hinting
+from datetime import datetime 
 from data_processing import CUSTOM_X_AXIS_TICKS_LABELS
 
 def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
@@ -12,16 +12,14 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     Generates the interactive Plotly yield curve chart, defaulting to the latest date.
     """
     
-    # --- Prepare data for Plotly animation ---
-    df_long['Date_str'] = df_long['Date'].astype(str) # For robust Plotly animation
-    default_frame = str(most_recent_date.date())
+    # Prepare data for Plotly animation
+    df_long['Date_str'] = df_long['Date'].astype(str) 
 
     # Create the interactive animated plot
     fig = px.line(
         df_long,
         x='Maturity_Years',
         y='Yield',
-        # Use string column names for robust animation grouping/frame definition
         animation_frame='Date_str',
         animation_group='Date_str', 
         hover_data={'Maturity_Label': True, 'Yield': ':.2f'},
@@ -38,7 +36,6 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     min_yield = df_long['Yield'].min()
     max_yield = df_long['Yield'].max()
     
-    # Set a safe floor and ceiling for Y-axis with a buffer
     y_floor = max(-0.5, min_yield - 0.5) 
     y_ceiling = max_yield * 1.05
     y_range = [y_floor, y_ceiling] 
@@ -53,7 +50,7 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         width=600,
         hovermode="x unified",
         
-        # --- Custom X-axis ticks for better readability ---
+        # Custom X-axis ticks
         xaxis=dict(
             tickmode='array',
             tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()),
@@ -63,26 +60,24 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         )
     )
 
-    # --- Set default frame to the most recent date ---
+    # Set default frame to the most recent date
     date_list = sorted(df_long['Date'].unique())
     most_recent_dt = pd.to_datetime(most_recent_date) 
     
     if most_recent_dt in date_list:
-        # Correctly use list.index() without .tolist()
         default_index = date_list.index(most_recent_dt) 
     else:
-        # Fallback
         default_index = len(date_list) - 1
 
-    # Set the slider active index
     if fig.layout.sliders:
         fig.layout.sliders[0].active = default_index
 
     return fig
 
+
 def create_breadth_gauge_chart(breadth_data: dict):
     """
-    生成一个仪表盘图表，显示位于20日均线上方的股票百分比。
+    Generates a gauge chart showing the percentage of stocks above the 20 DMA.
     """
     percentage = breadth_data.get("percentage", 0)
     count = breadth_data.get("count", 0)
@@ -90,9 +85,6 @@ def create_breadth_gauge_chart(breadth_data: dict):
     
     if total == 0:
         return None
-
-    # 使用 Plotly go.Figure (需要导入 go)
-    import plotly.graph_objects as go
 
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
