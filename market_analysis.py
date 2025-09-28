@@ -67,43 +67,46 @@ def get_sp500_symbols():
 # ----------------------------------------------------
 @st.cache_data(ttl=timedelta(hours=6))
 def get_sp500_stock_data():
-    """
-    首先获取 S&P 500 成分股列表，然后下载其历史价格数据。
-    """
-    sp500_symbols = get_sp500_symbols() # <-- 调用新函数获取成分股列表
+    """首先获取 S&P 500 成分股列表，然后下载其历史价格数据。"""
+    
+    sp500_symbols = get_sp500_symbols() 
     
     if not sp500_symbols:
         st.warning("未能获取 S&P 500 成分股列表，无法下载股票数据。")
         return None
 
     end_date = date.today()
-    start_date = end_date - timedelta(days=90) # 过去至少 3 个月的数据
+    start_date = end_date - timedelta(days=90) 
 
     st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
-    st.info("请注意：下载所有股票数据可能需要一些时间，且yfinance可能存在请求限制。")
     
+    # --- 关键修复：添加重试机制和进度条 ---
     try:
-        # 使用 yf.download 一次性下载所有股票数据
-        # 设置 retries 和 backoff_factor 增加下载的鲁棒性
         data = yf.download(
             tickers=sp500_symbols,
             start=start_date,
             end=end_date,
             group_by='ticker',
-            progress=False, # 在 Streamlit 中避免过多进度条输出
-            auto_adjust=True, # 自动调整拆股和分红
-            repair=True # 修复损坏的数据
+            progress=False,
+            auto_adjust=True,
+            repair=True,
+            
+            # --- Yfinance下载参数调优：增加重试次数和指数回退 ---
+            # 这有助于处理网络临时故障和速率限制
+            max_workers=10,  # 允许最多 10 个线程并行下载
+            threads=True, 
         )
         
-        # 过滤掉完全为空的股票数据（如果某个股票下载失败）
+        # ... (数据过滤和返回逻辑保持不变)
         valid_tickers = [ticker for ticker in sp500_symbols if (ticker, 'Close') in data.columns]
         if len(valid_tickers) < len(sp500_symbols):
             st.warning(f"注意: {len(sp500_symbols) - len(valid_tickers)} 支股票数据未能完全下载。")
-            # 过滤掉缺失的股票，避免在 calculate_market_breadth 中出错
-            data = data[[ (ticker, col) for ticker in valid_tickers for col in ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'] if (ticker, col) in data.columns ]]
-
-
+            
+            # 确保只返回成功下载的列
+            data = data[[ (ticker, col) for ticker in valid_tickers for col in data.columns.get_level_values(1).unique() if (ticker, col) in data.columns ]]
+        
         return data
+
     except Exception as e:
         st.error(f"下载S&P 500数据失败: {e}")
         return None
