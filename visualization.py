@@ -135,7 +135,7 @@ def create_breadth_bar_chart(breadth_data: dict):
             'yanchor': 'top'
         },
         showlegend=False,
-        height=300,
+        height=600,
         margin=dict(l=20, r=20, t=50, b=20),
         plot_bgcolor='white'
     )
