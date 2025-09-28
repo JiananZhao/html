@@ -85,7 +85,7 @@ def get_sp500_stock_data():
 
     end_date = date.today()
     # 5.5 年的历史数据作为缓冲
-    start_date = end_date - timedelta(days=2008) 
+    start_date = end_date - timedelta(days=9000) 
 
     st.info(f"正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
     
