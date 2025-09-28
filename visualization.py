@@ -3,6 +3,7 @@
 import plotly.express as px
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime # <-- MUST import datetime for type hinting
 from data_processing import CUSTOM_X_AXIS_TICKS_LABELS
 
