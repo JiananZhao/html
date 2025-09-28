@@ -1,17 +1,28 @@
 import pandas as pd
 import plotly.express as px
-import plotly.io as pio # <-- Import plotly.io for file writing
-import os # <-- Import os for path manipulation
+import streamlit as st # <-- NEW: Import Streamlit
+
+# Remove 'import plotly.io as pio' and 'import os' as they are not needed here
+
+st.set_page_config(layout="wide", page_title="Yield Curve Visualization") # <-- Optional, but recommended
 
 # -----------------
-# 1. Data Setup (Assuming 'yield-curve-rates.csv' is in the working directory)
+# 1. Data Setup (The Streamlit-friendly way)
 # -----------------
+# In a full Streamlit app, you should use st.file_uploader or st.cache_data
+# For this example, we assume the file 'daily-treasury-rates.csv' is present.
+
 try:
-    df = pd.read_csv('daily-treasury-rates.csv')
+    # Use st.cache_data to load the data only once for efficiency
+    @st.cache_data
+    def load_data():
+        return pd.read_csv('daily-treasury-rates.csv')
+    
+    df = load_data()
+    
 except FileNotFoundError:
-    print("Error: 'daily-treasury-rates.csv' not found. Please download the historical data.")
-    # Exit the script gracefully if data isn't found
-    exit()
+    st.error("Error: 'daily-treasury-rates.csv' not found. Please ensure the file is in the same directory as the app.")
+    st.stop() # <-- Use st.stop() instead of exit() to halt the Streamlit script gracefully
 
 # 1. Clean the 'Date' column and filter for data since 2000
 df['Date'] = pd.to_datetime(df['Date'])
@@ -39,7 +50,7 @@ df_long = df.melt(
     value_vars=yield_cols,
     var_name='Maturity_Label',
     value_name='Yield'
-).dropna()
+).dropna(subset=['Yield']) # Only drop rows where 'Yield' is NaN
 
 # Convert Maturity_Label to a numerical X-axis value (in years)
 df_long['Maturity_Years'] = df_long['Maturity_Label'].map(maturity_map)
@@ -47,33 +58,29 @@ df_long['Maturity_Years'] = df_long['Maturity_Label'].map(maturity_map)
 # Sort the data frame by Date and then by Maturity (for correct line drawing)
 df_long = df_long.sort_values(by=['Date', 'Maturity_Years'])
 
-# Ensure Yield is numeric
+# Ensure Yield is numeric (already done, but good practice)
 df_long['Yield'] = pd.to_numeric(df_long['Yield'], errors='coerce')
 
-# Rerun this entire section of your Spyder script after the data preprocessing steps
 
 # -----------------
-# 3. Visualization and Display (REVISED)
+# 3. Visualization and Display (STREAMLIT INTEGRATION)
 # -----------------
+st.title("Daily U.S. Treasury Yield Curve Animation")
+
 # Create the interactive animated plot
 fig = px.line(
     df_long,
     x='Maturity_Years',
     y='Yield',
-    # --- CRITICAL CHANGE: Removed the incorrect 'color' argument ---
-    # The animation_frame groups the line implicitly by date.
     animation_frame=df_long['Date'].astype(str),
-    
-    # Use 'Maturity_Label' for hover text and explicitly show markers
     hover_data={'Maturity_Years': False, 'Maturity_Label': True},
-    markers=True, # <-- Explicitly show the data points
-    
+    markers=True,
     labels={
         "Maturity_Years": "Time to Maturity (Years)",
         "Yield": "Yield (%)",
         "animation_frame": "Date"
     },
-    title="Daily U.S. Treasury Yield Curve Animation (2025)"
+    title="Daily U.S. Treasury Yield Curve Animation (Post-2000)"
 )
 
 # Customize the layout
@@ -81,12 +88,12 @@ fig.update_layout(
     xaxis_tickvals=list(maturity_map.values()),
     xaxis_ticktext=list(maturity_map.keys()),
     xaxis_range=[-0.1, 31],
-    yaxis_range=[2, 6],
+    # It's better to dynamically set yaxis_range based on data:
+    # yaxis_range=[df_long['Yield'].min() * 0.95, df_long['Yield'].max() * 1.05],
     yaxis_title="Yield (%)",
-    template="plotly_white"
+    template="plotly_white",
+    height=600 # Set a fixed height for better mobile display
 )
 
-# Display the figure using the robust method:
-output_file = 'yield_curve_animation.html'
-# You will need 'import plotly.io as pio' at the top of your script
-pio.write_html(fig, file=output_file, auto_open=True)
+# CRITICAL CHANGE: Use st.plotly_chart() to display the figure
+st.plotly_chart(fig, use_container_width=True)
