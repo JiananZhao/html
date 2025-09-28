@@ -89,7 +89,7 @@ fig.update_layout(
     xaxis_ticktext=list(maturity_map.keys()),
     xaxis_range=[-0.1, 31],
     # It's better to dynamically set yaxis_range based on data:
-    # yaxis_range=[df_long['Yield'].min() * 0.95, df_long['Yield'].max() * 1.05],
+    yaxis_range=[df_long['Yield'].min() * 0.95, df_long['Yield'].max() * 1.05],
     yaxis_title="Yield (%)",
     template="plotly_white",
     height=600 # Set a fixed height for better mobile display
@@ -97,3 +97,4 @@ fig.update_layout(
 
 # CRITICAL CHANGE: Use st.plotly_chart() to display the figure
 st.plotly_chart(fig, use_container_width=True)
+
