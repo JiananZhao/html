@@ -78,11 +78,12 @@ with col_market:
 # 4. SIDEBAR (Safe to access all initialized variables)
 # ------------------------------------------------------------------
 st.sidebar.header("国债数据信息")
-st.sidebar.markdown(f"总数据点: **{len(df_long)/12}**")
+st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
 st.sidebar.markdown(f"起始日期: **{df_long['Date'].min().date()}**")
 
 st.sidebar.header("S&P 500 宽度信息")
 st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('total', 'N/A')}**")
 st.sidebar.markdown(f"高于20日MA数量: **{breadth_data.get('count', 'N/A')}**")
+
 
