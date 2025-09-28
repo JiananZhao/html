@@ -41,7 +41,7 @@ else:
 # 2. LAYOUT: Treasury Data (Left Column)
 # ------------------------------------------------------------------
 
-col_treasury, col_market = st.columns([3, 2])
+col_treasury, col_market = st.columns([1, 1])
 
 with col_treasury:
     st.header("Daily U.S. Treasury Yield Curve Animation")
@@ -88,6 +88,7 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
 
