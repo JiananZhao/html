@@ -16,18 +16,27 @@ def get_sp500_symbols():
     """
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     
+    # --- 关键修复：添加 User-Agent 头部 ---
+    headers = {
+        # 伪装成一个常见的浏览器（这里使用 Chrome 的User-Agent）
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     try:
-        # 使用 requests 检查页面是否可访问
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() # 如果请求失败则抛出HTTPError
-
-        # pandas.read_html 返回页面中所有表格的列表
-        tables = pd.read_html(url)
+        st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
         
-        # S&P 500 成分股表格通常是第一个，但为了稳健性，可以根据列名判断
-        # 寻找包含 'Symbol' 和 'Security' 列的表格
+        # 1. 使用 requests.get 发送请求，并带上 headers
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status() # 如果请求失败 (例如 403)，则抛出 HTTPError
+
+        # 2. 将页面的 HTML 内容传递给 pandas
+        # 注意：这里不能直接用 pd.read_html(url)，必须用 pd.read_html(response.text)
+        tables = pd.read_html(response.text)
+        
+        # S&P 500 成分股表格通常是第一个，根据列名判断
         sp500_table = None
         for table in tables:
+            # 检查表格是否包含 S&P 500 成分股所需的列
             if 'Symbol' in table.columns and 'Security' in table.columns:
                 sp500_table = table
                 break
@@ -38,14 +47,16 @@ def get_sp500_symbols():
 
         # 提取 'Symbol' 列并转换为列表
         symbols = sp500_table['Symbol'].tolist()
-        # 有些符号可能包含句点，yfinance通常用连字符，但Wikipedia通常是正确的。
-        # 例如：BRK.B -> BRK-B，这里不处理，让yfinance自行匹配。
         
         st.success(f"成功获取 {len(symbols)} 个 S&P 500 成分股代码。")
         return symbols
 
+    except requests.exceptions.HTTPError as e:
+        # 针对 403/404 等 HTTP 错误给出更明确的提示
+        st.error(f"获取 S&P 500 成分股列表失败 (HTTP 错误: {e})。请检查 User-Agent 或目标 URL。")
+        return []
     except requests.exceptions.RequestException as e:
-        st.error(f"获取 S&P 500 成分股列表失败 (网络错误): {e}")
+        st.error(f"获取 S&P 500 成分股列表失败 (网络或超时错误): {e}")
         return []
     except Exception as e:
         st.error(f"解析 S&P 500 成分股列表失败: {e}")
