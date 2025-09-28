@@ -107,43 +107,63 @@ def get_sp500_stock_data():
 # ----------------------------------------------------
 def calculate_market_breadth(stock_data: pd.DataFrame):
     """
-    Calculates the number and percentage of stocks above their 20-day moving average.
+    计算有多少成分股的股价位于20日和60日均线上方。
+    
+    Returns:
+        包含计数和百分比的数据字典，现包含 20 DMA 和 60 DMA 的结果。
     """
+    
     sp500_symbols = get_sp500_symbols()
 
     if stock_data is None or stock_data.empty or not sp500_symbols:
-        return {"count": 0, "total": 0, "percentage": 0}
+        return {
+            "eligible_total": 0,
+            "20DMA_count": 0, "20DMA_percentage": 0,
+            "60DMA_count": 0, "60DMA_percentage": 0,
+        }
 
-    above_ma_count = 0
+    above_20ma_count = 0
+    above_60ma_count = 0
     total_eligible_stocks = 0 
 
+    # 遍历每个股票代码
     for ticker in sp500_symbols:
         if (ticker, 'Close') in stock_data.columns:
             df_ticker = stock_data[ticker]['Close'].dropna()
             
-            if len(df_ticker) < 20:
+            # Need at least 60 points for the 60 DMA
+            if len(df_ticker) < 60:
                 continue
             
-            # 1. Calculate 20 DMA
-            df_ticker_ma = df_ticker.rolling(window=20).mean()
+            # 1. Calculate Moving Averages
+            df_ticker_20ma = df_ticker.rolling(window=20).mean()
+            df_ticker_60ma = df_ticker.rolling(window=60).mean()
             
             # 2. Get latest values
             latest_close = df_ticker.iloc[-1]
-            latest_ma = df_ticker_ma.iloc[-1]
+            latest_20ma = df_ticker_20ma.iloc[-1]
+            latest_60ma = df_ticker_60ma.iloc[-1]
             
-            if pd.isna(latest_close) or pd.isna(latest_ma):
+            if pd.isna(latest_close) or pd.isna(latest_20ma) or pd.isna(latest_60ma):
                 continue
 
-            # 3. Compare
-            if latest_close > latest_ma:
-                above_ma_count += 1
+            # 3. Compare and Count
+            if latest_close > latest_20ma:
+                above_20ma_count += 1
+            
+            if latest_close > latest_60ma:
+                above_60ma_count += 1
             
             total_eligible_stocks += 1
             
-    percentage = (above_ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
+    # Calculate percentages
+    pct_20ma = (above_20ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
+    pct_60ma = (above_60ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
     
     return {
-        "count": above_ma_count,
-        "total": total_eligible_stocks, 
-        "percentage": percentage
+        "eligible_total": total_eligible_stocks,
+        "20DMA_count": above_20ma_count, 
+        "20DMA_percentage": pct_20ma,
+        "60DMA_count": above_60ma_count, 
+        "60DMA_percentage": pct_60ma,
     }
