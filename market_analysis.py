@@ -4,41 +4,94 @@ import yfinance as yf
 import pandas as pd
 import streamlit as st
 from datetime import date, timedelta
+import requests # 用于检查网页请求
 
 # ----------------------------------------------------
-# 辅助函数 1: 获取 S&P 500 成分股（符号列表）
-# 注意：yfinance 不直接提供成分股列表，通常需要从外部爬取或使用预存列表。
-# 为简化代码和保证运行，这里使用一个常用且较稳定的替代方法：
-# 下载 SPY (S&P 500 ETF) 的持有股票列表（可能不完全准确，但数据量够大）
-# 或者更简单：我们使用一个通用的、较小的股票列表作为示例。
-# 实际生产环境需要一个可靠的S&P 500成分股列表来源。
+# 新增函数: 获取 S&P 500 成分股列表
 # ----------------------------------------------------
+@st.cache_data(ttl=timedelta(days=1)) # 每天更新一次成分股列表
+def get_sp500_symbols():
+    """
+    从 Wikipedia 页面获取最新的 S&P 500 成分股列表。
+    """
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    
+    try:
+        # 使用 requests 检查页面是否可访问
+        response = requests.get(url, timeout=10)
+        response.raise_for_status() # 如果请求失败则抛出HTTPError
 
-# 使用一个可靠的外部列表或直接硬编码一个大列表作为示例：
-SP500_SYMBOLS = [
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'JPM', 'JNJ', 'V', 'PG',
-    'UNH', 'HD', 'MA', 'DIS', 'NFLX', 'ADBE', 'CRM', 'KO', 'PEP', 'WMT',
-    'XOM', 'CVX', 'LLY', 'MRNA', 'PFE', 'GS', 'BAC', 'WFC', 'MS', 'AXP'
-] # 仅为示例，请替换为完整的 S&P 500 列表！
+        # pandas.read_html 返回页面中所有表格的列表
+        tables = pd.read_html(url)
+        
+        # S&P 500 成分股表格通常是第一个，但为了稳健性，可以根据列名判断
+        # 寻找包含 'Symbol' 和 'Security' 列的表格
+        sp500_table = None
+        for table in tables:
+            if 'Symbol' in table.columns and 'Security' in table.columns:
+                sp500_table = table
+                break
+        
+        if sp500_table is None:
+            st.error("无法在 Wikipedia 页面找到 S&P 500 成分股表格。")
+            return []
 
+        # 提取 'Symbol' 列并转换为列表
+        symbols = sp500_table['Symbol'].tolist()
+        # 有些符号可能包含句点，yfinance通常用连字符，但Wikipedia通常是正确的。
+        # 例如：BRK.B -> BRK-B，这里不处理，让yfinance自行匹配。
+        
+        st.success(f"成功获取 {len(symbols)} 个 S&P 500 成分股代码。")
+        return symbols
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"获取 S&P 500 成分股列表失败 (网络错误): {e}")
+        return []
+    except Exception as e:
+        st.error(f"解析 S&P 500 成分股列表失败: {e}")
+        return []
+
+# ----------------------------------------------------
+# 更新 get_sp500_stock_data 函数
+# ----------------------------------------------------
 @st.cache_data(ttl=timedelta(hours=6))
 def get_sp500_stock_data():
-    """使用 yfinance 下载 S&P 500 成分股的历史价格数据。"""
+    """
+    首先获取 S&P 500 成分股列表，然后下载其历史价格数据。
+    """
+    sp500_symbols = get_sp500_symbols() # <-- 调用新函数获取成分股列表
     
+    if not sp500_symbols:
+        st.warning("未能获取 S&P 500 成分股列表，无法下载股票数据。")
+        return None
+
     end_date = date.today()
-    # 需要过去至少 30 个交易日的数据来计算 20 日均线
-    start_date = end_date - timedelta(days=90) 
-    
-    st.write("📈 正在下载S&P 500成分股历史价格数据... (初次运行较慢)")
+    start_date = end_date - timedelta(days=90) # 过去至少 3 个月的数据
+
+    st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
+    st.info("请注意：下载所有股票数据可能需要一些时间，且yfinance可能存在请求限制。")
     
     try:
         # 使用 yf.download 一次性下载所有股票数据
+        # 设置 retries 和 backoff_factor 增加下载的鲁棒性
         data = yf.download(
-            tickers=SP500_SYMBOLS,
+            tickers=sp500_symbols,
             start=start_date,
             end=end_date,
-            group_by='ticker' # 按股票代码分组数据
+            group_by='ticker',
+            progress=False, # 在 Streamlit 中避免过多进度条输出
+            auto_adjust=True, # 自动调整拆股和分红
+            repair=True # 修复损坏的数据
         )
+        
+        # 过滤掉完全为空的股票数据（如果某个股票下载失败）
+        valid_tickers = [ticker for ticker in sp500_symbols if (ticker, 'Close') in data.columns]
+        if len(valid_tickers) < len(sp500_symbols):
+            st.warning(f"注意: {len(sp500_symbols) - len(valid_tickers)} 支股票数据未能完全下载。")
+            # 过滤掉缺失的股票，避免在 calculate_market_breadth 中出错
+            data = data[[ (ticker, col) for ticker in valid_tickers for col in ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume'] if (ticker, col) in data.columns ]]
+
+
         return data
     except Exception as e:
         st.error(f"下载S&P 500数据失败: {e}")
@@ -55,17 +108,20 @@ def calculate_market_breadth(stock_data: pd.DataFrame):
     Returns:
         包含百分比和计数的数据字典。
     """
-    
-    if stock_data is None or stock_data.empty:
-        return {"count": 0, "total": len(SP500_SYMBOLS), "percentage": 0}
+    # 获取最新的成分股列表，确保计算是基于最新的列表
+    sp500_symbols = get_sp500_symbols()
+
+    if stock_data is None or stock_data.empty or not sp500_symbols:
+        return {"count": 0, "total": len(sp500_symbols), "percentage": 0}
 
     above_ma_count = 0
-    total_stocks = 0
-    
+    total_eligible_stocks = 0 # 统计有足够数据计算MA的股票
+
     # 遍历每个股票代码
-    for ticker in SP500_SYMBOLS:
+    for ticker in sp500_symbols:
         # 提取当前股票的收盘价数据
-        if ticker in stock_data.columns.get_level_values(0):
+        # 检查股票是否在下载的数据中存在
+        if (ticker, 'Close') in stock_data.columns:
             df_ticker = stock_data[ticker]['Close'].dropna()
             
             if len(df_ticker) < 20:
@@ -76,19 +132,23 @@ def calculate_market_breadth(stock_data: pd.DataFrame):
             df_ticker_ma = df_ticker.rolling(window=20).mean()
             
             # 2. 获取最新价格和最新均线值
+            # 确保最新价格和均线值不为 NaN
             latest_close = df_ticker.iloc[-1]
             latest_ma = df_ticker_ma.iloc[-1]
             
+            if pd.isna(latest_close) or pd.isna(latest_ma):
+                continue # 如果最新数据是 NaN，跳过这只股票
+
             # 3. 比较
             if latest_close > latest_ma:
                 above_ma_count += 1
             
-            total_stocks += 1
+            total_eligible_stocks += 1
             
-    percentage = (above_ma_count / total_stocks) * 100 if total_stocks > 0 else 0
+    percentage = (above_ma_count / total_eligible_stocks) * 100 if total_eligible_stocks > 0 else 0
     
     return {
         "count": above_ma_count,
-        "total": total_stocks,
+        "total": total_eligible_stocks, # 修改为实际参与计算的股票总数
         "percentage": percentage
     }
