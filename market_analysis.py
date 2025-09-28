@@ -101,7 +101,27 @@ def get_sp500_stock_data():
         st.error(f"下载S&P 500数据失败: {e}")
         return None
 
-
+# --- NEW FUNCTION: Get SPY Historical Data ---
+@st.cache_data(ttl=timedelta(hours=6)) # 缓存 SPY 数据
+def get_spy_data(start_date: date, end_date: date):
+    """
+    下载 SPY (S&P 500 ETF) 的历史收盘价。
+    """
+    ticker = "SPY"
+    try:
+        spy_df = yf.download(
+            tickers=ticker,
+            start=start_date,
+            end=end_date,
+            progress=False,
+            auto_adjust=True, # 自动调整拆股和分红
+        )['Close']
+        spy_df.name = "SPY_Close" # 重命名列以便合并
+        return spy_df.to_frame() # 返回 DataFrame 格式
+    except Exception as e:
+        st.error(f"下载 SPY 数据失败: {e}")
+        return pd.DataFrame() # 返回空 DataFrame
+        
 # ----------------------------------------------------
 # Function to calculate market breadth
 # ----------------------------------------------------
