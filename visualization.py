@@ -179,16 +179,35 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
         }
     )
 
-    # 添加 50% 基线（牛市/熊市分界线）
+    # 添加 50% 基线
     fig.add_hline(y=50, line_dash="dash", line_color="red", 
                   annotation_text="50% 基线", 
                   annotation_position="bottom right")
+                  
+    # --- 关键修改 1: 增加 Range Slider 和 Selector ---
+    fig.update_xaxes(
+        # 激活范围选择器 (Range Selector) 按钮
+        rangeselector=dict(
+            buttons=list([
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(count=5, label="5y", step="year", stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        # 激活范围滑动条 (Range Slider)
+        rangeslider=dict(visible=True, thickness=0.07), # thickness 增加滑动条的可见性
+        # 设置默认视图范围为过去 5 年 (确保数据够长)
+        range=[df_breadth.index[-1] - pd.DateOffset(years=5), df_breadth.index[-1]]
+    )
 
+    # --- 关键修改 2: 调整布局高度/宽度，适应更长的X轴 ---
     fig.update_layout(
         template="plotly_white",
         yaxis_range=[0, 100],
         hovermode="x unified",
-        legend_title_text=''
+        legend_title_text='',
+        height=500,  # 适当增加高度
     )
     
     return fig
