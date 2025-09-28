@@ -1,4 +1,4 @@
-py -m pip install plotly  
+pip install plotly
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio # <-- Import plotly.io for file writing
@@ -92,3 +92,4 @@ output_file = 'yield_curve_animation.html'
 # You will need 'import plotly.io as pio' at the top of your script
 
 pio.write_html(fig, file=output_file, auto_open=True)
+
