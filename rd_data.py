@@ -96,8 +96,8 @@ fig.update_layout(
     xaxis_title="Time to Maturity (Years)", # X轴标题
     yaxis_title="Yield (%)",
     template="plotly_white",
-    # yaxis_range=[df_long['Yield'].min() * 0.95, df_long['Yield'].max() * 1.05],
-    yaxis_range=[0, 8],
+    yaxis_range=[df_long['Yield'].min() * 0.8, df_long['Yield'].max() * 1.05],
+    # yaxis_range=[0, 8],
     height=600, # 保持高度不变
     width=600,  # <-- 缩小图表宽度 (从 700 减到 600)
     hovermode="x unified",
@@ -124,5 +124,6 @@ else:
     st.warning("Plotly figure did not create a slider for animation_frame.")
     
 st.plotly_chart(fig, use_container_width=True)
+
 
 
