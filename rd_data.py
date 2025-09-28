@@ -80,7 +80,7 @@ with col_market:
         st.plotly_chart(fig_timeseries, use_container_width=True)
         
         # Place the bar chart below the time series chart
-        st.subheader("最新快照")
+        st.subheader("Market Breadth Today")
         st.plotly_chart(fig_bar, use_container_width=True)
 
     elif stock_data is None:
@@ -103,3 +103,4 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
