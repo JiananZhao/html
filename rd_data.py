@@ -39,7 +39,7 @@ if stock_data is not None and not stock_data.empty:
 # 2. LAYOUT: Treasury Data (Left Column)
 # ------------------------------------------------------------------
 
-col_treasury, col_market = st.columns([2, 1])
+col_treasury, col_market = st.columns([3, 2])
 
 with col_treasury:
     st.header("Daily U.S. Treasury Yield Curve Animation")
@@ -85,5 +85,6 @@ st.sidebar.header("S&P 500 宽度信息")
 st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('total', 'N/A')}**")
 st.sidebar.markdown(f"高于20日MA数量: **{breadth_data.get('count', 'N/A')}**")
+
 
 
