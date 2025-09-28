@@ -75,44 +75,72 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     return fig
 
 
-def create_breadth_gauge_chart(breadth_data: dict):
+def create_breadth_bar_chart(breadth_data: dict):
     """
-    Generates a gauge chart showing the percentage of stocks above the 20 DMA.
+    Generates a horizontal bar chart displaying 20 DMA and 60 DMA breadth percentages.
     """
-    percentage = breadth_data.get("percentage", 0)
-    count = breadth_data.get("count", 0)
-    total = breadth_data.get("total", 0)
+    # Extract data with safe defaults
+    pct_20ma = breadth_data.get("20DMA_percentage", 0)
+    pct_60ma = breadth_data.get("60DMA_percentage", 0)
+    total = breadth_data.get("eligible_total", 0)
     
     if total == 0:
         return None
 
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = percentage,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "20日均线上方的股票百分比"},
-        gauge = {
-            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-            'bar': {'color': "green"},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "gray",
-            'steps': [
-                {'range': [0, 25], 'color': 'red'},
-                {'range': [25, 50], 'color': 'lightcoral'},
-                {'range': [50, 75], 'color': 'lightgreen'},
-                {'range': [75, 100], 'color': 'green'}],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': 50}
-        }
-    ))
+    # Prepare data for plotting
+    df_bar = pd.DataFrame({
+        'Metric': ['20日均线上方', '60日均线上方'],
+        'Percentage': [pct_20ma, pct_60ma],
+        'Remaining': [100 - pct_20ma, 100 - pct_60ma],
+        'Text': [
+            f"{pct_20ma:.1f}% ({breadth_data.get('20DMA_count')}/{total})",
+            f"{pct_60ma:.1f}% ({breadth_data.get('60DMA_count')}/{total})"
+        ]
+    })
+
+    # Create stacked bar chart using go.Bar
+    fig = go.Figure(data=[
+        # Bar 1: The percentage ABOVE the MA (Green)
+        go.Bar(
+            y=df_bar['Metric'],
+            x=df_bar['Percentage'],
+            name='Above MA',
+            orientation='h',
+            marker=dict(color='lightgreen', line=dict(color='darkgreen', width=1)),
+            text=df_bar['Text'],
+            textposition='inside',
+            insidetextanchor='middle',
+            hoverinfo='none' # Hide hover info for the segment itself
+        ),
+        # Bar 2: The percentage BELOW the MA (Gray/Red for context)
+        go.Bar(
+            y=df_bar['Metric'],
+            x=df_bar['Remaining'],
+            name='Below MA',
+            orientation='h',
+            marker=dict(color='lightcoral', line=dict(color='darkred', width=1)),
+            hoverinfo='none'
+        )
+    ])
 
     fig.update_layout(
+        barmode='stack',
+        xaxis=dict(range=[0, 100], showgrid=False, zeroline=False, title='股票百分比 (%)'),
+        yaxis=dict(autorange="reversed"), # 20 DMA at top, 60 DMA at bottom
+        title={
+            'text': f"S&P 500 市场宽度 (总股票数: {total})",
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        showlegend=False,
+        height=300,
         margin=dict(l=20, r=20, t=50, b=20),
-        height=500,
-        title_text=f"当前宽度：{count}/{total} (股票数)"
+        plot_bgcolor='white'
     )
+    
+    # Remove borders and padding for a cleaner look
+    fig.update_traces(marker_line_width=0, opacity=1.0) 
     
     return fig
