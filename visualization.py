@@ -31,13 +31,16 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         # ...
     )
 
-    # ... (设置滑块的代码保持不变)
+    # visualization.py
+    # ... (设置滑块的代码)
     date_list = sorted(df_long['Date'].unique())
     most_recent_dt = pd.to_datetime(most_recent_date) 
     
+    # 修正：移除 .tolist()，因为 date_list 已经是 Python 列表了
     if most_recent_dt in date_list:
-        default_index = date_list.tolist().index(most_recent_dt)
+        default_index = date_list.index(most_recent_dt) # <--- 关键修改
     else:
+        # Fallback to the last item if exact match isn't found
         default_index = len(date_list) - 1
 
     if fig.layout.sliders:
