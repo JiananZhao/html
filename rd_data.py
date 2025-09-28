@@ -4,20 +4,20 @@ import streamlit as st
 import pandas as pd
 import requests 
 from data_processing import load_and_transform_data 
+from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols, get_spy_data 
 from visualization import create_yield_curve_chart, create_breadth_bar_chart, create_breadth_timeseries_chart 
-from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols 
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Yield Curve and Market Breadth")
 
 # ------------------------------------------------------------------
 # 1. INITIALIZATION and DATA ACQUISITION 
-#    CRITICAL: Runs BEFORE layout to ensure all sidebar variables exist.
 # ------------------------------------------------------------------
 
 current_sp500_symbols = get_sp500_symbols()
 stock_data = None
 breadth_history = pd.DataFrame()
+spy_data = pd.DataFrame() # <-- NEW: Initialize spy_data
 fig_timeseries = None
 fig_bar = None
 
@@ -28,18 +28,28 @@ breadth_data = {
     "60DMA_count": "N/A", "60DMA_percentage": 0,
 }
 
+# Define the start and end dates for data download (matching the 5-year window)
+from datetime import date, timedelta
+end_date_for_download = date.today()
+start_date_for_download = end_date_for_download - timedelta(days=2008) # Roughly 5.5 years for buffer
+
 # 1A. Try fetching stock data
 if current_sp500_symbols:
     stock_data = get_sp500_stock_data()
+    # <-- NEW: Get SPY data using the same date range as S&P 500 components
+    spy_data = get_spy_data(start_date_for_download, end_date_for_download)
+
 
 # 1B. Try calculating breadth history and latest snapshot
 if stock_data is not None and not stock_data.empty:
-    # Calculate the breadth for all historical dates
     breadth_history = calculate_market_breadth_history(stock_data)
     
     if not breadth_history.empty:
-        # Get latest data for the bar chart and sidebar
         breadth_data = get_latest_breadth_snapshot(breadth_history) 
+        
+        # --- CRITICAL: Pass spy_data to the chart function ---
+        fig_timeseries = create_breadth_timeseries_chart(breadth_history, spy_data) 
+        fig_bar = create_breadth_bar_chart(breadth_data)
         
         # Create both charts
         fig_timeseries = create_breadth_timeseries_chart(breadth_history)
@@ -103,5 +113,6 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
