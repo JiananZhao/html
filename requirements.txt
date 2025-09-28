@@ -3,4 +3,5 @@ pandas
 plotly
 # 如果你还用了其他库，比如 numpy
 numpy
+requests
 
