@@ -80,7 +80,7 @@ fig = px.line(
         "Yield": "Yield (%)",
         "animation_frame": "Date"
     },
-    title="Daily U.S. Treasury Yield Curve Animation (Post-2000)"
+    title="Daily U.S. Treasury Yield Curve Animation (2025)"
 )
 
 # Customize the layout
@@ -97,4 +97,5 @@ fig.update_layout(
 
 # CRITICAL CHANGE: Use st.plotly_chart() to display the figure
 st.plotly_chart(fig, use_container_width=True)
+
 
