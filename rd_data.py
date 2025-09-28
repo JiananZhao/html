@@ -97,6 +97,7 @@ fig.update_layout(
     template="plotly_white",
     height=450, 
     width=700, 
+    yaxis_range=[df_long['Yield'].min() * 0.95, df_long['Yield'].max() * 1.05],
     hovermode="x unified",
 )
 
@@ -115,3 +116,4 @@ else:
     
 # CRITICAL CHANGE: Use st.plotly_chart() to display the figure
 st.plotly_chart(fig, use_container_width=True)
+
