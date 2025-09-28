@@ -144,3 +144,51 @@ def create_breadth_bar_chart(breadth_data: dict):
     fig.update_traces(marker_line_width=0, opacity=1.0) 
     
     return fig
+
+def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
+    """
+    生成显示 20 DMA 和 60 DMA 市场宽度历史的线图。
+    """
+    
+    # 熔化数据以方便 Plotly Express 绘图（将 20DMA 和 60DMA 变成一列）
+    df_long = df_breadth[['20DMA_Breadth', '60DMA_Breadth']].reset_index().rename(columns={'index': 'Date'})
+    df_long = df_long.melt(
+        id_vars=['Date'],
+        value_vars=['20DMA_Breadth', '60DMA_Breadth'],
+        var_name='Moving_Average',
+        value_name='Breadth_Percentage'
+    )
+    
+    # 映射标签
+    label_map = {
+        '20DMA_Breadth': '高于 20 日均线 (%)',
+        '60DMA_Breadth': '高于 60 日均线 (%)'
+    }
+    df_long['Label'] = df_long['Moving_Average'].map(label_map)
+
+    fig = px.line(
+        df_long,
+        x='Date',
+        y='Breadth_Percentage',
+        color='Label',
+        title="S&P 500 市场宽度历史趋势",
+        labels={'Breadth_Percentage': '股票百分比 (%)', 'Date': '日期', 'Label': '指标'},
+        color_discrete_map={
+            '高于 20 日均线 (%)': 'darkgreen',
+            '高于 60 日均线 (%)': 'orange'
+        }
+    )
+
+    # 添加 50% 基线（牛市/熊市分界线）
+    fig.add_hline(y=50, line_dash="dash", line_color="red", 
+                  annotation_text="50% 基线", 
+                  annotation_position="bottom right")
+
+    fig.update_layout(
+        template="plotly_white",
+        yaxis_range=[0, 100],
+        hovermode="x unified",
+        legend_title_text=''
+    )
+    
+    return fig
