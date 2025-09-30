@@ -5,7 +5,7 @@ import pandas as pd
 import requests 
 from data_processing import load_and_transform_data 
 from visualization import create_yield_curve_chart, create_breadth_bar_chart, create_breadth_timeseries_chart 
-from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols 
+from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols, get_unemployment_data
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Yield Curve and Market Breadth")
@@ -117,6 +117,7 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
 
