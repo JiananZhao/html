@@ -228,3 +228,51 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
     )
     
     return fig
+
+def create_unemployment_chart(df_unrate: pd.DataFrame):
+    """
+    生成美国失业率历史趋势图表。
+    """
+    if df_unrate is None or df_unrate.empty:
+        return None
+
+    # 创建线图
+    fig = px.line(
+        df_unrate,
+        x=df_unrate.index,
+        y='Unemployment_Rate',
+        title='美国失业率 (UNRATE)',
+        labels={'Unemployment_Rate': '失业率 (%)'},
+        template="plotly_white",
+        line_shape='spline' # 平滑曲线
+    )
+
+    # 添加历史平均值 (可选)
+    avg_rate = df_unrate['Unemployment_Rate'].mean()
+    fig.add_hline(
+        y=avg_rate, 
+        line_dash="dot", 
+        line_color="gray", 
+        annotation_text=f"历史平均值 ({avg_rate:.1f}%)", 
+        annotation_position="bottom left",
+    )
+
+    # 范围选择器和滑动条
+    fig.update_layout(
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(step="all")
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07)
+        ),
+        hovermode="x unified",
+        height=350, 
+        yaxis_title="失业率 (%)",
+        yaxis_range=[df_unrate['Unemployment_Rate'].min() * 0.9, df_unrate['Unemployment_Rate'].max() * 1.1] # 动态Y轴范围
+    )
+    
+    return fig
