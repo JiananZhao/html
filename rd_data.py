@@ -20,6 +20,8 @@ stock_data = None
 breadth_history = pd.DataFrame()
 fig_timeseries = None
 fig_bar = None
+df_unrate = pd.DataFrame() # <-- 新增
+fig_unrate = None        # <-- 新增
 
 # Default initialization for sidebar (safe for global access)
 breadth_data = {
@@ -44,7 +46,12 @@ if stock_data is not None and not stock_data.empty:
         # Create both charts
         fig_timeseries = create_breadth_timeseries_chart(breadth_history)
         fig_bar = create_breadth_bar_chart(breadth_data)
-
+# 1D. Get Unemployment Data
+with st.spinner('正在获取 FRED 失业率数据...'):
+    df_unrate = get_unemployment_data()
+    if not df_unrate.empty:
+        fig_unrate = create_unemployment_chart(df_unrate) # <-- 创建图表
+        
 # ------------------------------------------------------------------
 # 2. LAYOUT: Treasury Data (Left Column)
 # ------------------------------------------------------------------
@@ -67,6 +74,13 @@ with col_treasury:
     # Generate and display the treasury chart
     fig_treasury = create_yield_curve_chart(df_long, most_recent_date)
     st.plotly_chart(fig_treasury, use_container_width=True)
+
+    # --- 失业率图表 ---
+    if fig_unrate:
+        st.subheader("宏观经济指标")
+        st.plotly_chart(fig_unrate, use_container_width=True)
+    elif not FRED_API_KEY:
+         st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
 
 
 # ------------------------------------------------------------------
@@ -103,6 +117,7 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
 
