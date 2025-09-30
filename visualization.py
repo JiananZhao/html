@@ -273,5 +273,6 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
         height=350, 
         yaxis_title="失业率 (%)",
         yaxis_range=[df_unrate['Unemployment_Rate'].min() * 0.9, df_unrate['Unemployment_Rate'].max() * 0.5] # 动态Y轴范围
+    )
     
     return fig
