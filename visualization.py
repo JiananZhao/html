@@ -46,34 +46,40 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         yaxis_title="Yield (%)",
         template="plotly_white",
         yaxis_range=y_range, 
-        height=400,
-        width=600,
+        height=400, # 保持您的修改
+        width=600,  # 保持您的修改
         hovermode="x unified",
         
         # Custom X-axis ticks
         xaxis=dict(
             tickmode='array',
-            tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()),
+            # Assuming CUSTOM_X_AXIS_TICKS_LABELS is imported
+            tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()), 
             ticktext=list(CUSTOM_X_AXIS_TICKS_LABELS.keys()),
             range=[-1, 31],
             type='linear' 
         )
     )
 
-    # Set default frame to the most recent date
+    # --- 关键修复：设置默认帧到最新日期 ---
+    
+    # 1. 获取所有日期并排序
     date_list = sorted(df_long['Date'].unique())
     most_recent_dt = pd.to_datetime(most_recent_date) 
     
+    # 2. 找到最新日期在排序列表中的索引
     if most_recent_dt in date_list:
         default_index = date_list.index(most_recent_dt) 
     else:
+        # 如果最新日期不在列表中（不应该发生），默认到最后一个日期
         default_index = len(date_list) - 1
 
+    # 3. 将 Plotly 滑块的活动索引设置为最新日期的索引
     if fig.layout.sliders:
         fig.layout.sliders[0].active = default_index
+    # -------------------------------------
 
     return fig
-
 
 def create_breadth_bar_chart(breadth_data: dict):
     """
