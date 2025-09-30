@@ -12,8 +12,9 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     Generates the interactive Plotly yield curve chart, defaulting to the latest date.
     """
     
-    # Prepare data for Plotly animation
-    df_long['Date_str'] = df_long['Date'].astype(str) 
+    # 1. Prepare data for Plotly animation
+    # Convert Date column to string (e.g., '2025-09-26') for animation frame titles
+    df_long['Date_str'] = df_long['Date'].astype(str).str[:10] # Ensure only date part is used
 
     # Create the interactive animated plot
     fig = px.line(
@@ -32,7 +33,7 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         title="U.S. Treasury Yield Curve Animation"
     )
 
-    # Calculate Y-axis range safely and dynamically
+    # 2. Calculate Y-axis range safely and dynamically
     min_yield = df_long['Yield'].min()
     max_yield = df_long['Yield'].max()
     
@@ -40,7 +41,7 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
     y_ceiling = max_yield * 1.05
     y_range = [y_floor, y_ceiling] 
 
-    # Customize the layout
+    # 3. Customize the layout
     fig.update_layout(
         xaxis_title="Time to Maturity (Years)",
         yaxis_title="Yield (%)",
@@ -53,25 +54,41 @@ def create_yield_curve_chart(df_long: pd.DataFrame, most_recent_date: datetime):
         # Custom X-axis ticks
         xaxis=dict(
             tickmode='array',
-            tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()),
+            # Assuming CUSTOM_X_AXIS_TICKS_LABELS is correctly imported/defined
+            tickvals=list(CUSTOM_X_AXIS_TICKS_LABELS.values()), 
             ticktext=list(CUSTOM_X_AXIS_TICKS_LABELS.keys()),
             range=[-1, 31],
             type='linear' 
         )
     )
 
-    # Set default frame to the most recent date
-    date_list = sorted(df_long['Date'].unique())
-    most_recent_dt = pd.to_datetime(most_recent_date) 
+    # 4. CRITICAL FIX: Set default frame to the most recent date
+
+    # Target date string in the format matching the animation frame titles
+    latest_date_str = pd.to_datetime(most_recent_date).strftime('%Y-%m-%d')
     
-    if most_recent_dt in date_list:
-        default_index = date_list.index(most_recent_dt) 
-    else:
-        default_index = len(date_list) - 1
-
-    if fig.layout.sliders:
+    # Check if the figure has frames (i.e., if animation was successfully created)
+    if fig.frames and fig.layout.sliders:
+        
+        # Find the index of the frame that matches the latest date string
+        frame_titles = [f.name for f in fig.frames]
+        
+        try:
+            default_index = frame_titles.index(latest_date_str)
+        except ValueError:
+            # Fallback: if the exact date string isn't found, use the last frame
+            default_index = len(fig.frames) - 1
+        
+        # A. Update the slider's active position (sets the animation state)
         fig.layout.sliders[0].active = default_index
-
+        
+        # B. Update the initial data trace (sets the static plot view)
+        # Without this, the plot displays the first row of df_long.
+        # We replace the initial data with the data from the default frame.
+        if fig.frames[default_index].data:
+            fig.data[0].y = fig.frames[default_index].data[0].y
+            fig.data[0].x = fig.frames[default_index].data[0].x
+        
     return fig
 
 
