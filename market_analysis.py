@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 from datetime import date, timedelta
 import requests
+from fredapi import Fred
 
 # ----------------------------------------------------
 # Function to get S&P 500 Symbols from Wikipedia
@@ -188,3 +189,42 @@ def get_latest_breadth_snapshot(breadth_history: pd.DataFrame):
         "60DMA_count": int(latest['60DMA_Breadth'] / 100 * total),
     }
     return latest_snapshot
+
+# --- 关键：从 Streamlit Secrets 获取 API Key ---
+try:
+    FRED_API_KEY = st.secrets["FRED_API_KEY"]
+except KeyError:
+    FRED_API_KEY = None
+    st.error("无法找到 FRED_API_KEY。请将其添加为 Streamlit Secret 以获取失业率数据。")
+
+
+@st.cache_data(ttl=timedelta(days=1))
+def get_unemployment_data():
+    """
+    使用 fredapi 获取美国失业率 (UNRATE) 数据。
+    """
+    if not FRED_API_KEY:
+        return pd.DataFrame()
+
+    try:
+        fred = Fred(api_key=FRED_API_KEY)
+        
+        # 获取 UNRATE 系列 (月度数据)
+        unrate_series = fred.get_series('UNRATE') 
+        
+        if unrate_series is None or unrate_series.empty:
+            st.warning("FRED API 返回的失业率数据为空。")
+            return pd.DataFrame()
+        
+        # 转换为 DataFrame，并重命名列
+        df_unrate = unrate_series.to_frame(name='Unemployment_Rate')
+        
+        # 确保索引是日期时间格式 (通常是自动的)
+        df_unrate.index.name = 'Date' 
+        
+        # 为了与您的其他日线数据匹配，可能需要进行降采样或处理，但月度数据可以直接绘制
+        return df_unrate
+        
+    except Exception as e:
+        st.error(f"获取 FRED 失业率数据失败: {e}")
+        return pd.DataFrame()
