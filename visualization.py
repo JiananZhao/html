@@ -272,11 +272,6 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
         hovermode="x unified",
         height=350, 
         yaxis_title="失业率 (%)",
-        # yaxis_range=[df_unrate['Unemployment_Rate'].min() * 0.9, df_unrate['Unemployment_Rate'].max() * 1.1] # 动态Y轴范围
-        yaxis=dict(
-            autorange=True,        # 启用自动缩放
-            fixedrange=False,      # 允许 Y 轴随 X 轴范围变化
-            # 如果需要稍微的边距，可以使用 pad 属性，但通常 autorange=True 足够
-        )
+        yaxis_range=[df_unrate['Unemployment_Rate'].min() * 0.9, df_unrate['Unemployment_Rate'].max() * 0.5] # 动态Y轴范围
     
     return fig
