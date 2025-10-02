@@ -116,12 +116,13 @@ if not breadth_history.empty:
     # 提取 breadth_history DataFrame 的最后一个索引（即最新日期）
     latest_breadth_date = breadth_history.index[-1].strftime('%Y-%m-%d')
 st.sidebar.header("S&P 500 宽度信息")
-st.sidebar.markdown(f"数据有效日期: **{latest_breadth_date}**") 
+st.sidebar.markdown(f"数据统计日期: **{latest_breadth_date}**") 
 # Variables are guaranteed to exist due to initialization
 st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_sp500_symbols else 'N/A'}**")
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
 
