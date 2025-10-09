@@ -17,7 +17,7 @@ CUSTOM_X_AXIS_TICKS_LABELS = {
 }
 
 
-@st.cache_data(ttl=timedelta(hours=1))
+@st.cache_data(ttl=timedelta(hours=0.01))
 def load_and_transform_data():
     """Loads, cleans, filters, and transforms the yield curve data."""
     
