@@ -10,7 +10,7 @@ from fredapi import Fred
 # ----------------------------------------------------
 # Function to get S&P 500 Symbols from Wikipedia
 # ----------------------------------------------------
-@st.cache_data(ttl=timedelta(days=1)) # Cache symbols for 1 day
+@st.cache_data(ttl=timedelta(days=30)) # Cache symbols for 1 day
 def get_sp500_symbols():
     """
     Fetches the latest S&P 500 component list from Wikipedia.
@@ -61,7 +61,7 @@ def get_sp500_symbols():
 # ----------------------------------------------------
 # Function to download stock data
 # ----------------------------------------------------
-@st.cache_data(ttl=timedelta(hours=6)) # Cache stock data for 6 hours
+@st.cache_data(ttl=timedelta(days=1)) # Cache stock data for 6 hours
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     
