@@ -2,9 +2,9 @@ name: Daily Data Update and Commit
 
 on:
   schedule:
-    # Runs at 10:00 UTC every day. Adjust as needed.
-    # '0 10 * * *' (e.g., Beijing Time 6 PM, or US Eastern Time 6 AM in daylight saving)
-    - cron: '0 10 * * *' 
+    # Runs at 00:00 UTC every day. Adjust as needed.
+    # '0 00 * * *' (e.g., Beijing Time 6 PM, or US Eastern Time 6 AM in daylight saving)
+    - cron: '0 00 * * *' 
   workflow_dispatch:
     # Allows manual triggering of the workflow from the GitHub Actions tab
 
