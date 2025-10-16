@@ -196,9 +196,9 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
         }
     )
 
-    # 添加 50% 基线
-    fig.add_hline(y=50, line_dash="dash", line_color="red", 
-                  annotation_text="50% 基线", 
+    # 添加 20% 基线
+    fig.add_hline(y=20, line_dash="dash", line_color="red", 
+                  annotation_text="20% 基线", 
                   annotation_position="bottom right")
                   
     # --- 关键修改 1: 增加 Range Slider 和 Selector ---
@@ -206,6 +206,7 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
         # 激活范围选择器 (Range Selector) 按钮
         rangeselector=dict(
             buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
                 dict(count=6, label="6m", step="month", stepmode="backward"),
                 dict(count=1, label="1y", step="year", stepmode="backward"),
                 dict(count=5, label="5y", step="year", stepmode="backward"),
