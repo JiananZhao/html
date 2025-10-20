@@ -3,14 +3,15 @@
 import yfinance as yf
 import pandas as pd
 import streamlit as st
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import requests
 from fredapi import Fred
+import os # file operation
 
 # ----------------------------------------------------
 # Function to get S&P 500 Symbols from Wikipedia
 # ----------------------------------------------------
-@st.cache_data(ttl=timedelta(days=30)) # Cache symbols for 1 day
+@st.cache_data(ttl=timedelta(days=30)) # Cache symbols for 30 day
 def get_sp500_symbols():
     """
     Fetches the latest S&P 500 component list from Wikipedia.
@@ -23,7 +24,7 @@ def get_sp500_symbols():
     }
     
     try:
-        st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
+        # st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
         
         # Use requests to download content with headers
         response = requests.get(url, headers=headers, timeout=10)
@@ -44,7 +45,7 @@ def get_sp500_symbols():
 
         symbols = sp500_table['Symbol'].tolist()
         
-        st.success(f"成功获取 {len(symbols)} 个 S&P 500 成分股代码。")
+        # st.success(f"成功获取 {len(symbols)} 个 S&P 500 成分股代码。")
         return symbols
 
     except requests.exceptions.HTTPError as e:
@@ -61,10 +62,35 @@ def get_sp500_symbols():
 # ----------------------------------------------------
 # Function to download stock data
 # ----------------------------------------------------
-@st.cache_data(ttl=timedelta(days=1)) # Cache stock data for 6 hours
+@st.cache_data(ttl=timedelta(days=1)) # Cache stock data everyday
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
-    
+    FILE_PATH = "spy500_data.csv"
+    TTL_SECONDS = 60*60*24 # 1 day Time-To-Live (TTL)
+
+    # --- 1. Check if cached CSV exists and is fresh ---
+    if os.path.exists(FILE_PATH):
+        file_mod_time = os.path.getmtime(FILE_PATH)
+        age_seconds = datetime.now().timestamp() - file_mod_time
+        
+        if age_seconds < TTL_SECONDS:
+            # st.info(f"💾 从本地文件加载股票数据 ({FILE_PATH})...")
+            try:
+                # Load data from CSV, handling the MultiIndex header structure
+                data = pd.read_csv(
+                    FILE_PATH, 
+                    header=[0, 1], 
+                    index_col=0, 
+                    parse_dates=True
+                )
+                st.success("数据加载成功。")
+                return data
+            except Exception as e:
+                # If loading fails, log error and proceed to download
+                st.error(f"加载本地文件失败，将重新下载: {e}")
+        else:
+            st.info(f"📅 本地数据已过期，将重新下载。")
+            
     sp500_symbols = get_sp500_symbols() 
     
     if not sp500_symbols:
@@ -72,10 +98,11 @@ def get_sp500_stock_data():
         return None
 
     end_date = date.today()
-    start_date = end_date - timedelta(days=9000) # Need 90 days for 20 DMA calculation buffer
+    start_date = end_date - timedelta(days=9000)  # Set start date for required history (9000 days provides a long history)
 
     st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
-    
+
+    data = None
     try:
         # 使用 concurrent downloads (threads) 来处理大符号列表
         data = yf.download(
@@ -95,6 +122,12 @@ def get_sp500_stock_data():
         
         if len(valid_tickers) < len(sp500_symbols):
             st.warning(f"注意: {len(sp500_symbols) - len(valid_tickers)} 支股票数据未能完全下载。")
+
+        # --- 3. Save to CSV before returning ---
+        if data is not None and not data.empty:
+            # Save data to CSV, maintaining the MultiIndex structure
+            data.to_csv(FILE_PATH)
+            st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")
             
         return data
 
