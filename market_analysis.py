@@ -65,7 +65,7 @@ def get_sp500_symbols():
 @st.cache_data(ttl=timedelta(days=1)) # Cache stock data everyday
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
-    FILE_PATH = "spy500_data.csv"
+    FILE_PATH = 'spy500_data.csv'
     TTL_SECONDS = 1 # 1 day Time-To-Live (TTL)
 
     # --- 1. Check if cached CSV exists and is fresh ---
