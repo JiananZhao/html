@@ -66,7 +66,7 @@ def get_sp500_symbols():
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = "spy500_data.csv"
-    TTL_SECONDS = 60*60*24 # 1 day Time-To-Live (TTL)
+    TTL_SECONDS = 1 # 1 day Time-To-Live (TTL)
 
     # --- 1. Check if cached CSV exists and is fresh ---
     if os.path.exists(FILE_PATH):
