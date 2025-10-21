@@ -67,7 +67,12 @@ def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = 'spy500_data.csv'
     TTL_SECONDS = 60*1 # 1 minute Time-To-Live (TTL)
-
+    sp500_symbols = get_sp500_symbols() 
+    
+    if not sp500_symbols:
+        st.warning("未能获取 S&P 500 成分股列表，无法下载股票数据。")
+        return None
+        
     # --- 1. Check if cached CSV exists and is fresh ---
     if os.path.exists(FILE_PATH):
         file_mod_time = os.path.getmtime(FILE_PATH)
@@ -90,12 +95,7 @@ def get_sp500_stock_data():
                 st.error(f"加载本地文件失败: {e}")
         else:
             st.info(f"📅 本地数据已过期，将重新下载。")
-            sp500_symbols = get_sp500_symbols() 
-    
-            if not sp500_symbols:
-                st.warning("未能获取 S&P 500 成分股列表，无法下载股票数据。")
-                return None
-
+            
             end_date = date.today()
             start_date = end_date - timedelta(days=9000)  # Set start date for required history (9000 days provides a long history)
         
@@ -112,9 +112,7 @@ def get_sp500_stock_data():
                     progress=False, 
                     auto_adjust=True, 
                     repair=True,
-                    # --- 关键修复：移除 'max_workers' 和 'threads' 参数 ---
-                    # yfinance 默认会进行线程下载，不需要额外设置这些参数
-                )
+                    )
                 
                 # Filter out tickers that failed to download or are entirely empty
                 valid_tickers = [ticker for ticker in sp500_symbols if (ticker, 'Close') in data.columns]
@@ -125,7 +123,7 @@ def get_sp500_stock_data():
                 # --- 3. Save to CSV before returning ---
                 if data is not None and not data.empty:
                     # Save data to CSV, maintaining the MultiIndex structure
-                    data.to_csv(FILE_PATH, index=False)
+                    data.to_csv(FILE_PATH, index=True)
                     # st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")
                     
                 return data
