@@ -104,15 +104,7 @@ def get_sp500_stock_data():
             data = None
             try:
                 # 使用 concurrent downloads (threads) 来处理大符号列表
-                data = yf.download(
-                    tickers=sp500_symbols,
-                    start=start_date,
-                    end=end_date,
-                    group_by='ticker',
-                    progress=False, 
-                    auto_adjust=True, 
-                    repair=True,
-                    )
+                data = yf.download(tickers=sp500_symbols, start=start_date, end=end_date, group_by='ticker', progress=False, auto_adjust=True, repair=True)
                 
                 # Filter out tickers that failed to download or are entirely empty
                 valid_tickers = [ticker for ticker in sp500_symbols if (ticker, 'Close') in data.columns]
@@ -120,13 +112,12 @@ def get_sp500_stock_data():
                 if len(valid_tickers) < len(sp500_symbols):
                     st.warning(f"注意: {len(sp500_symbols) - len(valid_tickers)} 支股票数据未能完全下载。")
         
-                # --- 3. Save to CSV before returning ---
-                if data is not None and not data.empty:
-                    # Save data to CSV, maintaining the MultiIndex structure
-                    data.to_csv(FILE_PATH, index=True)
-                    # st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")
-                    
-                return data
+            # --- 3. Save to CSV before returning ---
+            if data is not None and not data.empty:
+                # Save data to CSV, maintaining the MultiIndex structure
+                data.to_csv(FILE_PATH, index=True)
+                # st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")       
+            return data
         
             except Exception as e:
                 st.error(f"下载S&P 500数据失败: {e}")
