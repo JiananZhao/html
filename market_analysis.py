@@ -126,7 +126,7 @@ def get_sp500_stock_data():
         # --- 3. Save to CSV before returning ---
         if data is not None and not data.empty:
             # Save data to CSV, maintaining the MultiIndex structure
-            data.to_csv(FILE_PATH)
+            data.to_csv(FILE_PATH, index=False)
             # st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")
             
         return data
