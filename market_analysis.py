@@ -66,7 +66,7 @@ def get_sp500_symbols():
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = 'spy500_data.csv'
-    TTL_SECONDS = 60*60*2 # 2 hour Time-To-Live (TTL)
+    TTL_SECONDS = 60*60*12 # 12 hour Time-To-Live (TTL)
 
     # --- 1. Check if cached CSV exists and is fresh ---
     if os.path.exists(FILE_PATH):
@@ -87,7 +87,7 @@ def get_sp500_stock_data():
                 return data
             except Exception as e:
                 # If loading fails, log error and proceed to download
-                st.error(f"加载本地文件失败，将重新下载: {e}")
+                st.error(f"加载本地文件失败: {e}")
         else:
             st.info(f"📅 本地数据已过期，将重新下载。")
             
