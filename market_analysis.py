@@ -113,7 +113,7 @@ def get_sp500_stock_data():
                     st.warning(f"注意: {len(sp500_symbols) - len(valid_tickers)} 支股票数据未能完全下载。")
         
                 # --- 3. Save to CSV before returning ---
-                if data is not None and not data.empty:
+                if data is not None:
                     # Save data to CSV, maintaining the MultiIndex structure
                     data.to_csv(FILE_PATH, index=True)
                     # st.success(f"✅ 数据下载完成并已保存到本地文件: {FILE_PATH}")       
