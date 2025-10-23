@@ -109,7 +109,7 @@ with col_market:
 st.sidebar.header("国债数据信息")
 # df_long is guaranteed to be loaded if the app reaches here
 st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**") 
-st.sidebar.markdown(f"起始日期: **{df_long['Date'].min().date()}**")
+st.sidebar.markdown(f"Current date: **{df_long['Date'].max().date()}**")
 # 确保在侧边栏使用数据之前，它们已经被成功计算和加载
 latest_breadth_date = "N/A"
 if not breadth_history.empty:
@@ -122,6 +122,7 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
 
 
 
