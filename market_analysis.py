@@ -94,7 +94,7 @@ def get_sp500_stock_data():
                 # If loading fails, log error and proceed to download
                 st.error(f"加载本地文件失败: {e}")
         else:
-            st.info(f"📅 本地数据已过期，将重新下载。")
+            st.info(f"📅 本地数据已过期，将重新下载")
             
             end_date = date.today()
             start_date = end_date - timedelta(days=900)  # Set start date for required history (9000 days provides a long history)
