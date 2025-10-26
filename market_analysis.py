@@ -7,7 +7,7 @@ from datetime import date, timedelta, datetime
 import requests
 from fredapi import Fred
 import os # file operation
-
+FILE_PATH = 'spy500_data.csv'
 # ----------------------------------------------------
 # Function to get S&P 500 Symbols from Wikipedia
 # ----------------------------------------------------
@@ -65,7 +65,7 @@ def get_sp500_symbols():
 #@st.cache_data(ttl=timedelta(days=1)) # Cache stock data everyday
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
-    FILE_PATH = 'spy500_data.csv'
+    
     TTL_SECONDS = 60*1 # 1 minute Time-To-Live (TTL)
     sp500_symbols = get_sp500_symbols() 
     
