@@ -250,7 +250,7 @@ def get_unemployment_data():
         return pd.DataFrame()
 
 @st.cache_data(ttl=timedelta(days=1))
-def get_highyield_data(series_id, start_date):
+def get_highyield_data():
     """
     使用 fredapi 获取指定 FRED 系列的数据。
     """
@@ -264,7 +264,7 @@ def get_highyield_data(series_id, start_date):
         fred = Fred(api_key=FRED_API_KEY)
         
         # 3. 获取指定系列数据，并限制起始日期
-        data_series = fred.get_series(series_id, observation_start=start_date)
+        data_series = fred.get_series('BAMLH0A0HYM2')
         
         # 4. 检查数据是否为空
         if data_series is None or data_series.empty:
