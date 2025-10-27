@@ -3,7 +3,6 @@
 import streamlit as st
 import pandas as pd
 import requests 
-import pandas_datareader.data as web
 import datetime
 import plotly.express as px
 from data_processing import load_and_transform_data 
@@ -163,6 +162,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
