@@ -242,7 +242,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
         df_unrate,
         x=df_unrate.index,
         y='Unemployment_Rate',
-        title='美国失业率 (UNRATE)',
+        title='UNRATE',
         labels={'Unemployment_Rate': '失业率 (%)'},
         template="plotly_white",
         line_shape='spline' # 平滑曲线
@@ -289,7 +289,7 @@ def create_credit_spread_chart(df_data: pd.DataFrame):
     fig = px.line(
         df_data,
         x=df_data.index,
-        y='Option-Adjusted Spread (%)',
+        y='Option-Adjusted Spread',
         title='美高收益债信用利差 (High Yield Spread)',
         labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
     )
@@ -306,9 +306,9 @@ def create_credit_spread_chart(df_data: pd.DataFrame):
             rangeslider=dict(visible=True, thickness=0.07)
         ),
         hovermode="x unified",
-        #xaxis_title="日期",
+        height=550,
         yaxis_title="期权调整利差 (%)",
-        yaxis_range=[0.0, df_data['Option-Adjusted Spread (%)'].max() * 0.6] # 动态Y轴范围
+        yaxis_range=[0.0, df_data['Option-Adjusted Spread'].max() * 0.6], # 动态Y轴范围
         template="plotly_white"
     )
     return fig
