@@ -44,10 +44,14 @@ def get_sp500_symbols():
             return []
 
         symbols = sp500_table['Symbol'].tolist()
+        # **********************************************
+        # 核心替换逻辑：将所有点号 '.' 替换为连字符 '-'
+        # **********************************************
+        cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
         
-        # st.success(f"成功获取 {len(symbols)} 个 S&P 500 成分股代码。")
-        return symbols
-
+        # st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
+        return cleaned_symbols
+        
     except requests.exceptions.HTTPError as e:
         st.error(f"获取 S&P 500 成分股列表失败 (HTTP 错误: {e})。请检查 User-Agent 或目标 URL。")
         return []
