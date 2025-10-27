@@ -142,20 +142,12 @@ with col_market:
         # 3. 显示图表
         st.plotly_chart(fig_spread, use_container_width=True)
 
-        # 4. 显示最新数据和说明
-        latest_spread = df_spread['Value'].iloc[-1]
-        latest_date = df_spread.index[-1].strftime('%Y-%m-%d')
-        st.markdown(f"**最新利差 ({latest_date}):** `{latest_spread:.2f}%`")
-        
-        st.caption("""
-        **信用利差解读:** 衡量高风险公司债（垃圾债）相对于国债的风险溢价。
-        利差扩大通常暗示市场避险情绪上升，经济衰退风险增加。
-        """)
 
     elif not FRED_API_KEY:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
