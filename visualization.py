@@ -293,7 +293,7 @@ def create_credit_spread_chart(df_data):
         title='美高收益债信用利差 (High Yield Spread)',
         labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
     )
-
+    # 范围选择器和滑动条
     fig.update_layout(
         xaxis=dict(
             rangeselector=dict(
@@ -306,9 +306,9 @@ def create_credit_spread_chart(df_data):
             rangeslider=dict(visible=True, thickness=0.07)
         ),
         hovermode="x unified",
-        xaxis_title="日期",
+        #xaxis_title="日期",
         yaxis_title="期权调整利差 (%)",
-        yaxis_range=[0.0, df_unrate['Option-Adjusted Spread (%)'].max() * 0.6] # 动态Y轴范围
+        yaxis_range=[0.0, df_data['Option-Adjusted Spread (%)'].max() * 0.6] # 动态Y轴范围
         template="plotly_white"
     )
     return fig
