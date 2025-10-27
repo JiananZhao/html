@@ -132,54 +132,38 @@ st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_cou
 # BAMLH0A0HYM2: ICE BofA US High Yield Index Option-Adjusted Spread
 FRED_SERIES_ID = 'BAMLH0A0HYM2'
 
-# 设定图表展示的起始日期 (例如从2000年开始)
-START_DATE = datetime.datetime(2000, 1, 1)
-
-st.header("🇺🇸 美国高收益债信用利差 (US High Yield Credit Spread)")
-
-# 1. 获取数据
-data = load_fred_data(FRED_SERIES_ID, START_DATE)
-
-# 2. 绘制图表
-if not data.empty:
-    st.subheader("ICE BofA US 高收益指数期权调整利差")
-
-    # 使用 Plotly 创建交互式线图
-    fig = px.line(
-        data,
-        x=data.index,
-        y='Option-Adjusted Spread (%)',
-        title='ICE BofA US High Yield Index Option-Adjusted Spread (BAMLH0A0HYM2)',
-        labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
-        # 添加阴影区域指示美国衰退期 (Plotly 自动处理)
-    )
-
-    # 优化图表布局
-    fig.update_layout(
-        xaxis_title="日期",
-        yaxis_title="期权调整利差 (Option-Adjusted Spread) %",
-        hovermode="x unified",
-        template="plotly_white"
-    )
-
-    # 在 Streamlit 中显示图表
-    st.plotly_chart(fig, use_container_width=True)
-
-    # 3. 数据说明和来源
-    st.markdown("""
-    **信用利差解读：**
-    * **定义：** 美国高收益公司债（通常指垃圾债，低于投资级）的收益率与同期限美国国债收益率的差值。
-    * **经济意义：** 该利差是衡量市场对高风险公司**违约风险**的溢价要求。
-    * **走势：** * **利差扩大 (Spread Widening)：** 通常表明市场避险情绪上升，认为经济衰退或违约风险增加。
-        * **利差收窄 (Spread Narrowing)：** 通常表明市场情绪乐观，认为经济前景良好，风险偏好上升。
-    """)
+# --- 右侧：信用利差 ---
+with col_market:
+    st.header("市场风险指标")
     
-    st.caption(f"数据来源: [FRED - Series BAMLH0A0HYM2](https://fred.stlouisfed.org/series/{FRED_SERIES_ID})")
+    # 1. 加载信用利差数据
+    # 假设 FRED_SERIES_ID_SPREAD 和 START_DATE_SPREAD 已经定义
+    df_spread = load_fred_data(FRED_SERIES_ID_SPREAD, START_DATE_SPREAD)
     
-    # 额外显示最新数据点
-    st.dataframe(data.tail(5))
-else:
-    st.warning("数据加载失败。请稍后重试或检查代码和网络设置。")
+    # 2. 检查数据并生成图表
+    if not df_spread.empty:
+        fig_spread = create_credit_spread_chart(df_spread)
+
+        st.subheader("美国高收益债信用利差 (Option-Adjusted Spread)")
+        
+        # 3. 显示图表
+        st.plotly_chart(fig_spread, use_container_width=True)
+
+        # 4. 显示最新数据和说明
+        latest_spread = df_spread['Value'].iloc[-1]
+        latest_date = df_spread.index[-1].strftime('%Y-%m-%d')
+        st.markdown(f"**最新利差 ({latest_date}):** `{latest_spread:.2f}%`")
+        
+        st.caption("""
+        **信用利差解读:** 衡量高风险公司债（垃圾债）相对于国债的风险溢价。
+        利差扩大通常暗示市场避险情绪上升，经济衰退风险增加。
+        """)
+
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
+    else:
+        st.info("信用利差数据加载中或加载失败。")
+
 
 
 
