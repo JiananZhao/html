@@ -134,11 +134,11 @@ START_DATE_SPREAD = datetime.datetime(2000, 1, 1)
 
 # --- 右侧：信用利差 ---
 with col_market:
-    st.header("市场风险指标")
+    st.header("Credit Spread")
     
     # 1. 加载信用利差数据
     # 假设 FRED_SERIES_ID_SPREAD 和 START_DATE_SPREAD 已经定义
-    df_spread = get_highyield_data(FRED_SERIES_ID_SPREAD, START_DATE_SPREAD)
+    df_spread = get_highyield_data()
     
     # 2. 检查数据并生成图表
     if not df_spread.empty:
@@ -163,6 +163,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
