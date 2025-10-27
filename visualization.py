@@ -277,3 +277,27 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
     )
     
     return fig
+
+def create_credit_spread_chart(df_data):
+    """创建信用利差的 Plotly 交互式线图"""
+    if df_data.empty:
+        return None
+
+    # 列名必须与 load_fred_data 返回的 DataFrame 匹配
+    df_data.columns = ['Option-Adjusted Spread (%)']
+    
+    fig = px.line(
+        df_data,
+        x=df_data.index,
+        y='Option-Adjusted Spread (%)',
+        title='美高收益债信用利差 (High Yield Spread)',
+        labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
+    )
+
+    fig.update_layout(
+        xaxis_title="日期",
+        yaxis_title="期权调整利差 (%)",
+        hovermode="x unified",
+        template="plotly_white"
+    )
+    return fig
