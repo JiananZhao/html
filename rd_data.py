@@ -129,7 +129,8 @@ st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_cou
 
 # 设置 FRED 数据系列的 ID
 # BAMLH0A0HYM2: ICE BofA US High Yield Index Option-Adjusted Spread
-FRED_SERIES_ID = 'BAMLH0A0HYM2'
+FRED_SERIES_ID_SPREAD = 'BAMLH0A0HYM2'
+START_DATE_SPREAD = datetime.datetime(2000, 1, 1)
 
 # --- 右侧：信用利差 ---
 with col_market:
@@ -162,6 +163,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
