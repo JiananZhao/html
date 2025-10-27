@@ -125,7 +125,58 @@ st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_cou
 
 
 
+# 设置 FRED 数据系列的 ID
+# BAMLH0A0HYM2: ICE BofA US High Yield Index Option-Adjusted Spread
+FRED_SERIES_ID = 'BAMLH0A0HYM2'
 
+# 设定图表展示的起始日期 (例如从2000年开始)
+START_DATE = datetime.datetime(2000, 1, 1)
+
+st.header("🇺🇸 美国高收益债信用利差 (US High Yield Credit Spread)")
+
+# 1. 获取数据
+data = load_fred_data(FRED_SERIES_ID, START_DATE)
+
+# 2. 绘制图表
+if not data.empty:
+    st.subheader("ICE BofA US 高收益指数期权调整利差")
+
+    # 使用 Plotly 创建交互式线图
+    fig = px.line(
+        data,
+        x=data.index,
+        y='Option-Adjusted Spread (%)',
+        title='ICE BofA US High Yield Index Option-Adjusted Spread (BAMLH0A0HYM2)',
+        labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
+        # 添加阴影区域指示美国衰退期 (Plotly 自动处理)
+    )
+
+    # 优化图表布局
+    fig.update_layout(
+        xaxis_title="日期",
+        yaxis_title="期权调整利差 (Option-Adjusted Spread) %",
+        hovermode="x unified",
+        template="plotly_white"
+    )
+
+    # 在 Streamlit 中显示图表
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 3. 数据说明和来源
+    st.markdown("""
+    **信用利差解读：**
+    * **定义：** 美国高收益公司债（通常指垃圾债，低于投资级）的收益率与同期限美国国债收益率的差值。
+    * **经济意义：** 该利差是衡量市场对高风险公司**违约风险**的溢价要求。
+    * **走势：** * **利差扩大 (Spread Widening)：** 通常表明市场避险情绪上升，认为经济衰退或违约风险增加。
+        * **利差收窄 (Spread Narrowing)：** 通常表明市场情绪乐观，认为经济前景良好，风险偏好上升。
+    """)
+    
+    st.caption(f"数据来源: [FRED - Series BAMLH0A0HYM2](https://fred.stlouisfed.org/series/{FRED_SERIES_ID})")
+    
+    # 额外显示最新数据点
+    st.dataframe(data.tail(5))
+else:
+    st.warning("数据加载失败。请稍后重试或检查代码和网络设置。")
 
 
 
