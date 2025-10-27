@@ -8,6 +8,6 @@ yfinance
 lxml
 scipy
 fredapi
-pandas_datareader.data
 datetime
 plotly.express
+
