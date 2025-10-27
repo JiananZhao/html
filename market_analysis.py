@@ -248,3 +248,17 @@ def get_unemployment_data():
     except Exception as e:
         st.error(f"获取 FRED 失业率数据失败: {e}")
         return pd.DataFrame()
+
+# 使用 Streamlit 缓存来高效加载数据，避免每次刷新应用时都重新下载数据
+@st.cache_data(ttl=60*60*24) # 缓存24小时
+def load_fred_data(series_id, start_date):
+    """从FRED API获取指定系列的数据"""
+    try:
+        # 从FRED获取数据
+        df = web.DataReader(series_id, 'fred', start_date)
+        # 为列重命名
+        df.columns = ['Option-Adjusted Spread (%)']
+        return df
+    except Exception as e:
+        st.error(f"无法从FRED获取数据，请检查网络连接或 Series ID：{e}")
+        return pd.DataFrame()
