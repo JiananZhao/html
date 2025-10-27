@@ -278,7 +278,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
     
     return fig
 
-def create_credit_spread_chart(df_data: pd.DataFrame):
+def create_credit_spread_chart(df_data):
     """创建信用利差的 Plotly 交互式线图"""
     if df_data.empty:
         return None
