@@ -250,7 +250,11 @@ def get_unemployment_data():
         return pd.DataFrame()
 
 @st.cache_data(ttl=timedelta(days=1))
-def load_fred_data(series_id, start_date):
+def get_highyield_data(series_id, start_date):
+    # 设置 FRED 数据系列的 ID
+    # BAMLH0A0HYM2: ICE BofA US High Yield Index Option-Adjusted Spread
+    FRED_SERIES_ID = 'BAMLH0A0HYM2'
+    START_DATE_SPREAD = datetime.datetime(2000, 1, 1)
     """
     使用 fredapi 获取指定 FRED 系列的数据。
     """
