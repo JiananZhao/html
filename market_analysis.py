@@ -249,16 +249,48 @@ def get_unemployment_data():
         st.error(f"获取 FRED 失业率数据失败: {e}")
         return pd.DataFrame()
 
-# 使用 Streamlit 缓存来高效加载数据，避免每次刷新应用时都重新下载数据
-@st.cache_data(ttl=60*60*24) # 缓存24小时
+@st.cache_data(ttl=timedelta(days=1))
 def load_fred_data(series_id, start_date):
-    """从FRED API获取指定系列的数据"""
-    try:
-        # 从FRED获取数据
-        df = web.DataReader(series_id, 'fred', start_date)
-        # 为列重命名
-        df.columns = ['Option-Adjusted Spread (%)']
-        return df
-    except Exception as e:
-        st.error(f"无法从FRED获取数据，请检查网络连接或 Series ID：{e}")
+    """
+    使用 fredapi 获取指定 FRED 系列的数据。
+    """
+    # 1. 检查 API Key
+    if not FRED_API_KEY:
+        st.error("FRED API Key 未设置。请在 Streamlit Secrets 或代码中设置 FRED_API_KEY。")
         return pd.DataFrame()
+
+    try:
+        # 2. 初始化 Fred 客户端
+        fred = Fred(api_key=FRED_API_KEY)
+        
+        # 3. 获取指定系列数据，并限制起始日期
+        data_series = fred.get_series(series_id, observation_start=start_date)
+        
+        # 4. 检查数据是否为空
+        if data_series is None or data_series.empty:
+            st.warning(f"FRED API 返回的系列 '{series_id}' 数据为空或获取失败。")
+            return pd.DataFrame()
+        
+        # 5. 转换为 DataFrame，并重命名列
+        df_data = data_series.to_frame(name='Value')
+        
+        # 6. 设置索引名称
+        df_data.index.name = 'Date'
+        
+        return df_data
+        
+    except Exception as e:
+        st.error(f"获取 FRED 数据失败 (Series ID: {series_id}): {e}")
+        return pd.DataFrame()
+
+# ----------------------------------------------------------------------------------
+# 示例如何调用这个函数来获取信用利差 (BAMLH0A0HYM2)
+# from datetime import datetime
+# FRED_SERIES_ID = 'BAMLH0A0HYM2'
+# START_DATE = datetime(2000, 1, 1)
+# 
+# credit_spread_data = load_fred_data(FRED_SERIES_ID, START_DATE)
+# 
+# if not credit_spread_data.empty:
+#     st.dataframe(credit_spread_data.head())
+# ----------------------------------------------------------------------------------
