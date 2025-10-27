@@ -97,7 +97,7 @@ def get_sp500_stock_data():
             st.info(f"📅 本地数据已过期，将重新下载")
             
             end_date = date.today()
-            start_date = end_date - timedelta(days=9000)  # Set start date for required history (9000 days provides a long history)
+            start_date = end_date - timedelta(days=1000)  # Set start date for required history (9000 days provides a long history)
         
             st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
         
