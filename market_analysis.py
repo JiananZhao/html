@@ -52,7 +52,7 @@ def get_sp500_symbols():
         cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
         #st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
         df_symbols = pd.DataFrame(cleaned_symbols, columns=['Symbol'])
-        st.info(cleaned_symbols)
+        st.info(df_symbols)
         # 保存到 CSV 文件
         # 注意：这里直接使用 filename，它将保存在当前执行脚本的目录下
         df_symbols.to_csv(OUTPUT_FILENAME, index=False)
