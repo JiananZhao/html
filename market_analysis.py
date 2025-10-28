@@ -70,7 +70,7 @@ def get_sp500_symbols():
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = 'spy500_data.csv'
-    TTL_SECONDS = 60*1 # 1 minute Time-To-Live (TTL)
+    TTL_SECONDS = 60*60 # 60 minute Time-To-Live (TTL)
     sp500_symbols = get_sp500_symbols() 
     
     if not sp500_symbols:
