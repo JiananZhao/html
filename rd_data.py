@@ -62,7 +62,7 @@ with st.spinner('正在获取 FRED 失业率数据...'):
 col_treasury, col_market = st.columns([2, 3]) 
 
 with col_treasury:
-    st.header("U.S. Treasury Yield Curve")
+    st.subheader("U.S. Treasury Yield Curve")
     df_long = load_and_transform_data()
 
     if df_long is None:
@@ -71,7 +71,7 @@ with col_treasury:
     most_recent_date = df_long['Date'].max()
     default_frame = str(most_recent_date.date())
 
-    st.markdown(f"**Most recent date:** `{default_frame}`")
+    st.markdown(f"**Date:** `{default_frame}`")
     
     # Generate and display the treasury chart
     fig_treasury = create_yield_curve_chart(df_long, most_recent_date)
@@ -89,14 +89,14 @@ with col_treasury:
 # 3. LAYOUT: Market Breadth (Right Column)
 # ------------------------------------------------------------------
 with col_market:
-    st.header("MB") 
+    #st.header("Market Breadth") 
     
     if fig_timeseries:
         st.subheader("20D & 60D MA")
         st.plotly_chart(fig_timeseries, use_container_width=True)
         
         # Place the bar chart below the time series chart
-        st.subheader("Market Breadth Today")
+        #st.subheader("Market Breadth Today")
         st.plotly_chart(fig_bar, use_container_width=True)
 
     elif stock_data is None:
@@ -108,7 +108,7 @@ with col_market:
 # ------------------------------------------------------------------
 # 4. SIDEBAR 
 # ------------------------------------------------------------------
-st.sidebar.header("国债数据信息")
+st.sidebar.header("Treasury Yield")
 # df_long is guaranteed to be loaded if the app reaches here
 st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**") 
 st.sidebar.markdown(f"Current date: **{df_long['Date'].max().date()}**")
@@ -127,7 +127,7 @@ st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_cou
 
 # --- 右侧：信用利差 ---
 with col_market:
-    st.header("Credit Spread")
+    #st.header("Credit Spread")
     
     # 1. 加载信用利差数据
     # 假设 FRED_SERIES_ID_SPREAD 和 START_DATE_SPREAD 已经定义
@@ -147,6 +147,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
