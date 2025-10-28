@@ -35,7 +35,7 @@ jobs:
       - name: Run data update script and check for changes
         id: run_script
         run: |
-          python update_data.py
+          python update_daily-treasury-rates_data.py
 
       - name: Check if commit is needed and Push changes
         # This step uses the special output from the python script to commit only if an update occurred
