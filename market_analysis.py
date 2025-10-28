@@ -47,7 +47,7 @@ def get_sp500_symbols():
         # **********************************************
         # 核心替换逻辑：将所有点号 '.' 替换为连字符 '-'
         # **********************************************
-        cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
+        #cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
         
         st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
         #df_symbols = pd.DataFrame(cleaned_symbols, columns=['Symbol'])
@@ -56,7 +56,7 @@ def get_sp500_symbols():
         # 注意：这里直接使用 filename，它将保存在当前执行脚本的目录下
         #df_symbols.to_csv(spy500_symbols, index=False)
         st.info('saved')
-        return cleaned_symbols
+        return symbols
         
     except requests.exceptions.HTTPError as e:
         st.error(f"获取 S&P 500 成分股列表失败 (HTTP 错误: {e})。请检查 User-Agent 或目标 URL。")
