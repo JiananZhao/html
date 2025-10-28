@@ -27,8 +27,7 @@ def get_sp500_symbols():
     }
     
     try:
-        # st.info("尝试从 Wikipedia 获取 S&P 500 成分股列表...")
-        
+        # "尝试从 Wikipedia 获取 S&P 500 成分股列表..."
         # Use requests to download content with headers
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status() 
@@ -76,7 +75,7 @@ def get_sp500_symbols():
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = 'spy500_data.csv'
-    TTL_SECONDS = 60*1 # 60 minute Time-To-Live (TTL)
+    TTL_SECONDS = 60*60 # 60 minute Time-To-Live (TTL)
     sp500_symbols = get_sp500_symbols() 
     
     if not sp500_symbols:
@@ -107,7 +106,7 @@ def get_sp500_stock_data():
             st.info(f"📅 本地数据已过期，将重新下载")
             
             end_date = date.today()
-            start_date = end_date - timedelta(days=1000)  # Set start date for required history (9000 days provides a long history)
+            start_date = end_date - timedelta(days=3560)  # Set start date for required history (9000 days provides a long history)
         
             st.write(f"📈 正在下载 {len(sp500_symbols)} 支 S&P 500 成分股历史价格数据... (初次运行较慢)")
         
