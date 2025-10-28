@@ -53,7 +53,7 @@ def get_sp500_symbols():
         
         # 保存到 CSV 文件
         # 注意：这里直接使用 filename，它将保存在当前执行脚本的目录下
-        df_symbols.to_csv(spy500_symbols.csv, index=False)
+        df_symbols.to_csv(OUTPUT_FILENAME, index=False)
         st.info('saved')
         return cleaned_symbols
         
