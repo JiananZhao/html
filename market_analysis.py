@@ -7,6 +7,7 @@ from datetime import date, timedelta, datetime
 import requests
 from fredapi import Fred
 import os # file operation
+from io import StringIO # 用于将下载的文本内容包装成文件对象
 
 # ----------------------------------------------------
 # Function to get S&P 500 Symbols from Wikipedia
@@ -14,6 +15,7 @@ import os # file operation
 @st.cache_data(ttl=timedelta(days=30)) # Cache symbols for 30 day
 def get_sp500_symbols():
     OUTPUT_FILENAME = 'sp500_symbols.csv'
+    temp_filename = "temp_download.csv" # 临时文件用于保存下载内容
     """
     Fetches the latest S&P 500 component list from Wikipedia.
     """
@@ -39,7 +41,7 @@ def get_sp500_symbols():
             if 'Symbol' in table.columns and 'Security' in table.columns:
                 sp500_table = table
                 break
-        
+        st.(sp500_table)
         if sp500_table is None:
             st.error("无法在 Wikipedia 页面找到 S&P 500 成分股表格。")
             return []
