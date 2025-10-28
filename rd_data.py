@@ -62,7 +62,7 @@ with st.spinner('正在获取 FRED 失业率数据...'):
 col_treasury, col_market = st.columns([2, 3]) 
 
 with col_treasury:
-    st.header("Daily U.S. Treasury Yield Curve Animation")
+    st.header("U.S. Treasury Yield Curve")
     df_long = load_and_transform_data()
 
     if df_long is None:
@@ -71,7 +71,7 @@ with col_treasury:
     most_recent_date = df_long['Date'].max()
     default_frame = str(most_recent_date.date())
 
-    st.markdown(f"**最新国债数据日期:** `{default_frame}`")
+    st.markdown(f"**Most recent date:** `{default_frame}`")
     
     # Generate and display the treasury chart
     fig_treasury = create_yield_curve_chart(df_long, most_recent_date)
@@ -79,7 +79,7 @@ with col_treasury:
 
     # --- 失业率图表 ---
     if fig_unrate:
-        st.subheader("宏观经济指标")
+        #st.subheader("宏观经济指标")
         st.plotly_chart(fig_unrate, use_container_width=True)
     elif not FRED_API_KEY:
          st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
@@ -89,10 +89,10 @@ with col_treasury:
 # 3. LAYOUT: Market Breadth (Right Column)
 # ------------------------------------------------------------------
 with col_market:
-    st.header("S&P 500 市场宽度分析") 
+    st.header("MB") 
     
     if fig_timeseries:
-        st.subheader("历史趋势 (20日 & 60日 MA)")
+        st.subheader("20D & 60D MA")
         st.plotly_chart(fig_timeseries, use_container_width=True)
         
         # Place the bar chart below the time series chart
@@ -147,6 +147,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
