@@ -41,7 +41,7 @@ def get_sp500_symbols():
             if 'Symbol' in table.columns and 'Security' in table.columns:
                 sp500_table = table
                 break
-        st.info(sp500_table)
+        
         if sp500_table is None:
             st.error("无法在 Wikipedia 页面找到 S&P 500 成分股表格。")
             return []
@@ -52,11 +52,11 @@ def get_sp500_symbols():
         cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
         #st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
         df_symbols = pd.DataFrame(cleaned_symbols, columns=['Symbol'])
-        
+        st.info(cleaned_symbols)
         # 保存到 CSV 文件
         # 注意：这里直接使用 filename，它将保存在当前执行脚本的目录下
         df_symbols.to_csv(OUTPUT_FILENAME, index=False)
-        st.info('saved')
+        
         return cleaned_symbols
         
     except requests.exceptions.HTTPError as e:
