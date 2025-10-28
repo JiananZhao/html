@@ -31,11 +31,11 @@ breadth_data = {
     "20DMA_count": "N/A", "20DMA_percentage": 0,
     "60DMA_count": "N/A", "60DMA_percentage": 0,
 }
-
+"""
 # 1A. Try fetching stock data
 if current_sp500_symbols:
     stock_data = get_sp500_stock_data()
-
+"""
 # 1B. Try calculating breadth history and latest snapshot
 if stock_data is not None and not stock_data.empty:
     # Calculate the breadth for all historical dates
@@ -147,6 +147,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
