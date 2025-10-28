@@ -137,7 +137,7 @@ with col_market:
     if not df_spread.empty:
         fig_spread = create_credit_spread_chart(df_spread)
 
-        st.subheader("美国高收益债信用利差 (Option-Adjusted Spread)")
+        st.subheader("High Yield (Option-Adjusted Spread)")
         
         # 3. 显示图表
         st.plotly_chart(fig_spread, use_container_width=True)
@@ -147,6 +147,7 @@ with col_market:
         st.warning("请设置 FRED_API_KEY 以显示信用利差数据。")
     else:
         st.info("信用利差数据加载中或加载失败。")
+
 
 
 
