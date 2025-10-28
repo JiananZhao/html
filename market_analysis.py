@@ -41,7 +41,7 @@ def get_sp500_symbols():
             if 'Symbol' in table.columns and 'Security' in table.columns:
                 sp500_table = table
                 break
-        st.info('sp500_table')
+        st.info(sp500_table)
         if sp500_table is None:
             st.error("无法在 Wikipedia 页面找到 S&P 500 成分股表格。")
             return []
