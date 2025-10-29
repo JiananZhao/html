@@ -215,8 +215,8 @@ def create_breadth_timeseries_chart(df_breadth: pd.DataFrame):
         ),
         # 激活范围滑动条 (Range Slider)
         rangeslider=dict(visible=True, thickness=0.07), # thickness 增加滑动条的可见性
-        # 设置默认视图范围为过去 5 年 (确保数据够长)
-        range=[df_breadth.index[-1] - pd.DateOffset(years=5), df_breadth.index[-1]]
+        # 设置默认视图范围为过去 1 年 (确保数据够长)
+        range=[df_breadth.index[-1] - pd.DateOffset(years=1), df_breadth.index[-1]]
     )
 
     # --- 关键修改 2: 调整布局高度/宽度，适应更长的X轴 ---
@@ -309,13 +309,13 @@ def create_credit_spread_chart(df_data):
         yaxis=dict(
             title="期权调整利差 (%)",
             autorange=True,  # 确保 Y 轴在 X 轴范围改变时自动重新计算并缩放
-            fixedrange=False, # 确保 Y 轴可以缩放（默认为 False，但明确写出更保险）
-            rangeslider=dict(visible=True, thickness=0.07)
+            fixedrange=False # 确保 Y 轴可以缩放（默认为 False，但明确写出更保险）
+            #rangeslider=dict(visible=True, thickness=0.07)
         ),
         hovermode="x unified",
         height=550,
         template="plotly_white"
     )
-    fig.update_yaxes(autorange=True)
+    #fig.update_yaxes(autorange=True)
     
     return fig
