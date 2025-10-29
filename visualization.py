@@ -305,7 +305,7 @@ def create_credit_spread_chart(df_data):
                 ])
             ),
             rangeslider=dict(visible=True, thickness=0.07),
-            range=[df_breadth.index[-1] - pd.DateOffset(years=1), df_breadth.index[-1]]
+            range=[df_data.index[-1] - pd.DateOffset(years=1), df_breadth.index[-1]]
         ),
         yaxis=dict(
             title="期权调整利差 (%)",
