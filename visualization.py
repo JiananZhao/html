@@ -309,7 +309,8 @@ def create_credit_spread_chart(df_data):
         yaxis=dict(
             title="期权调整利差 (%)",
             autorange=True,  # 确保 Y 轴在 X 轴范围改变时自动重新计算并缩放
-            fixedrange=False # 确保 Y 轴可以缩放（默认为 False，但明确写出更保险）
+            fixedrange=False， # 确保 Y 轴可以缩放（默认为 False，但明确写出更保险）
+            rangeslider=dict(visible=True, thickness=0.07)
         ),
         hovermode="x unified",
         height=550,
