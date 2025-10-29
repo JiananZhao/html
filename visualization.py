@@ -320,7 +320,7 @@ def create_credit_spread_chart(df_data):
         height=550,
         template="plotly_white"
     )
-    fig = go.FigureWidget(data=data, layout=layout)
+    fig = go.FigureWidget(data=df_data, layout=layout)
     fig.layout.on_change(zoom, 'xaxis.range')
     
     return fig
