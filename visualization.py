@@ -298,7 +298,8 @@ def create_credit_spread_chart(df_data):
         labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
     )
     # 范围选择器和滑动条
-    layout = fig.update_layout(
+    #fig.update_layout
+    layout = dist(
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
@@ -311,6 +312,8 @@ def create_credit_spread_chart(df_data):
             rangeslider=dict(visible=True, thickness=0.07),
             range=[df_data.index[-1] - pd.DateOffset(years=1), df_data.index[-1]]
         ),
+        type = 'date'
+        '''
         yaxis=dict(
             title="期权调整利差 (%)",
             autorange=True,  # 确保 Y 轴在 X 轴范围改变时自动重新计算并缩放
@@ -319,6 +322,7 @@ def create_credit_spread_chart(df_data):
         hovermode="x unified",
         height=550,
         template="plotly_white"
+        '''
     )
     fig = go.FigureWidget(data=df_data, layout=layout)
     fig.layout.on_change(zoom, 'xaxis.range')
