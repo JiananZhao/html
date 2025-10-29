@@ -258,7 +258,7 @@ def get_unemployment_data():
         st.error(f"获取 FRED 失业率数据失败: {e}")
         return pd.DataFrame()
 
-@st.cache_data(ttl=timedelta(days=1))
+#@st.cache_data(ttl=timedelta(days=1))
 def get_highyield_data():
     """
     使用 fredapi 获取指定 FRED 系列的数据。
@@ -291,15 +291,3 @@ def get_highyield_data():
     except Exception as e:
         st.error(f"获取 FRED 数据失败 (Series ID: {series_id}): {e}")
         return pd.DataFrame()
-
-# ----------------------------------------------------------------------------------
-# 示例如何调用这个函数来获取信用利差 (BAMLH0A0HYM2)
-# from datetime import datetime
-# FRED_SERIES_ID = 'BAMLH0A0HYM2'
-# START_DATE = datetime(2000, 1, 1)
-# 
-# credit_spread_data = load_fred_data(FRED_SERIES_ID, START_DATE)
-# 
-# if not credit_spread_data.empty:
-#     st.dataframe(credit_spread_data.head())
-# ----------------------------------------------------------------------------------
