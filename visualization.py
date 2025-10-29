@@ -298,7 +298,7 @@ def create_credit_spread_chart(df_data):
         labels={'x': '日期', 'Option-Adjusted Spread (%)': '利差 (%)'},
     )
     # 范围选择器和滑动条
-    fig.update_layout(
+    layout = fig.update_layout(
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
