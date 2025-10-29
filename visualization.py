@@ -298,6 +298,7 @@ def create_credit_spread_chart(df_data):
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
+                    dict(count=3, label="3m", step="month", stepmode="backward"),
                     dict(count=1, label="1y", step="year", stepmode="backward"),
                     dict(count=5, label="5y", step="year", stepmode="backward"),
                     dict(step="all")
