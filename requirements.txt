@@ -10,4 +10,4 @@ scipy
 fredapi
 datetime
 plotly.express
-
+anywidget
