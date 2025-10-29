@@ -325,6 +325,6 @@ def create_credit_spread_chart(df_data):
         '''
     )
     fig = go.FigureWidget(data=df_data, layout=layout)
-    fig.layout.on_change(zoom, 'xaxis.range')
+    #fig.layout.on_change(zoom, 'xaxis.range')
     
     return fig
