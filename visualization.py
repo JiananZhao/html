@@ -299,7 +299,7 @@ def create_credit_spread_chart(df_data):
     )
     # 范围选择器和滑动条
     #fig.update_layout
-    layout = dist(
+    layout = dict(
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
