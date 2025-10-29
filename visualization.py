@@ -277,6 +277,10 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
     )
     
     return fig
+    
+def zoom(layout, xrange):
+    in_view = df.loc[fig.layout.xaxis.range[0]:fig.layout.xaxis.range[1]]
+    fig.layout.yaxis.range = [in_view.High.min() - 1, in_view.High.max() + 1]
 
 def create_credit_spread_chart(df_data):
     """创建信用利差的 Plotly 交互式线图"""
@@ -316,6 +320,6 @@ def create_credit_spread_chart(df_data):
         height=550,
         template="plotly_white"
     )
-    #fig.update_yaxes(autorange=True)
+    fig.layout.on_change(zoom, 'xaxis.range')
     
     return fig
