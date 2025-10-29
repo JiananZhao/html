@@ -299,7 +299,7 @@ def create_credit_spread_chart(df_data):
     )
     # 范围选择器和滑动条
     #fig.update_layout
-    layout = dict(
+    fig.update_layout = dict(
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
@@ -326,5 +326,5 @@ def create_credit_spread_chart(df_data):
     )
     #fig = go.FigureWidget(data=df_data, layout=layout)
     #fig.layout.on_change(zoom, 'xaxis.range')
-    fig.update_layout(layout)
+
     return fig
