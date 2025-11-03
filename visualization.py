@@ -310,7 +310,7 @@ def create_credit_spread_chart(df_data):
         ),
         hovermode="x unified",
         height=550,
-        yaxis_range=[1.0, 5.0],
+        yaxis_range=[2.0, 5.0],
         template="plotly_white"
     )
 
