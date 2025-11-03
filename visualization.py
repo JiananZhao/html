@@ -308,13 +308,9 @@ def create_credit_spread_chart(df_data):
             rangeslider=dict(visible=True, thickness=0.07),
             range=[df_data.index[-1] - pd.DateOffset(years=1), df_data.index[-1]]
         ),
-        yaxis=dict(
-            title="期权调整利差 (%)",
-            #autorange=True,  # 确保 Y 轴在 X 轴范围改变时自动重新计算并缩放
-            yaxis_range=[1.0, 5.0]
-        ),
         hovermode="x unified",
         height=550,
+        yaxis_range=[1.0, 5.0],
         template="plotly_white"
     )
 
