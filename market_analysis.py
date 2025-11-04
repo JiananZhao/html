@@ -71,7 +71,7 @@ def get_sp500_symbols():
 # ----------------------------------------------------
 # Function to download stock data
 # ----------------------------------------------------
-@st.cache_data(ttl=timedelta(days=1)) # Cache stock data everyday
+#@st.cache_data(ttl=timedelta(days=1)) # Cache stock data everyday
 def get_sp500_stock_data():
     """Downloads historical price data for all S&P 500 symbols."""
     FILE_PATH = 'spy500_data.csv'
