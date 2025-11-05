@@ -77,7 +77,7 @@ def get_sp500_stock_data():
     FILE_PATH = 'spy500_data.csv'
     TTL_SECONDS = 60*1 # 60 minute Time-To-Live (TTL)
     sp500_symbols = get_sp500_symbols() 
-    
+    st.info(sp500_symbols)
     if not sp500_symbols:
         st.warning("未能获取 S&P 500 成分股列表，无法下载股票数据。")
         return None
