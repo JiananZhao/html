@@ -49,7 +49,7 @@ def get_sp500_symbols():
 
         # 核心替换逻辑：将所有点号 '.' 替换为连字符 '-'
         cleaned_symbols = [symbol.replace('.', '-') for symbol in symbols]
-        st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
+        #st.success(f"成功获取并清理 {len(cleaned_symbols)} 个 S&P 500 成分股代码。")
         df_symbols = pd.DataFrame(cleaned_symbols, columns=['Symbol'])
         #st.info(df_symbols)
         # 保存到 CSV 文件
