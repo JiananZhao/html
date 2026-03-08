@@ -5,7 +5,7 @@ from datetime import datetime
 from io import StringIO # 用于将下载的文本内容包装成文件对象
 
 # --- Configuration ---
-TREASURY_DAILY_CSV_URL = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all?type=daily_treasury_yield_curve&field_tdr_date_value=2025&page&_format=csv"
+TREASURY_DAILY_CSV_URL = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/all/202603?type=daily_treasury_yield_curve&field_tdr_date_value_month=202603&page&_format=csv"
 
 OUTPUT_FILENAME = 'daily-treasury-rates.csv'
 
@@ -91,3 +91,4 @@ if __name__ == "__main__":
         print("::set-output name=commit_needed::true")
     else:
         print("::set-output name=commit_needed::false")
+
