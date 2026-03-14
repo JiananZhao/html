@@ -265,6 +265,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
                 buttons=list([
                     dict(count=1, label="1y", step="year", stepmode="backward"),
                     dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(count=10, label="10y", step="year", stepmode="backward"),
                     dict(step="all")
                 ])
             ),
