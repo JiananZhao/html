@@ -270,7 +270,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame):
                 ])
             ),
             rangeslider=dict(visible=True, thickness=0.07),
-            range=[df_unrate.index[-1] - pd.DateOffset(years=1), df_unrate.index[-1]]
+            range=[df_unrate.index[-1] - pd.DateOffset(years=10), df_unrate.index[-1]]
         ),
         hovermode="x unified",
         height=550, 
