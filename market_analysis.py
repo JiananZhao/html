@@ -292,3 +292,54 @@ def get_highyield_data():
     except Exception as e:
         st.error(f"获取 FRED 数据失败 (Series ID: {series_id}): {e}")
         return pd.DataFrame()
+
+def _get_fred_api_key():
+    try:
+        return st.secrets["FRED_API_KEY"]
+    except Exception:
+        return os.getenv("FRED_API_KEY", "")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_fed_balance_sheet_data():
+    """
+    FRED series:
+    WALCL = Assets: Total Assets (Less Eliminations from Consolidation)
+    单位: Millions of U.S. Dollars
+    """
+    fred_api_key = _get_fred_api_key()
+    if not fred_api_key:
+        return pd.DataFrame()
+
+    url = "https://api.stlouisfed.org/fred/series/observations"
+    params = {
+        "series_id": "WALCL",
+        "api_key": fred_api_key,
+        "file_type": "json",
+        "observation_start": "2008-01-01",
+        "sort_order": "asc",
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json().get("observations", [])
+
+        if not data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data)
+        df = df[df["value"] != "."].copy()
+
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        df = df.dropna(subset=["value"])
+
+        # 原始单位是 million USD，这里转成 trillion USD
+        df["balance_sheet_tn"] = df["value"] / 1_000_000
+
+        return df[["date", "balance_sheet_tn"]].reset_index(drop=True)
+
+    except Exception as e:
+        print(f"Error fetching Fed balance sheet data: {e}")
+        return pd.DataFrame()
