@@ -6,12 +6,18 @@ import requests
 import datetime
 import plotly.express as px
 from data_processing import load_and_transform_data 
-from visualization import create_yield_curve_chart, create_breadth_bar_chart, create_breadth_timeseries_chart, create_unemployment_chart, create_credit_spread_chart
-from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols, get_unemployment_data, get_highyield_data
+from visualization import create_yield_curve_chart, create_breadth_bar_chart, create_breadth_timeseries_chart, create_unemployment_chart, create_credit_spread_chart, create_fed_balance_sheet_chart
+from market_analysis import get_sp500_stock_data, calculate_market_breadth_history, get_latest_breadth_snapshot, get_sp500_symbols, get_unemployment_data, get_highyield_data, get_fed_balance_sheet_data
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Yield Curve and Market Breadth")
+def get_local_fred_api_key():
+    try:
+        return st.secrets["FRED_API_KEY"]
+    except Exception:
+        return os.getenv("FRED_API_KEY", "")
 
+FRED_API_KEY = get_local_fred_api_key()
 # ------------------------------------------------------------------
 # 1. INITIALIZATION and DATA ACQUISITION 
 #    CRITICAL: Runs BEFORE layout to ensure all sidebar variables exist.
@@ -24,6 +30,8 @@ fig_timeseries = None
 fig_bar = None
 df_unrate = pd.DataFrame() # <-- 新增
 fig_unrate = None        # <-- 新增
+df_fed_bs = pd.DataFrame()   # <-- 新增
+fig_fed_bs = None            # <-- 新增
 
 # Default initialization for sidebar (safe for global access)
 breadth_data = {
@@ -53,6 +61,12 @@ with st.spinner('正在获取 FRED 失业率数据...'):
     df_unrate = get_unemployment_data()
     if not df_unrate.empty:
         fig_unrate = create_unemployment_chart(df_unrate) # <-- 创建图表
+
+# 1E. Get Fed Balance Sheet Data
+with st.spinner('正在获取 FRED 美联储资产负债表数据...'):
+    df_fed_bs = get_fed_balance_sheet_data()
+    if not df_fed_bs.empty:
+        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs)
         
 # ------------------------------------------------------------------
 # 2. LAYOUT: Treasury Data (Left Column)
@@ -83,6 +97,15 @@ with col_treasury:
         st.plotly_chart(fig_unrate, use_container_width=True)
     elif not FRED_API_KEY:
          st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
+    
+    # --- Fed Balance Sheet 图表 ---
+    if fig_fed_bs is not None:
+        st.subheader("Fed Balance Sheet")
+        st.plotly_chart(fig_fed_bs, use_container_width=True)
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
+    else:
+        st.info("Fed Balance Sheet 数据加载中或加载失败。")
 
 
 # ------------------------------------------------------------------
@@ -124,6 +147,14 @@ st.sidebar.markdown(f"成分股总数: **{len(current_sp500_symbols) if current_
 st.sidebar.markdown(f"参与计算股票数: **{breadth_data.get('eligible_total', 'N/A')}**")
 st.sidebar.markdown(f"**高于 20日 MA 数量:** **{breadth_data.get('20DMA_count', 'N/A')}**")
 st.sidebar.markdown(f"**高于 60日 MA 数量:** **{breadth_data.get('60DMA_count', 'N/A')}**")
+
+if not df_fed_bs.empty:
+    latest_fed_date = df_fed_bs.iloc[-1]["date"].date()
+    latest_fed_assets = df_fed_bs.iloc[-1]["balance_sheet_tn"]
+
+    st.sidebar.header("Fed Balance Sheet")
+    st.sidebar.markdown(f"最新日期: **{latest_fed_date}**")
+    st.sidebar.markdown(f"总资产: **{latest_fed_assets:.2f}T USD**")
 
 # --- 右侧：信用利差 ---
 with col_market:
