@@ -343,15 +343,11 @@ def create_fed_balance_sheet_chart(df_fed, y_range=None):
         xaxis_title="",
         yaxis_title="USD Trillions",
         hovermode="x unified",
-        uirevision="fed_balance_sheet"   # 保留用户缩放状态
+        uirevision="fed_balance_sheet"
     )
 
-    # y轴可缩放
-    fig.update_yaxes(
-        fixedrange=False
-    )
+    fig.update_yaxes(fixedrange=False)
 
-    # 手动范围 / 自动范围
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
@@ -366,7 +362,7 @@ def create_fed_balance_sheet_chart(df_fed, y_range=None):
                 dict(step="all", label="All"),
             ]
         ),
-        rangeslider_visible=False   # 保持y轴可缩放
+        rangeslider_visible=False
     )
 
     return fig
