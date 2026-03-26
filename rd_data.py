@@ -66,7 +66,7 @@ with st.spinner('正在获取 FRED 失业率数据...'):
 with st.spinner('正在获取 FRED 美联储资产负债表数据...'):
     df_fed_bs = get_fed_balance_sheet_data()
     if not df_fed_bs.empty:
-        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs)
+        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
         
 # ------------------------------------------------------------------
 # 2. LAYOUT: Treasury Data (Left Column)
