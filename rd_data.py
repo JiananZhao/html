@@ -102,9 +102,9 @@ with col_treasury:
         y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
         y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
 
+        fed_y_range = None
         manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
 
-        fed_y_range = None
         if manual_y and y_min_data < y_max_data:
             fed_y_range = st.slider(
                 "Y 轴范围 (USD Trillions)",
@@ -127,7 +127,6 @@ with col_treasury:
         st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
     else:
         st.info("Fed Balance Sheet 数据加载中或加载失败。")
-
 # ------------------------------------------------------------------
 # 3. LAYOUT: Market Breadth (Right Column)
 # ------------------------------------------------------------------
