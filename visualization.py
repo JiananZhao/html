@@ -318,7 +318,7 @@ def create_credit_spread_chart(df_data):
 
     return fig
 
-def create_fed_balance_sheet_chart(df_fed):
+def create_fed_balance_sheet_chart(df_fed, y_range=None):
     if df_fed is None or df_fed.empty:
         return None
 
@@ -342,8 +342,20 @@ def create_fed_balance_sheet_chart(df_fed):
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis_title="",
         yaxis_title="USD Trillions",
-        hovermode="x unified"
+        hovermode="x unified",
+        uirevision="fed_balance_sheet"   # 保留用户缩放状态
     )
+
+    # y轴可缩放
+    fig.update_yaxes(
+        fixedrange=False
+    )
+
+    # 手动范围 / 自动范围
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
 
     fig.update_xaxes(
         rangeselector=dict(
@@ -354,9 +366,7 @@ def create_fed_balance_sheet_chart(df_fed):
                 dict(step="all", label="All"),
             ]
         ),
-        rangeslider_visible=False
+        rangeslider_visible=False   # 保持y轴可缩放
     )
 
     return fig
-
-
