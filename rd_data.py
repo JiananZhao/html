@@ -79,8 +79,6 @@ if stock_data is not None and not stock_data.empty:
 # 1C. Get unemployment data
 with st.spinner("正在获取 FRED 失业率数据..."):
     df_unrate = get_unemployment_data()
-    if not df_unrate.empty:
-        fig_unrate = create_unemployment_chart(df_unrate)
 
 # 1D. Get Fed balance sheet data
 with st.spinner("正在获取 FRED 美联储资产负债表数据..."):
@@ -110,12 +108,37 @@ with col_treasury:
     st.plotly_chart(fig_treasury, use_container_width=True)
 
     # --- Unemployment chart ---
-    if fig_unrate is not None:
-        st.plotly_chart(fig_unrate, use_container_width=True)
-    elif not FRED_API_KEY:
-        st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
-    else:
-        st.info("失业率数据加载中或加载失败。")
+if not df_unrate.empty:
+    st.subheader("UNRATE")
+
+    y_min_unrate = float(df_unrate["Unemployment_Rate"].min())
+    y_max_unrate = float(df_unrate["Unemployment_Rate"].max())
+
+    manual_unrate_y = st.checkbox("手动设置失业率 Y 轴范围", key="unrate_manual_y")
+
+    unrate_y_range = None
+    if manual_unrate_y and y_min_unrate < y_max_unrate:
+        unrate_y_range = st.slider(
+            "失业率 Y 轴范围 (%)",
+            min_value=round(y_min_unrate, 2),
+            max_value=round(y_max_unrate, 2),
+            value=(round(y_min_unrate, 2), round(y_max_unrate, 2)),
+            step=0.1,
+            key="unrate_y_range",
+        )
+
+    fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
+
+    st.plotly_chart(
+        fig_unrate,
+        use_container_width=True,
+        config={"scrollZoom": True}
+    )
+
+elif not FRED_API_KEY:
+    st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
+else:
+    st.info("失业率数据加载中或加载失败。")
 
     # --- Fed Balance Sheet chart ---
     if not df_fed_bs.empty:
