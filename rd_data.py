@@ -1,5 +1,6 @@
 # rd_data.py
 
+import os
 import streamlit as st
 import pandas as pd
 import requests 
@@ -65,9 +66,7 @@ with st.spinner('正在获取 FRED 失业率数据...'):
 # 1E. Get Fed Balance Sheet Data
 with st.spinner('正在获取 FRED 美联储资产负债表数据...'):
     df_fed_bs = get_fed_balance_sheet_data()
-    if not df_fed_bs.empty:
-        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
-        
+            
 # ------------------------------------------------------------------
 # 2. LAYOUT: Treasury Data (Left Column)
 # ------------------------------------------------------------------
@@ -86,28 +85,27 @@ with col_treasury:
     default_frame = str(most_recent_date.date())
 
     st.markdown(f"**Date:** `{default_frame}`")
-    
-    # Generate and display the treasury chart
+
     fig_treasury = create_yield_curve_chart(df_long, most_recent_date)
     st.plotly_chart(fig_treasury, use_container_width=True)
 
     # --- 失业率图表 ---
-    if fig_unrate:
-        #st.subheader("宏观经济指标")
+    if fig_unrate is not None:
         st.plotly_chart(fig_unrate, use_container_width=True)
     elif not FRED_API_KEY:
-         st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
-        # --- Fed Balance Sheet 图表 ---
+        st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
+
+    # --- Fed Balance Sheet 图表 ---
     if not df_fed_bs.empty:
         st.subheader("Fed Balance Sheet")
-    
+
         y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
         y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
-    
+
         manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
-    
+
         fed_y_range = None
-        if manual_y:
+        if manual_y and y_min_data < y_max_data:
             fed_y_range = st.slider(
                 "Y 轴范围 (USD Trillions)",
                 min_value=round(y_min_data, 2),
@@ -116,28 +114,19 @@ with col_treasury:
                 step=0.05,
                 key="fed_y_range"
             )
-    
+
         fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
-    
+
         st.plotly_chart(
             fig_fed_bs,
             use_container_width=True,
             config={"scrollZoom": True}
         )
-    
-    elif not FRED_API_KEY:
-        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
-    else:
-        st.info("Fed Balance Sheet 数据加载中或加载失败。")
-    # --- Fed Balance Sheet 图表 ---
-    if fig_fed_bs is not None:
-        st.subheader("Fed Balance Sheet")
-        st.plotly_chart(fig_fed_bs, use_container_width=True)
-    elif not FRED_API_KEY:
-        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
-    else:
-        st.info("Fed Balance Sheet 数据加载中或加载失败。")
 
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
+    else:
+        st.info("Fed Balance Sheet 数据加载中或加载失败。")
 
 # ------------------------------------------------------------------
 # 3. LAYOUT: Market Breadth (Right Column)
