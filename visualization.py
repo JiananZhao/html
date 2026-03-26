@@ -317,3 +317,46 @@ def create_credit_spread_chart(df_data):
     )
 
     return fig
+
+def create_fed_balance_sheet_chart(df_fed):
+    if df_fed is None or df_fed.empty:
+        return None
+
+    fig = px.line(
+        df_fed,
+        x="date",
+        y="balance_sheet_tn",
+        labels={
+            "date": "Date",
+            "balance_sheet_tn": "USD Trillions"
+        }
+    )
+
+    fig.update_traces(
+        hovertemplate="Date=%{x|%Y-%m-%d}<br>Fed Balance Sheet=%{y:.2f}T<extra></extra>"
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        height=360,
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis_title="",
+        yaxis_title="USD Trillions",
+        hovermode="x unified"
+    )
+
+    fig.update_xaxes(
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(count=3, label="3Y", step="year", stepmode="backward"),
+                dict(count=5, label="5Y", step="year", stepmode="backward"),
+                dict(step="all", label="All"),
+            ]
+        ),
+        rangeslider_visible=False
+    )
+
+    return fig
+
+
