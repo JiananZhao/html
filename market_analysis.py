@@ -115,7 +115,7 @@ def get_sp500_stock_data():
                 # 使用 concurrent downloads (threads) 来处理大符号列表
                 data = yf.download(tickers=sp500_symbols, start=start_date, end=end_date, group_by='ticker', progress=False, auto_adjust=True, repair=True)
                 downloaded_tickers = data.columns.get_level_values(0).unique().tolist()
-                st.info(downloaded_tickers)
+                #st.info(downloaded_tickers)
                 # Filter out tickers that failed to download or are entirely empty
                 valid_tickers = [ticker for ticker in sp500_symbols if (ticker, 'Close') in data.columns]
                 #st.info(valid_tickers)
