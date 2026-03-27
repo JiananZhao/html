@@ -12,7 +12,7 @@ from visualization import (
     create_unemployment_chart,
     create_credit_spread_chart,
     create_fed_balance_sheet_chart,
-    create_gold_oil_ratio_chart,
+    create_gold_oil_ratio_chart
 )
 from market_analysis import (
     get_sp500_stock_data,
@@ -22,7 +22,7 @@ from market_analysis import (
     get_unemployment_data,
     get_highyield_data,
     get_fed_balance_sheet_data,
-    get_gold_oil_ratio_data,
+    get_gold_oil_ratio_data
 )
 
 # ------------------------------------------------------------------
