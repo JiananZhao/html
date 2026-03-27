@@ -386,15 +386,101 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="199
 
 
 @st.cache_data(ttl=60 * 60 * 6)
+def _fetch_fred_series_observations(series_id, value_col, observation_start="1990-01-01"):
+    """
+    通用 FRED series observations 拉取函数
+    返回列: ['date', value_col]
+    """
+    fred_api_key = _get_fred_api_key()
+    if not fred_api_key:
+        return pd.DataFrame()
+
+    url = "https://api.stlouisfed.org/fred/series/observations"
+    params = {
+        "series_id": series_id,
+        "api_key": fred_api_key,
+        "file_type": "json",
+        "observation_start": observation_start,
+        "sort_order": "asc",
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json().get("observations", [])
+
+        if not data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data)
+        df = df[df["value"] != "."].copy()
+
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df[value_col] = pd.to_numeric(df["value"], errors="coerce")
+        df = df.dropna(subset=["date", value_col])
+
+        return df[["date", value_col]].reset_index(drop=True)
+
+    except Exception as e:
+        st.error(f"获取 FRED 数据失败 ({series_id}): {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def _fetch_lbma_gold_data():
+    """
+    从 DBnomics 抓取 LBMA Gold daily USD benchmark
+    优先 AM，失败则回退 PM
+    返回列: ['date', 'gold_usd_per_oz']
+    """
+    urls = [
+        "https://db.nomics.world/LBMA/gold_D/gold_D_USD_AM?tab=table",
+        "https://db.nomics.world/LBMA/gold_D/gold_D_USD_PM?tab=table",
+    ]
+
+    for url in urls:
+        try:
+            tables = pd.read_html(url)
+            if not tables:
+                continue
+
+            parsed_df = None
+
+            for tbl in tables:
+                if tbl is None or tbl.empty or tbl.shape[1] < 2:
+                    continue
+
+                candidate = tbl.iloc[:, :2].copy()
+                candidate.columns = ["date", "gold_usd_per_oz"]
+
+                candidate["date"] = pd.to_datetime(candidate["date"], errors="coerce")
+                candidate["gold_usd_per_oz"] = pd.to_numeric(candidate["gold_usd_per_oz"], errors="coerce")
+                candidate = candidate.dropna(subset=["date", "gold_usd_per_oz"])
+
+                # 避免误抓到别的说明表
+                if len(candidate) > 200:
+                    parsed_df = candidate.sort_values("date").reset_index(drop=True)
+                    break
+
+            if parsed_df is not None and not parsed_df.empty:
+                return parsed_df
+
+        except Exception:
+            continue
+
+    st.error("获取 LBMA Gold 数据失败。")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
 def get_gold_oil_ratio_data():
     """
-    获取 Gold / Oil Ratio 数据
-    Oil: DCOILWTICO (WTI)
-    Gold: 优先尝试 GOLDAMGBD228NLBM，若为空则回退 GOLDPMGBD228NLBM
+    Gold / Oil Ratio
+    Oil: FRED DCOILWTICO
+    Gold: LBMA Gold daily USD benchmark (via DBnomics mirror)
     返回列:
     ['date', 'gold_usd_per_oz', 'oil_usd_per_bbl', 'gold_oil_ratio']
     """
-    # WTI crude oil
     df_oil = _fetch_fred_series_observations(
         series_id="DCOILWTICO",
         value_col="oil_usd_per_bbl",
@@ -402,7 +488,28 @@ def get_gold_oil_ratio_data():
     )
 
     if df_oil.empty:
+        st.error("WTI 原油数据为空。")
         return pd.DataFrame()
+
+    df_gold = _fetch_lbma_gold_data()
+    if df_gold.empty:
+        st.error("黄金 benchmark 数据为空。")
+        return pd.DataFrame()
+
+    df = pd.merge(df_gold, df_oil, on="date", how="inner").sort_values("date")
+
+    df = df[
+        (df["gold_usd_per_oz"] > 0) &
+        (df["oil_usd_per_bbl"] > 0)
+    ].copy()
+
+    if df.empty:
+        st.warning("Gold 和 Oil 对齐后没有可用重叠数据。")
+        return pd.DataFrame()
+
+    df["gold_oil_ratio"] = df["gold_usd_per_oz"] / df["oil_usd_per_bbl"]
+
+    return df.reset_index(drop=True)
 
     # Gold benchmark: AM first, PM fallback
     gold_candidates = ["GOLDAMGBD228NLBM", "GOLDPMGBD228NLBM"]
