@@ -343,3 +343,95 @@ def get_fed_balance_sheet_data():
     except Exception as e:
         print(f"Error fetching Fed balance sheet data: {e}")
         return pd.DataFrame()
+
+@st.cache_data(ttl=60 * 60 * 6)
+def _fetch_fred_series_observations(series_id, value_col, observation_start="1990-01-01"):
+    """
+    通用 FRED series observations 拉取函数
+    返回列: ['date', value_col]
+    """
+    fred_api_key = _get_fred_api_key()
+    if not fred_api_key:
+        return pd.DataFrame()
+
+    url = "https://api.stlouisfed.org/fred/series/observations"
+    params = {
+        "series_id": series_id,
+        "api_key": fred_api_key,
+        "file_type": "json",
+        "observation_start": observation_start,
+        "sort_order": "asc",
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json().get("observations", [])
+
+        if not data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data)
+        df = df[df["value"] != "."].copy()
+
+        df["date"] = pd.to_datetime(df["date"])
+        df[value_col] = pd.to_numeric(df["value"], errors="coerce")
+        df = df.dropna(subset=[value_col])
+
+        return df[["date", value_col]].reset_index(drop=True)
+
+    except Exception as e:
+        st.error(f"获取 FRED 数据失败 ({series_id}): {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_gold_oil_ratio_data():
+    """
+    获取 Gold / Oil Ratio 数据
+    Oil: DCOILWTICO (WTI)
+    Gold: 优先尝试 GOLDAMGBD228NLBM，若为空则回退 GOLDPMGBD228NLBM
+    返回列:
+    ['date', 'gold_usd_per_oz', 'oil_usd_per_bbl', 'gold_oil_ratio']
+    """
+    # WTI crude oil
+    df_oil = _fetch_fred_series_observations(
+        series_id="DCOILWTICO",
+        value_col="oil_usd_per_bbl",
+        observation_start="1990-01-01",
+    )
+
+    if df_oil.empty:
+        return pd.DataFrame()
+
+    # Gold benchmark: AM first, PM fallback
+    gold_candidates = ["GOLDAMGBD228NLBM", "GOLDPMGBD228NLBM"]
+    df_gold = pd.DataFrame()
+
+    for series_id in gold_candidates:
+        df_gold = _fetch_fred_series_observations(
+            series_id=series_id,
+            value_col="gold_usd_per_oz",
+            observation_start="1990-01-01",
+        )
+        if not df_gold.empty:
+            break
+
+    if df_gold.empty:
+        return pd.DataFrame()
+
+    # 只保留两边都存在的数据日期
+    df = pd.merge(df_gold, df_oil, on="date", how="inner").sort_values("date")
+
+    # 避免除零和异常值
+    df = df[
+        (df["gold_usd_per_oz"] > 0) &
+        (df["oil_usd_per_bbl"] > 0)
+    ].copy()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df["gold_oil_ratio"] = df["gold_usd_per_oz"] / df["oil_usd_per_bbl"]
+
+    return df.reset_index(drop=True)
