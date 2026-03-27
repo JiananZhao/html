@@ -140,41 +140,41 @@ elif not FRED_API_KEY:
 else:
     st.info("失业率数据加载中或加载失败。")
 
-    # --- Fed Balance Sheet chart ---
-    if not df_fed_bs.empty:
-        st.subheader("Fed Balance Sheet")
+# --- Fed Balance Sheet chart ---
+if not df_fed_bs.empty:
+    st.subheader("Fed Balance Sheet")
 
-        y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
-        y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
+    y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
+    y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
 
-        manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
+    manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
 
-        fed_y_range = None
-        if manual_y and y_min_data < y_max_data:
-            fed_y_range = st.slider(
-                "Y 轴范围 (USD Trillions)",
-                min_value=round(y_min_data, 2),
-                max_value=round(y_max_data, 2),
-                value=(round(y_min_data, 2), round(y_max_data, 2)),
-                step=0.05,
-                key="fed_y_range",
-            )
-
-        fig_fed_bs = create_fed_balance_sheet_chart(
-            df_fed_bs,
-            y_range=fed_y_range
+    fed_y_range = None
+    if manual_y and y_min_data < y_max_data:
+        fed_y_range = st.slider(
+            "Y 轴范围 (USD Trillions)",
+            min_value=round(y_min_data, 2),
+            max_value=round(y_max_data, 2),
+            value=(round(y_min_data, 2), round(y_max_data, 2)),
+            step=0.05,
+            key="fed_y_range",
         )
 
-        st.plotly_chart(
-            fig_fed_bs,
-            use_container_width=True,
-            config={"scrollZoom": True}
-        )
+    fig_fed_bs = create_fed_balance_sheet_chart(
+        df_fed_bs,
+        y_range=fed_y_range
+    )
 
-    elif not FRED_API_KEY:
-        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
-    else:
-        st.info("Fed Balance Sheet 数据加载中或加载失败。")
+    st.plotly_chart(
+        fig_fed_bs,
+        use_container_width=True,
+        config={"scrollZoom": True}
+    )
+
+elif not FRED_API_KEY:
+    st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
+else:
+    st.info("Fed Balance Sheet 数据加载中或加载失败。")
 
 # ------------------------------------------------------------------
 # 2B. RIGHT COLUMN: Market Breadth + Credit Spread
