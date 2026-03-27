@@ -370,3 +370,78 @@ def create_fed_balance_sheet_chart(df_fed, y_range=None):
     )
 
     return fig
+
+def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
+    """
+    创建 Gold / Oil Ratio 图表
+    """
+    if df_ratio is None or df_ratio.empty:
+        return None
+
+    df_ratio = df_ratio.copy()
+    df_ratio["date"] = pd.to_datetime(df_ratio["date"])
+
+    fig = px.line(
+        df_ratio,
+        x="date",
+        y="gold_oil_ratio",
+        title="Gold / Oil Ratio",
+        labels={
+            "date": "Date",
+            "gold_oil_ratio": "Gold / Oil Ratio"
+        },
+        template="plotly_white"
+    )
+
+    fig.update_traces(
+        customdata=df_ratio[["gold_usd_per_oz", "oil_usd_per_bbl"]].to_numpy(),
+        hovertemplate=(
+            "Date=%{x|%Y-%m-%d}"
+            "<br>Gold/Oil Ratio=%{y:.2f}"
+            "<br>Gold=%{customdata[0]:.2f} USD/oz"
+            "<br>WTI=%{customdata[1]:.2f} USD/bbl"
+            "<extra></extra>"
+        )
+    )
+
+    median_ratio = float(df_ratio["gold_oil_ratio"].median())
+    fig.add_hline(
+        y=median_ratio,
+        line_dash="dot",
+        line_color="gray",
+        annotation_text=f"Median ({median_ratio:.2f})",
+        annotation_position="bottom left",
+    )
+
+    last_date = df_ratio["date"].max()
+    first_date = df_ratio["date"].min()
+    default_start = max(first_date, last_date - pd.DateOffset(years=5))
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=500,
+        yaxis_title="Gold / Oil Ratio",
+        uirevision="gold_oil_ratio_chart",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=3, label="3m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(count=10, label="10y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+
+    fig.update_yaxes(fixedrange=False)
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
+
+    return fig
