@@ -108,73 +108,73 @@ with col_treasury:
     st.plotly_chart(fig_treasury, use_container_width=True)
 
     # --- Unemployment chart ---
-if not df_unrate.empty:
-    st.subheader("UNRATE")
+    if not df_unrate.empty:
+        st.subheader("UNRATE")
 
-    y_min_unrate = float(df_unrate["Unemployment_Rate"].min())
-    y_max_unrate = float(df_unrate["Unemployment_Rate"].max())
+        y_min_unrate = float(df_unrate["Unemployment_Rate"].min())
+        y_max_unrate = float(df_unrate["Unemployment_Rate"].max())
 
-    manual_unrate_y = st.checkbox("手动设置失业率 Y 轴范围", key="unrate_manual_y")
+        manual_unrate_y = st.checkbox("手动设置失业率 Y 轴范围", key="unrate_manual_y")
 
-    unrate_y_range = None
-    if manual_unrate_y and y_min_unrate < y_max_unrate:
-        unrate_y_range = st.slider(
-            "失业率 Y 轴范围 (%)",
-            min_value=round(y_min_unrate, 2),
-            max_value=round(y_max_unrate, 2),
-            value=(round(y_min_unrate, 2), round(y_max_unrate, 2)),
-            step=0.1,
-            key="unrate_y_range",
+        unrate_y_range = None
+        if manual_unrate_y and y_min_unrate < y_max_unrate:
+            unrate_y_range = st.slider(
+                "失业率 Y 轴范围 (%)",
+                min_value=round(y_min_unrate, 2),
+                max_value=round(y_max_unrate, 2),
+                value=(round(y_min_unrate, 2), round(y_max_unrate, 2)),
+                step=0.1,
+                key="unrate_y_range",
+            )
+
+        fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
+
+        st.plotly_chart(
+            fig_unrate,
+            use_container_width=True,
+            config={"scrollZoom": True}
         )
 
-    fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示失业率数据。")
+    else:
+        st.info("失业率数据加载中或加载失败。")
 
-    st.plotly_chart(
-        fig_unrate,
-        use_container_width=True,
-        config={"scrollZoom": True}
-    )
+    # --- Fed Balance Sheet chart ---
+    if not df_fed_bs.empty:
+        st.subheader("Fed Balance Sheet")
 
-elif not FRED_API_KEY:
-    st.warning("请设置 FRED_API_KEY 以显示宏观经济指标。")
-else:
-    st.info("失业率数据加载中或加载失败。")
+        y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
+        y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
 
-# --- Fed Balance Sheet chart ---
-if not df_fed_bs.empty:
-    st.subheader("Fed Balance Sheet")
+        manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
 
-    y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
-    y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
+        fed_y_range = None
+        if manual_y and y_min_data < y_max_data:
+            fed_y_range = st.slider(
+                "Y 轴范围 (USD Trillions)",
+                min_value=round(y_min_data, 2),
+                max_value=round(y_max_data, 2),
+                value=(round(y_min_data, 2), round(y_max_data, 2)),
+                step=0.05,
+                key="fed_y_range",
+            )
 
-    manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
-
-    fed_y_range = None
-    if manual_y and y_min_data < y_max_data:
-        fed_y_range = st.slider(
-            "Y 轴范围 (USD Trillions)",
-            min_value=round(y_min_data, 2),
-            max_value=round(y_max_data, 2),
-            value=(round(y_min_data, 2), round(y_max_data, 2)),
-            step=0.05,
-            key="fed_y_range",
+        fig_fed_bs = create_fed_balance_sheet_chart(
+            df_fed_bs,
+            y_range=fed_y_range
         )
 
-    fig_fed_bs = create_fed_balance_sheet_chart(
-        df_fed_bs,
-        y_range=fed_y_range
-    )
+        st.plotly_chart(
+            fig_fed_bs,
+            use_container_width=True,
+            config={"scrollZoom": True}
+        )
 
-    st.plotly_chart(
-        fig_fed_bs,
-        use_container_width=True,
-        config={"scrollZoom": True}
-    )
-
-elif not FRED_API_KEY:
-    st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
-else:
-    st.info("Fed Balance Sheet 数据加载中或加载失败。")
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
+    else:
+        st.info("Fed Balance Sheet 数据加载中或加载失败。")
 
 # ------------------------------------------------------------------
 # 2B. RIGHT COLUMN: Market Breadth + Credit Spread
