@@ -374,12 +374,18 @@ def create_fed_balance_sheet_chart(df_fed, y_range=None):
 def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
     """
     创建 Gold / Oil Ratio 图表
+    DataFrame columns:
+    - date
+    - gold_usd_per_oz
+    - oil_usd_per_bbl
+    - gold_oil_ratio
     """
     if df_ratio is None or df_ratio.empty:
         return None
 
     df_ratio = df_ratio.copy()
     df_ratio["date"] = pd.to_datetime(df_ratio["date"])
+    df_ratio = df_ratio.sort_values("date")
 
     fig = px.line(
         df_ratio,
@@ -388,9 +394,9 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         title="Gold / Oil Ratio",
         labels={
             "date": "Date",
-            "gold_oil_ratio": "Gold / Oil Ratio"
+            "gold_oil_ratio": "Gold / Oil Ratio",
         },
-        template="plotly_white"
+        template="plotly_white",
     )
 
     fig.update_traces(
@@ -419,7 +425,7 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
 
     fig.update_layout(
         hovermode="x unified",
-        height=500,
+        height=420,
         yaxis_title="Gold / Oil Ratio",
         uirevision="gold_oil_ratio_chart",
         xaxis=dict(
