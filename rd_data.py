@@ -12,6 +12,7 @@ from visualization import (
     create_unemployment_chart,
     create_credit_spread_chart,
     create_fed_balance_sheet_chart,
+    create_gold_oil_ratio_chart,
 )
 from market_analysis import (
     get_sp500_stock_data,
@@ -21,6 +22,7 @@ from market_analysis import (
     get_unemployment_data,
     get_highyield_data,
     get_fed_balance_sheet_data,
+    get_gold_oil_ratio_data,
 )
 
 # ------------------------------------------------------------------
@@ -42,7 +44,6 @@ FRED_API_KEY = get_local_fred_api_key()
 # 1. INITIALIZATION and DATA ACQUISITION
 # ------------------------------------------------------------------
 
-# Default init
 current_sp500_symbols = get_sp500_symbols()
 stock_data = None
 breadth_history = pd.DataFrame()
@@ -51,9 +52,8 @@ fig_timeseries = None
 fig_bar = None
 
 df_unrate = pd.DataFrame()
-fig_unrate = None
-
 df_fed_bs = pd.DataFrame()
+df_gold_oil = pd.DataFrame()
 
 breadth_data = {
     "eligible_total": "N/A",
@@ -83,6 +83,10 @@ with st.spinner("正在获取 FRED 失业率数据..."):
 # 1D. Get Fed balance sheet data
 with st.spinner("正在获取 FRED 美联储资产负债表数据..."):
     df_fed_bs = get_fed_balance_sheet_data()
+
+# 1E. Get Gold / Oil Ratio data
+with st.spinner("正在获取 Gold / Oil Ratio 数据..."):
+    df_gold_oil = get_gold_oil_ratio_data()
 
 # ------------------------------------------------------------------
 # 2. LAYOUT
@@ -128,7 +132,6 @@ with col_treasury:
             )
 
         fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
-
         st.plotly_chart(
             fig_unrate,
             use_container_width=True,
@@ -147,12 +150,12 @@ with col_treasury:
         y_min_data = float(df_fed_bs["balance_sheet_tn"].min())
         y_max_data = float(df_fed_bs["balance_sheet_tn"].max())
 
-        manual_y = st.checkbox("手动设置 Y 轴范围", key="fed_manual_y")
+        manual_y = st.checkbox("手动设置 Fed Balance Sheet Y 轴范围", key="fed_manual_y")
 
         fed_y_range = None
         if manual_y and y_min_data < y_max_data:
             fed_y_range = st.slider(
-                "Y 轴范围 (USD Trillions)",
+                "Fed Balance Sheet Y 轴范围 (USD Trillions)",
                 min_value=round(y_min_data, 2),
                 max_value=round(y_max_data, 2),
                 value=(round(y_min_data, 2), round(y_max_data, 2)),
@@ -160,11 +163,7 @@ with col_treasury:
                 key="fed_y_range",
             )
 
-        fig_fed_bs = create_fed_balance_sheet_chart(
-            df_fed_bs,
-            y_range=fed_y_range
-        )
-
+        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
         st.plotly_chart(
             fig_fed_bs,
             use_container_width=True,
@@ -175,6 +174,38 @@ with col_treasury:
         st.warning("请设置 FRED_API_KEY 以显示 Fed Balance Sheet 数据。")
     else:
         st.info("Fed Balance Sheet 数据加载中或加载失败。")
+
+    # --- Gold / Oil Ratio chart ---
+    if not df_gold_oil.empty:
+        st.subheader("Gold / Oil Ratio")
+
+        ratio_min = float(df_gold_oil["gold_oil_ratio"].min())
+        ratio_max = float(df_gold_oil["gold_oil_ratio"].max())
+
+        manual_ratio_y = st.checkbox("手动设置金油比 Y 轴范围", key="gold_oil_manual_y")
+
+        ratio_y_range = None
+        if manual_ratio_y and ratio_min < ratio_max:
+            ratio_y_range = st.slider(
+                "Gold / Oil Ratio Y 轴范围",
+                min_value=round(ratio_min, 2),
+                max_value=round(ratio_max, 2),
+                value=(round(ratio_min, 2), round(ratio_max, 2)),
+                step=0.1,
+                key="gold_oil_y_range",
+            )
+
+        fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil, y_range=ratio_y_range)
+        st.plotly_chart(
+            fig_gold_oil,
+            use_container_width=True,
+            config={"scrollZoom": True}
+        )
+
+    elif not FRED_API_KEY:
+        st.warning("请设置 FRED_API_KEY 以显示 Gold / Oil Ratio 数据。")
+    else:
+        st.info("Gold / Oil Ratio 数据加载中或加载失败。")
 
 # ------------------------------------------------------------------
 # 2B. RIGHT COLUMN: Market Breadth + Credit Spread
@@ -233,3 +264,12 @@ if not df_fed_bs.empty:
     st.sidebar.header("Fed Balance Sheet")
     st.sidebar.markdown(f"最新日期: **{latest_fed_date}**")
     st.sidebar.markdown(f"总资产: **{latest_fed_assets:.2f}T USD**")
+
+if not df_gold_oil.empty:
+    latest_ratio_row = df_gold_oil.iloc[-1]
+
+    st.sidebar.header("Gold / Oil Ratio")
+    st.sidebar.markdown(f"最新日期: **{latest_ratio_row['date'].date()}**")
+    st.sidebar.markdown(f"金油比: **{latest_ratio_row['gold_oil_ratio']:.2f}**")
+    st.sidebar.markdown(f"Gold: **{latest_ratio_row['gold_usd_per_oz']:.2f} USD/oz**")
+    st.sidebar.markdown(f"WTI: **{latest_ratio_row['oil_usd_per_bbl']:.2f} USD/bbl**")
