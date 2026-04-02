@@ -442,7 +442,12 @@ def _fetch_lbma_gold_data():
 
     for url in urls:
         try:
-            tables = pd.read_html(url)
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            # 使用 StringIO 避免 Errno 2 错误
+            tables = pd.read_html(StringIO(response.text))
+            #tables = pd.read_html(url)
             if not tables:
                 continue
 
