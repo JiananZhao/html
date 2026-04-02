@@ -33,7 +33,9 @@ def get_sp500_symbols():
         response.raise_for_status() 
 
         # Use pandas to read the HTML content (response.text)
-        tables = pd.read_html(response.text)
+        #tables = pd.read_html(response.text)
+        html_data = StringIO(response.text)
+        tables = pd.read_html(html_data)
         
         sp500_table = None
         for table in tables:
