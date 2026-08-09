@@ -1,26 +1,50 @@
 import os
 import datetime
+import time
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 BREADTH_CSV = "market_breadth.csv"
 SYMBOLS_CSV = "sp500_symbols.csv"
+BATCH_SIZE = 100
+
+def get_retry_session():
+    """Configures a resilient requests session with exponential backoff retries."""
+    session = requests.Session()
+    retries = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        raise_on_status=False
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 def load_symbols():
+    """Loads tickers from sp500_symbols.csv or returns top S&P 500 components as fallback."""
     if os.path.exists(SYMBOLS_CSV) and os.path.getsize(SYMBOLS_CSV) > 10:
         try:
             df = pd.read_csv(SYMBOLS_CSV)
             if 'Symbol' in df.columns:
-                return df['Symbol'].dropna().tolist()
+                symbols = df['Symbol'].dropna().astype(str).str.strip().tolist()
             elif 'symbol' in df.columns:
-                return df['symbol'].dropna().tolist()
+                symbols = df['symbol'].dropna().astype(str).str.strip().tolist()
             else:
-                return df.iloc[:, 0].dropna().tolist()
+                symbols = df.iloc[:, 0].dropna().astype(str).str.strip().tolist()
+            
+            # Clean symbols for yfinance (replace dots with hyphens, e.g. BRK.B -> BRK-B)
+            symbols = [s.replace('.', '-') for s in symbols if s]
+            if len(symbols) > 0:
+                return symbols
         except Exception as e:
             print(f"Error loading {SYMBOLS_CSV}: {e}")
-    
-    # Default S&P 500 top components as fallback
+
     return [
         "AAPL", "MSFT", "AMZN", "NVDA", "GOOGL", "META", "TSLA", "BRK-B", "UNH", "JNJ",
         "JPM", "XOM", "V", "PG", "MA", "HD", "CVX", "LLY", "ABBV", "MRK",
@@ -28,6 +52,7 @@ def load_symbols():
     ]
 
 def get_last_processed_date():
+    """Returns the latest datetime recorded in market_breadth.csv."""
     if os.path.exists(BREADTH_CSV) and os.path.getsize(BREADTH_CSV) > 10:
         try:
             df = pd.read_csv(BREADTH_CSV)
@@ -38,6 +63,29 @@ def get_last_processed_date():
             print(f"Error reading {BREADTH_CSV}: {e}")
     return None
 
+def fetch_data_in_batches(symbols, start_date):
+    """Downloads price data in batches of BATCH_SIZE to avoid HTTP 429 rate limits."""
+    all_closes = []
+    
+    for i in range(0, len(symbols), BATCH_SIZE):
+        batch = symbols[i:i + BATCH_SIZE]
+        print(f"Downloading batch {i // BATCH_SIZE + 1}/{(len(symbols) - 1) // BATCH_SIZE + 1} ({len(batch)} symbols)...")
+        try:
+            df_batch = yf.download(batch, start=start_date, progress=False, threads=True)['Close']
+            if isinstance(df_batch, pd.Series):
+                df_batch = df_batch.to_frame()
+            all_closes.append(df_batch)
+        except Exception as e:
+            print(f"Warning: Failed batch download ({i}-{i+BATCH_SIZE}): {e}")
+        time.sleep(0.5)
+
+    if not all_closes:
+        return pd.DataFrame()
+
+    combined = pd.concat(all_closes, axis=1)
+    combined = combined.loc[:, ~combined.columns.duplicated()]
+    return combined
+
 def update_breadth():
     last_date = get_last_processed_date()
     today = pd.to_datetime(datetime.date.today())
@@ -47,34 +95,32 @@ def update_breadth():
         set_github_output("commit_needed", "false")
         return
 
-    print("Loading symbols...")
     symbols = load_symbols()
     print(f"Tracking {len(symbols)} symbols.")
 
-    # Fetch 10 years of historical data (3650 days)
     start_date = (today - datetime.timedelta(days=3650)).strftime('%Y-%m-%d')
     print(f"Fetching 10 years of market data starting from {start_date}...")
-    
-    try:
-        data = yf.download(symbols, start=start_date, progress=False)['Close']
-    except Exception as e:
-        print(f"Failed to download data from yfinance: {e}")
-        set_github_output("commit_needed", "false")
-        return
+
+    data = fetch_data_in_batches(symbols, start_date)
 
     if data.empty:
         print("No market data retrieved.")
         set_github_output("commit_needed", "false")
         return
 
-    # Compute moving averages
-    ma20 = data.rolling(window=20).mean()
-    ma50 = data.rolling(window=50).mean()
-    ma200 = data.rolling(window=200).mean()
+    data = data.sort_index().dropna(how='all')
 
-    pct_above_20 = (data > ma20).sum(axis=1) / data.notna().sum(axis=1) * 100
-    pct_above_50 = (data > ma50).sum(axis=1) / data.notna().sum(axis=1) * 100
-    pct_above_200 = (data > ma200).sum(axis=1) / data.notna().sum(axis=1) * 100
+    # Compute moving averages
+    ma20 = data.rolling(window=20, min_periods=10).mean()
+    ma50 = data.rolling(window=50, min_periods=25).mean()
+    ma200 = data.rolling(window=200, min_periods=100).mean()
+
+    valid_counts = data.notna().sum(axis=1)
+    valid_mask = valid_counts > 0
+
+    pct_above_20 = ((data > ma20).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
+    pct_above_50 = ((data > ma50).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
+    pct_above_200 = ((data > ma200).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
 
     daily_returns = data.pct_change()
     advances = (daily_returns > 0).sum(axis=1)
@@ -91,7 +137,9 @@ def update_breadth():
         'ad_ratio': ad_ratio.round(2).fillna(0).values
     })
 
-    # Filter for new dates
+    # Drop rows where all MA percentages are NaN (e.g. invalid dates)
+    breadth_df = breadth_df.dropna(subset=['pct_above_20ma', 'pct_above_50ma', 'pct_above_200ma'], how='all')
+
     if last_date is not None:
         breadth_df['dt'] = pd.to_datetime(breadth_df['date'])
         new_records = breadth_df[breadth_df['dt'] > last_date].drop(columns=['dt'])
