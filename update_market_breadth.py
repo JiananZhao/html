@@ -51,9 +51,9 @@ def update_breadth():
     symbols = load_symbols()
     print(f"Tracking {len(symbols)} symbols.")
 
-    # Download 1-2 years of price history to calculate 200MA accurately
-    start_date = (today - datetime.timedelta(days=400)).strftime('%Y-%m-%d')
-    print(f"Fetching market data from {start_date}...")
+    # Fetch 10 years of historical data (3650 days)
+    start_date = (today - datetime.timedelta(days=3650)).strftime('%Y-%m-%d')
+    print(f"Fetching 10 years of market data starting from {start_date}...")
     
     try:
         data = yf.download(symbols, start=start_date, progress=False)['Close']
@@ -111,7 +111,7 @@ def update_breadth():
 
     combined.to_csv(BREADTH_CSV, index=False)
     latest_date_str = combined['date'].iloc[-1]
-    print(f"Successfully updated {BREADTH_CSV} with latest date: {latest_date_str}")
+    print(f"Successfully updated {BREADTH_CSV} (total rows: {len(combined)}) with latest date: {latest_date_str}")
 
     set_github_output("commit_needed", "true")
     set_github_env("LATEST_DATE", latest_date_str)
