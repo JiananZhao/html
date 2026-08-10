@@ -3,13 +3,15 @@ import datetime
 import requests
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import streamlit as st
 
 # ------------------------------------------------------------------
-# 1. 图表渲染组件导入 (仅导入 visualization.py 中实际存在的函数)
+# 1. 国债收益率数据转换模块与原版图表渲染模块 (还原原版收益率曲线)
 # ------------------------------------------------------------------
+from data_processing import load_and_transform_data
+
 from visualization import (
+    create_treasury_chart,
     create_unemployment_chart,
     create_credit_spread_chart,
     create_fed_balance_sheet_chart,
@@ -17,9 +19,10 @@ from visualization import (
 )
 
 # ------------------------------------------------------------------
-# 2. 市场数据与市场宽度组件导入
+# 2. 市场数据与新版市场宽度 UI 组件
 # ------------------------------------------------------------------
 from market_analysis import (
+    get_sp500_symbols,
     get_sp500_stock_data,
 )
 
@@ -30,55 +33,7 @@ from market_breadth_viz import (
 )
 
 # ------------------------------------------------------------------
-# 3. 本地定义的国债收益率图表生成函数 (解决 create_treasury_chart ImportError)
-# ------------------------------------------------------------------
-def create_treasury_chart(df_treasury: pd.DataFrame):
-    if df_treasury is None or df_treasury.empty:
-        return None
-    df = df_treasury.copy()
-    df["Date"] = pd.to_datetime(df["Date"])
-    rate_cols = [
-        c for c in ["1 Mo", "3 Mo", "6 Mo", "1 Yr", "2 Yr", "3 Yr", "5 Yr", "7 Yr", "10 Yr", "20 Yr", "30 Yr"]
-        if c in df.columns
-    ]
-    if not rate_cols:
-        return None
-
-    fig = px.line(
-        df,
-        x="Date",
-        y=rate_cols,
-        title="US Treasury Yield Curve (国债收益率曲线)",
-        labels={"value": "Yield (%)", "variable": "Maturity", "Date": "Date"},
-        template="plotly_white",
-    )
-    
-    last_date = df["Date"].max()
-    default_start = max(df["Date"].min(), last_date - pd.DateOffset(years=3))
-
-    fig.update_layout(
-        hovermode="x unified",
-        height=450,
-        yaxis_title="Yield (%)",
-        uirevision="treasury_chart",
-        xaxis=dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=3, label="3y", step="year", stepmode="backward"),
-                    dict(step="all", label="all"),
-                ])
-            ),
-            rangeslider=dict(visible=True, thickness=0.07),
-            range=[default_start, last_date],
-        ),
-    )
-    return fig
-
-# ------------------------------------------------------------------
-# 4. FRED 宏观经济数据获取辅助函数
+# 3. FRED 宏观经济数据辅助获取函数
 # ------------------------------------------------------------------
 def _get_fred_api_key():
     try:
@@ -138,41 +93,65 @@ def get_fed_balance_sheet_data():
         return df[["date", "balance_sheet_tn"]].reset_index(drop=True)
     return pd.DataFrame()
 
+@st.cache_data(ttl=60 * 60 * 6)
+def get_gold_oil_ratio_data():
+    df_oil = _fetch_fred_series_observations("DCOILWTICO", "oil_usd_per_bbl", "1990-01-01")
+    if df_oil.empty:
+        return pd.DataFrame()
+    
+    try:
+        import yfinance as yf
+        gold_df = yf.download("GC=F", start="1990-01-01", progress=False)["Close"]
+        if not gold_df.empty:
+            gold_df = gold_df.reset_index()
+            gold_df.columns = ["date", "gold_usd_per_oz"]
+            gold_df["date"] = pd.to_datetime(gold_df["date"])
+            df_merged = pd.merge(gold_df, df_oil, on="date", how="inner").sort_values("date")
+            df_merged["gold_oil_ratio"] = df_merged["gold_usd_per_oz"] / df_merged["oil_usd_per_bbl"]
+            return df_merged.dropna().reset_index(drop=True)
+    except Exception:
+        pass
+    return pd.DataFrame()
+
 # ------------------------------------------------------------------
-# 5. Streamlit 主页面应用渲染
+# 4. Streamlit 主页面应用渲染
 # ------------------------------------------------------------------
 st.set_page_config(page_title="Financial Data Dashboard", layout="wide")
 
 st.title("📈 宏观经济与市场宽度量化看板")
 
-# 侧边栏及提示
+# 侧边栏
 FRED_API_KEY = _get_fred_api_key()
 if not FRED_API_KEY:
-    st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，宏观数据功能受限。")
+    st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，部分宏观功能受限。")
 
-# --- 1. S&P 500 市场宽度渲染 ---
+# --- 1. 原版国债收益率曲线图表 (还原使用原版 data_processing.load_and_transform_data 和 visualization.create_treasury_chart) ---
+st.markdown("---")
+st.header("📊 美债收益率曲线 (Yield Curve)")
+
+with st.spinner("正在获取并转换国债收益率数据..."):
+    df_long = load_and_transform_data()
+
+if df_long is not None and not df_long.empty:
+    fig_treasury = create_treasury_chart(df_long)
+    if fig_treasury:
+        st.plotly_chart(fig_treasury, use_container_width=True)
+    
+    latest_date = df_long['Date'].max().date()
+    st.sidebar.header("国债数据信息")
+    st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
+    st.sidebar.markdown(f"最新日期: **{latest_date}**")
+else:
+    st.error("未能加载国债收益率数据，请检查 daily-treasury-rates.csv 文件。")
+
+# --- 2. S&P 500 市场宽度分析模块 ---
 st.markdown("---")
 render_market_breadth_ui()
 
-# --- 2. 宏观数据渲染 (国债收益率/失业率/美联储资产负债表) ---
+# --- 3. FRED 宏观经济数据 (失业率、资产负债表、金油比) ---
 st.markdown("---")
-st.header("📊 宏观经济与美债收益率追踪")
+st.header("📊 宏观指标与流动性追踪")
 
-# 尝试获取美债数据
-treasury_csv = "daily-treasury-rates.csv"
-if os.path.exists(treasury_csv) and os.path.getsize(treasury_csv) > 10:
-    try:
-        df_treasury = pd.read_csv(treasury_csv)
-        if "Date" in df_treasury.columns:
-            df_treasury["Date"] = pd.to_datetime(df_treasury["Date"])
-            df_treasury = df_treasury.sort_values("Date")
-            fig_treasury = create_treasury_chart(df_treasury)
-            if fig_treasury:
-                st.plotly_chart(fig_treasury, use_container_width=True)
-    except Exception as e:
-        st.warning(f"读取国债收益率文件异常: {e}")
-
-# FRED 宏观图表（失业率与资产负债表）
 col1, col2 = st.columns(2)
 
 with col1:
@@ -183,7 +162,7 @@ with col1:
         if fig_unrate:
             st.plotly_chart(fig_unrate, use_container_width=True)
     else:
-        st.info("失业率数据无可用缓存或加载中。")
+        st.info("失业率数据加载中或不可用。")
 
 with col2:
     df_fed_bs = get_fed_balance_sheet_data()
@@ -193,4 +172,12 @@ with col2:
         if fig_fed_bs:
             st.plotly_chart(fig_fed_bs, use_container_width=True)
     else:
-        st.info("美联储资产负债表数据无可用缓存或加载中。")
+        st.info("美联储资产负债表数据加载中或不可用。")
+
+# 金油比
+df_gold_oil = get_gold_oil_ratio_data()
+if not df_gold_oil.empty:
+    st.subheader("Gold / Oil Ratio (金油比)")
+    fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil)
+    if fig_gold_oil:
+        st.plotly_chart(fig_gold_oil, use_container_width=True)
