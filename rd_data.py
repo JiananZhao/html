@@ -6,7 +6,7 @@ import numpy as np
 import streamlit as st
 
 # ------------------------------------------------------------------
-# 1. 国债收益率数据转换模块与原版图表渲染模块 (还原原版收益率曲线)
+# 1. 国债收益率数据转换与原版收益率曲线图表渲染
 # ------------------------------------------------------------------
 from data_processing import load_and_transform_data
 
@@ -19,7 +19,7 @@ from visualization import (
 )
 
 # ------------------------------------------------------------------
-# 2. 市场数据与新版市场宽度 UI 组件
+# 2. 市场分析与新版市场宽度 UI 组件
 # ------------------------------------------------------------------
 from market_analysis import (
     get_sp500_symbols,
@@ -33,7 +33,7 @@ from market_breadth_viz import (
 )
 
 # ------------------------------------------------------------------
-# 3. FRED 宏观经济数据辅助获取函数
+# 3. FRED 宏观经济数据获取辅助函数
 # ------------------------------------------------------------------
 def _get_fred_api_key():
     try:
@@ -125,7 +125,7 @@ FRED_API_KEY = _get_fred_api_key()
 if not FRED_API_KEY:
     st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，部分宏观功能受限。")
 
-# --- 1. 原版国债收益率曲线图表 (还原使用原版 data_processing.load_and_transform_data 和 visualization.create_treasury_chart) ---
+# --- 1. 原版国债收益率曲线图表 (使用原版 load_and_transform_data 和 visualization.create_treasury_chart) ---
 st.markdown("---")
 st.header("📊 美债收益率曲线 (Yield Curve)")
 
