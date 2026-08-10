@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import requests
+from io import StringIO
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -26,42 +27,64 @@ def get_retry_session():
     session.mount("https://", adapter)
     return session
 
+def fetch_sp500_symbols_online():
+    """Fetches full S&P 500 component ticker list from Wikipedia and online datasets."""
+    urls = [
+        "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+        "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    ]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    session = get_retry_session()
+
+    # 1. Try dataset CSV first
+    try:
+        res = session.get(urls[0], headers=headers, timeout=15)
+        if res.status_code == 200 and len(res.text) > 100:
+            df = pd.read_csv(StringIO(res.text))
+            if 'Symbol' in df.columns:
+                symbols = [s.replace('.', '-') for s in df['Symbol'].dropna().astype(str).str.strip() if s]
+                if len(symbols) > 400:
+                    print(f"Loaded {len(symbols)} S&P 500 symbols from online dataset.")
+                    return symbols
+    except Exception as e:
+        print(f"Online dataset fetch failed: {e}")
+
+    # 2. Try Wikipedia
+    try:
+        res = session.get(urls[1], headers=headers, timeout=15)
+        if res.status_code == 200:
+            tables = pd.read_html(StringIO(res.text))
+            for tbl in tables:
+                if 'Symbol' in tbl.columns:
+                    symbols = [s.replace('.', '-') for s in tbl['Symbol'].dropna().astype(str).str.strip() if s]
+                    if len(symbols) > 400:
+                        print(f"Loaded {len(symbols)} S&P 500 symbols from Wikipedia.")
+                        return symbols
+    except Exception as e:
+        print(f"Wikipedia fetch failed: {e}")
+
+    return []
+
 def load_symbols():
-    """Loads tickers from sp500_symbols.csv or returns top S&P 500 components as fallback."""
-    if os.path.exists(SYMBOLS_CSV) and os.path.getsize(SYMBOLS_CSV) > 10:
+    """Loads symbols from online sources, saves to sp500_symbols.csv, or loads from existing local file."""
+    symbols = fetch_sp500_symbols_online()
+    if len(symbols) > 400:
+        pd.DataFrame(symbols, columns=['Symbol']).to_csv(SYMBOLS_CSV, index=False)
+        print(f"Saved {len(symbols)} tickers to {SYMBOLS_CSV}")
+        return symbols
+
+    if os.path.exists(SYMBOLS_CSV) and os.path.getsize(SYMBOLS_CSV) > 500:
         try:
             df = pd.read_csv(SYMBOLS_CSV)
-            if 'Symbol' in df.columns:
-                symbols = df['Symbol'].dropna().astype(str).str.strip().tolist()
-            elif 'symbol' in df.columns:
-                symbols = df['symbol'].dropna().astype(str).str.strip().tolist()
-            else:
-                symbols = df.iloc[:, 0].dropna().astype(str).str.strip().tolist()
-            
-            # Clean symbols for yfinance (replace dots with hyphens, e.g. BRK.B -> BRK-B)
-            symbols = [s.replace('.', '-') for s in symbols if s]
-            if len(symbols) > 0:
+            col = 'Symbol' if 'Symbol' in df.columns else df.columns[0]
+            symbols = [s.replace('.', '-') for s in df[col].dropna().astype(str).str.strip() if s]
+            if len(symbols) > 400:
+                print(f"Loaded {len(symbols)} tickers from {SYMBOLS_CSV}")
                 return symbols
         except Exception as e:
-            print(f"Error loading {SYMBOLS_CSV}: {e}")
+            print(f"Error reading {SYMBOLS_CSV}: {e}")
 
-    return [
-        "AAPL", "MSFT", "AMZN", "NVDA", "GOOGL", "META", "TSLA", "BRK-B", "UNH", "JNJ",
-        "JPM", "XOM", "V", "PG", "MA", "HD", "CVX", "LLY", "ABBV", "MRK",
-        "PEP", "KO", "BAC", "WMT", "TMO", "MCD", "CSCO", "ACN", "ABT", "PFE"
-    ]
-
-def get_last_processed_date():
-    """Returns the latest datetime recorded in market_breadth.csv."""
-    if os.path.exists(BREADTH_CSV) and os.path.getsize(BREADTH_CSV) > 10:
-        try:
-            df = pd.read_csv(BREADTH_CSV)
-            if 'date' in df.columns and len(df) > 0:
-                df['date'] = pd.to_datetime(df['date'])
-                return df['date'].max()
-        except Exception as e:
-            print(f"Error reading {BREADTH_CSV}: {e}")
-    return None
+    raise RuntimeError("Failed to obtain full S&P 500 constituent list (>400 stocks required).")
 
 def fetch_data_in_batches(symbols, start_date):
     """Downloads price data in batches of BATCH_SIZE to avoid HTTP 429 rate limits."""
@@ -87,19 +110,14 @@ def fetch_data_in_batches(symbols, start_date):
     return combined
 
 def update_breadth():
-    last_date = get_last_processed_date()
-    today = pd.to_datetime(datetime.date.today())
-
-    if last_date is not None and last_date.date() >= today.date():
-        print(f"Market breadth data is up-to-date ({last_date.strftime('%Y-%m-%d')}). No update needed.")
-        set_github_output("commit_needed", "false")
-        return
-
+    print("Loading full S&P 500 constituent list...")
     symbols = load_symbols()
-    print(f"Tracking {len(symbols)} symbols.")
+    print(f"Successfully tracking {len(symbols)} S&P 500 constituent symbols.")
 
-    start_date = (today - datetime.timedelta(days=3650)).strftime('%Y-%m-%d')
-    print(f"Fetching 10 years of market data starting from {start_date}...")
+    today = pd.to_datetime(datetime.date.today())
+    # 10 years + 300 days for 200MA warmup
+    start_date = (today - datetime.timedelta(days=3650 + 300)).strftime('%Y-%m-%d')
+    print(f"Re-calculating full 10-year market breadth starting from {start_date}...")
 
     data = fetch_data_in_batches(symbols, start_date)
 
@@ -110,13 +128,14 @@ def update_breadth():
 
     data = data.sort_index().dropna(how='all')
 
-    # Compute moving averages
-    ma20 = data.rolling(window=20, min_periods=10).mean()
-    ma50 = data.rolling(window=50, min_periods=25).mean()
-    ma200 = data.rolling(window=200, min_periods=100).mean()
+    # Compute moving averages across ALL 500+ constituents
+    ma20 = data.rolling(window=20, min_periods=15).mean()
+    ma50 = data.rolling(window=50, min_periods=35).mean()
+    ma200 = data.rolling(window=200, min_periods=150).mean()
 
+    # Count valid (non-NaN) prices per date across constituents
     valid_counts = data.notna().sum(axis=1)
-    valid_mask = valid_counts > 0
+    valid_mask = valid_counts >= 100  # Must have at least 100 constituents active on trading day
 
     pct_above_20 = ((data > ma20).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
     pct_above_50 = ((data > ma50).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
@@ -125,7 +144,7 @@ def update_breadth():
     daily_returns = data.pct_change()
     advances = (daily_returns > 0).sum(axis=1)
     declines = (daily_returns < 0).sum(axis=1)
-    ad_ratio = advances / declines.replace(0, np.nan)
+    ad_ratio = (advances / declines.replace(0, np.nan)).fillna(0).round(2)
 
     breadth_df = pd.DataFrame({
         'date': data.index.strftime('%Y-%m-%d'),
@@ -134,46 +153,22 @@ def update_breadth():
         'pct_above_200ma': pct_above_200.round(2).values,
         'advances': advances.values,
         'declines': declines.values,
-        'ad_ratio': ad_ratio.round(2).fillna(0).values
+        'ad_ratio': ad_ratio.values
     })
 
-    # Drop rows where all MA percentages are NaN (e.g. invalid dates)
-    breadth_df = breadth_df.dropna(subset=['pct_above_20ma', 'pct_above_50ma', 'pct_above_200ma'], how='all')
+    # Drop dates where moving averages are incomplete
+    breadth_df = breadth_df.dropna(subset=['pct_above_20ma', 'pct_above_50ma', 'pct_above_200ma'], how='all').reset_index(drop=True)
 
-    if last_date is not None:
-        breadth_df['dt'] = pd.to_datetime(breadth_df['date'])
-        new_records = breadth_df[breadth_df['dt'] > last_date].drop(columns=['dt'])
-    else:
-        new_records = breadth_df
-
-    if new_records.empty:
-        print("No new breadth records generated.")
-        set_github_output("commit_needed", "false")
-        return
-
-    if os.path.exists(BREADTH_CSV) and os.path.getsize(BREADTH_CSV) > 10:
-        df_existing = pd.read_csv(BREADTH_CSV)
-        combined = pd.concat([df_existing, new_records]).drop_duplicates(subset=['date']).sort_values('date')
-    else:
-        combined = new_records
-
-    combined.to_csv(BREADTH_CSV, index=False)
-    latest_date_str = combined['date'].iloc[-1]
-    print(f"Successfully updated {BREADTH_CSV} (total rows: {len(combined)}) with latest date: {latest_date_str}")
+    # Save complete 10-year market_breadth.csv
+    breadth_df.to_csv(BREADTH_CSV, index=False)
+    print(f"Successfully generated 10-year market breadth dataset ({len(breadth_df)} trading days) and saved to {BREADTH_CSV}")
 
     set_github_output("commit_needed", "true")
-    set_github_env("LATEST_DATE", latest_date_str)
 
 def set_github_output(name, value):
     github_output = os.environ.get('GITHUB_OUTPUT')
     if github_output:
         with open(github_output, 'a') as f:
-            f.write(f"{name}={value}\n")
-
-def set_github_env(name, value):
-    github_env = os.environ.get('GITHUB_ENV')
-    if github_env:
-        with open(github_env, 'a') as f:
             f.write(f"{name}={value}\n")
 
 if __name__ == "__main__":
