@@ -3,13 +3,13 @@ import datetime
 import requests
 import pandas as pd
 import numpy as np
+import plotly.express as px
 import streamlit as st
 
 # ------------------------------------------------------------------
-# 1. 图表渲染组件导入
+# 1. 图表渲染组件导入 (仅导入 visualization.py 中实际存在的函数)
 # ------------------------------------------------------------------
 from visualization import (
-    create_treasury_chart,
     create_unemployment_chart,
     create_credit_spread_chart,
     create_fed_balance_sheet_chart,
@@ -30,7 +30,55 @@ from market_breadth_viz import (
 )
 
 # ------------------------------------------------------------------
-# 3. FRED 宏观经济数据获取辅助函数
+# 3. 本地定义的国债收益率图表生成函数 (解决 create_treasury_chart ImportError)
+# ------------------------------------------------------------------
+def create_treasury_chart(df_treasury: pd.DataFrame):
+    if df_treasury is None or df_treasury.empty:
+        return None
+    df = df_treasury.copy()
+    df["Date"] = pd.to_datetime(df["Date"])
+    rate_cols = [
+        c for c in ["1 Mo", "3 Mo", "6 Mo", "1 Yr", "2 Yr", "3 Yr", "5 Yr", "7 Yr", "10 Yr", "20 Yr", "30 Yr"]
+        if c in df.columns
+    ]
+    if not rate_cols:
+        return None
+
+    fig = px.line(
+        df,
+        x="Date",
+        y=rate_cols,
+        title="US Treasury Yield Curve (国债收益率曲线)",
+        labels={"value": "Yield (%)", "variable": "Maturity", "Date": "Date"},
+        template="plotly_white",
+    )
+    
+    last_date = df["Date"].max()
+    default_start = max(df["Date"].min(), last_date - pd.DateOffset(years=3))
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="Yield (%)",
+        uirevision="treasury_chart",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1m", step="month", stepmode="backward"),
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 4. FRED 宏观经济数据获取辅助函数
 # ------------------------------------------------------------------
 def _get_fred_api_key():
     try:
@@ -91,7 +139,7 @@ def get_fed_balance_sheet_data():
     return pd.DataFrame()
 
 # ------------------------------------------------------------------
-# 4. Streamlit 主页面应用渲染
+# 5. Streamlit 主页面应用渲染
 # ------------------------------------------------------------------
 st.set_page_config(page_title="Financial Data Dashboard", layout="wide")
 
