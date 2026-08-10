@@ -11,7 +11,7 @@ import streamlit as st
 # ------------------------------------------------------------------
 def create_treasury_chart(df_long: pd.DataFrame):
     """
-    生成原版国债收益率曲线图表
+    绘制原版国债收益率曲线图表
     对比最新、1个月前及1年前的收益率形态演变（X轴为期限，Y轴为收益率%）
     """
     if df_long is None or df_long.empty:
@@ -54,17 +54,37 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
     if df_unrate is None or df_unrate.empty:
         return None
 
+    df = df_unrate.copy()
+
+    # 安全确定日期列和最新日期 (适配 date 列与 RangeIndex 索引)
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'Unemployment_Rate' if 'Unemployment_Rate' in df.columns else df.columns[1]
+
+    df = df.sort_values(date_col)
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+
     fig = px.line(
-        df_unrate,
-        x=df_unrate.index,
-        y='Unemployment_Rate',
+        df,
+        x=date_col,
+        y=val_col,
         title='UNRATE (美国失业率)',
-        labels={'Unemployment_Rate': '失业率 (%)'},
+        labels={val_col: '失业率 (%)', date_col: '日期'},
         template="plotly_white",
         line_shape='spline'
     )
 
-    avg_rate = df_unrate['Unemployment_Rate'].mean()
+    avg_rate = df[val_col].mean()
     fig.add_hline(
         y=avg_rate,
         line_dash="dot",
@@ -72,6 +92,8 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
         annotation_text=f"历史平均值 ({avg_rate:.1f}%)",
         annotation_position="bottom left",
     )
+
+    default_start = max(first_date, last_date - pd.DateOffset(years=10))
 
     fig.update_layout(
         xaxis=dict(
@@ -84,7 +106,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
                 ])
             ),
             rangeslider=dict(visible=True, thickness=0.07),
-            range=[df_unrate.index[-1] - pd.DateOffset(years=10), df_unrate.index[-1]]
+            range=[default_start, last_date]
         ),
         hovermode="x unified",
         height=550,
@@ -107,14 +129,35 @@ def create_credit_spread_chart(df_data: pd.DataFrame):
     if df_data is None or df_data.empty:
         return None
 
+    df = df_data.copy()
+
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'Value' if 'Value' in df.columns else df.columns[1]
+
+    df = df.sort_values(date_col)
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+
     fig = px.line(
-        df_data,
-        x=df_data.index,
-        y='Value',
+        df,
+        x=date_col,
+        y=val_col,
         title='US High Yield Option-Adjusted Spread (高收益债信用利差)',
-        labels={'Value': '利差 (%)'},
+        labels={val_col: '利差 (%)', date_col: '日期'},
         template="plotly_white"
     )
+
+    default_start = max(first_date, last_date - pd.DateOffset(years=5))
 
     fig.update_layout(
         xaxis=dict(
@@ -126,11 +169,10 @@ def create_credit_spread_chart(df_data: pd.DataFrame):
                 ])
             ),
             rangeslider=dict(visible=True, thickness=0.07),
-            range=[df_data.index[-1] - pd.DateOffset(years=1), df_data.index[-1]]
+            range=[default_start, last_date]
         ),
         hovermode="x unified",
         height=550,
-        yaxis_range=[1.0, 5.0],
         template="plotly_white"
     )
     return fig
@@ -143,22 +185,43 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
         return None
 
     df_fed = df_fed.copy()
-    df_fed["date"] = pd.to_datetime(df_fed["date"])
+
+    if 'date' in df_fed.columns:
+        date_col = 'date'
+        df_fed[date_col] = pd.to_datetime(df_fed[date_col])
+    elif 'Date' in df_fed.columns:
+        date_col = 'Date'
+        df_fed[date_col] = pd.to_datetime(df_fed[date_col])
+    else:
+        df_fed = df_fed.reset_index()
+        date_col = df_fed.columns[0]
+        df_fed[date_col] = pd.to_datetime(df_fed[date_col])
+
+    val_col = 'balance_sheet_tn' if 'balance_sheet_tn' in df_fed.columns else df_fed.columns[1]
+
+    df_fed = df_fed.sort_values(date_col)
+    last_date = df_fed[date_col].max()
+    first_date = df_fed[date_col].min()
 
     fig = px.line(
         df_fed,
-        x="date",
-        y="balance_sheet_tn",
+        x=date_col,
+        y=val_col,
         title="Fed Balance Sheet (美联储总资产, 万亿美元)",
-        labels={"date": "Date", "balance_sheet_tn": "Total Assets (Trillion USD)"},
+        labels={date_col: "Date", val_col: "Total Assets (Trillion USD)"},
         template="plotly_white"
     )
+
+    default_start = max(first_date, last_date - pd.DateOffset(years=10))
 
     fig.update_layout(
         hovermode="x unified",
         height=500,
         yaxis_title="Total Assets (Trillion USD)",
-        uirevision="fed_balance_sheet_chart"
+        uirevision="fed_balance_sheet_chart",
+        xaxis=dict(
+            range=[default_start, last_date]
+        )
     )
 
     fig.update_yaxes(fixedrange=False)
@@ -177,15 +240,26 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         return None
 
     df_ratio = df_ratio.copy()
-    df_ratio["date"] = pd.to_datetime(df_ratio["date"])
-    df_ratio = df_ratio.sort_values("date")
+
+    if 'date' in df_ratio.columns:
+        date_col = 'date'
+        df_ratio[date_col] = pd.to_datetime(df_ratio[date_col])
+    elif 'Date' in df_ratio.columns:
+        date_col = 'Date'
+        df_ratio[date_col] = pd.to_datetime(df_ratio[date_col])
+    else:
+        df_ratio = df_ratio.reset_index()
+        date_col = df_ratio.columns[0]
+        df_ratio[date_col] = pd.to_datetime(df_ratio[date_col])
+
+    df_ratio = df_ratio.sort_values(date_col)
 
     fig = px.line(
         df_ratio,
-        x="date",
+        x=date_col,
         y="gold_oil_ratio",
         title="Gold / Oil Ratio (金油比)",
-        labels={"date": "Date", "gold_oil_ratio": "Gold / Oil Ratio"},
+        labels={date_col: "Date", "gold_oil_ratio": "Gold / Oil Ratio"},
         template="plotly_white"
     )
 
@@ -210,8 +284,8 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         annotation_position="bottom left",
     )
 
-    last_date = df_ratio["date"].max()
-    first_date = df_ratio["date"].min()
+    last_date = df_ratio[date_col].max()
+    first_date = df_ratio[date_col].min()
     default_start = max(first_date, last_date - pd.DateOffset(years=5))
 
     fig.update_layout(
