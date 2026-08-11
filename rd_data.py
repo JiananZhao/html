@@ -1,16 +1,15 @@
 import os
+import sys
 import datetime
-import requests
+import urllib.request
 import pandas as pd
 import numpy as np
 import streamlit as st
 from zoneinfo import ZoneInfo
 
-# ------------------------------------------------------------------
-# 1. 国债收益率数据转换与原版收益率曲线图表渲染
-# ------------------------------------------------------------------
 from data_processing import load_and_transform_data
-
+from market_breadth_viz import render_market_breadth_ui
+from market_analysis import get_highyield_data
 from visualization import (
     create_treasury_chart,
     create_unemployment_chart,
@@ -25,21 +24,7 @@ from visualization import (
 )
 
 # ------------------------------------------------------------------
-# 2. 市场分析与新版市场宽度 UI 组件
-# ------------------------------------------------------------------
-from market_analysis import (
-    get_sp500_symbols,
-    get_sp500_stock_data,
-)
-
-from market_breadth_viz import (
-    render_market_breadth_ui,
-    create_market_breadth_chart,
-    load_market_breadth_data,
-)
-
-# ------------------------------------------------------------------
-# 3. 辅助函数：严格转换为美东时间 (US/Eastern - America/New_York, EDT)
+# 1. 辅助函数：严格转换为美东时间 (US/Eastern - America/New_York, EDT)
 # ------------------------------------------------------------------
 def get_eastern_now():
     try:
@@ -67,52 +52,58 @@ def _get_fred_api_key():
     except Exception:
         return os.getenv("FRED_API_KEY", "")
 
+# ------------------------------------------------------------------
+# 2. FRED 核心宏观、微观流动性与持仓集中度函数
+# ------------------------------------------------------------------
 @st.cache_data(ttl=60 * 60 * 6)
 def _fetch_fred_series_observations(series_id, value_col, observation_start="2000-01-01"):
     fred_api_key = _get_fred_api_key()
-    if not fred_api_key:
-        return pd.DataFrame()
+    if fred_api_key:
+        try:
+            import requests
+            url = "https://api.stlouisfed.org/fred/series/observations"
+            params = {
+                "series_id": series_id,
+                "api_key": fred_api_key,
+                "file_type": "json",
+                "observation_start": observation_start,
+                "sort_order": "asc",
+            }
+            response = requests.get(url, params=params, timeout=15)
+            if response.status_code == 200:
+                data = response.json().get("observations", [])
+                if data:
+                    df = pd.DataFrame(data)
+                    df = df[df["value"] != "."].copy()
+                    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                    df[value_col] = pd.to_numeric(df["value"], errors="coerce")
+                    df = df.dropna(subset=["date", value_col])
+                    return df[["date", value_col]].reset_index(drop=True)
+        except Exception as e:
+            print(f"FRED API fetch error for {series_id}: {e}")
 
-    url = "https://api.stlouisfed.org/fred/series/observations"
-    params = {
-        "series_id": series_id,
-        "api_key": fred_api_key,
-        "file_type": "json",
-        "observation_start": observation_start,
-        "sort_order": "asc",
-    }
-
+    # Fallback to public FRED CSV endpoint
     try:
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        data = response.json().get("observations", [])
-
-        if not data:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(data)
-        df = df[df["value"] != "."].copy()
-
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        df[value_col] = pd.to_numeric(df["value"], errors="coerce")
-        df = df.dropna(subset=["date", value_col])
-
-        return df[["date", value_col]].reset_index(drop=True)
-
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            df = pd.read_csv(resp)
+            if not df.empty and len(df.columns) >= 2:
+                df.columns = ["date", value_col]
+                df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
+                df = df.dropna(subset=["date", value_col])
+                if observation_start:
+                    df = df[df["date"] >= pd.to_datetime(observation_start)]
+                return df.reset_index(drop=True)
     except Exception as e:
-        print(f"Error fetching FRED series {series_id}: {e}")
-        return pd.DataFrame()
+        print(f"Fallback CSV fetch error for {series_id}: {e}")
 
-# ------------------------------------------------------------------
-# FRED 核心宏观、微观流动性与持仓集中度函数
-# ------------------------------------------------------------------
+    return pd.DataFrame()
+
 @st.cache_data(ttl=60 * 60 * 6)
 def get_unemployment_data():
     return _fetch_fred_series_observations("UNRATE", "Unemployment_Rate", "2000-01-01")
-
-@st.cache_data(ttl=60 * 60 * 6)
-def get_highyield_data():
-    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "2000-01-01")
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_fed_balance_sheet_data():
@@ -127,8 +118,11 @@ def get_real_yield_and_breakeven_data():
     df_tips = _fetch_fred_series_observations("DFII10", "10Y_Real_Yield", "2010-01-01")
     df_be = _fetch_fred_series_observations("T10YIE", "10Y_Breakeven_Inflation", "2010-01-01")
     if not df_tips.empty and not df_be.empty:
+        df_tips['date'] = pd.to_datetime(df_tips['date'])
+        df_be['date'] = pd.to_datetime(df_be['date'])
         merged = pd.merge(df_tips, df_be, on="date", how="inner").sort_values("date")
-        return merged.reset_index(drop=True)
+        if not merged.empty:
+            return merged.reset_index(drop=True)
     return df_tips if not df_tips.empty else df_be
 
 @st.cache_data(ttl=60 * 60 * 6)
@@ -140,16 +134,29 @@ def get_sofr_iorb_data():
     """获取 SOFR (SOFR) 与 IORB (IORB) 利率，并计算利差 (bps)"""
     df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
     df_iorb = _fetch_fred_series_observations("IORB", "IORB", "2018-01-01")
-    if df_sofr.empty:
-        df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
+    
     if not df_sofr.empty and not df_iorb.empty:
+        df_sofr['date'] = pd.to_datetime(df_sofr['date'])
+        df_iorb['date'] = pd.to_datetime(df_iorb['date'])
         merged = pd.merge(df_sofr, df_iorb, on="date", how="inner").sort_values("date")
-        merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100
-        return merged.reset_index(drop=True)
+        if not merged.empty:
+            merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100
+            return merged.reset_index(drop=True)
+
+    if not df_sofr.empty and not df_iorb.empty:
+        df_sofr['date'] = pd.to_datetime(df_sofr['date'])
+        df_iorb['date'] = pd.to_datetime(df_iorb['date'])
+        merged = pd.merge(df_sofr, df_iorb, on="date", how="outer").sort_values("date")
+        merged = merged.ffill().bfill()
+        if not merged.empty and "SOFR" in merged.columns and "IORB" in merged.columns:
+            merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100
+            return merged.reset_index(drop=True)
+
     return df_sofr if not df_sofr.empty else df_iorb
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_fed_net_liquidity_data():
+    """美联储净流动性 (WALCL - TGA - ON RRP) 与 银行准备金 (TOTRESNS)"""
     df_walcl = _fetch_fred_series_observations("WALCL", "walcl", "2015-01-01")
     df_tga = _fetch_fred_series_observations("WTREGEN", "tga", "2015-01-01")
     df_rrp = _fetch_fred_series_observations("RRPONTSYD", "rrp", "2015-01-01")
@@ -183,19 +190,19 @@ def get_fed_net_liquidity_data():
 @st.cache_data(ttl=60 * 60 * 6)
 def get_gold_oil_ratio_data():
     df_oil = _fetch_fred_series_observations("DCOILWTICO", "oil_usd_per_bbl", "1990-01-01")
-    if df_oil.empty:
-        return pd.DataFrame()
-    
     try:
-        import yfinance as yf
-        gold_df = yf.download("GC=F", start="1990-01-01", progress=False)["Close"]
-        if not gold_df.empty:
-            gold_df = gold_df.reset_index()
-            gold_df.columns = ["date", "gold_usd_per_oz"]
-            gold_df["date"] = pd.to_datetime(gold_df["date"])
-            df_merged = pd.merge(gold_df, df_oil, on="date", how="inner").sort_values("date")
-            df_merged["gold_oil_ratio"] = df_merged["gold_usd_per_oz"] / df_merged["oil_usd_per_bbl"]
-            return df_merged.dropna().reset_index(drop=True)
+        url_gold = "https://raw.githubusercontent.com/datasets/gold-prices/main/data/monthly.csv"
+        req = urllib.request.Request(url_gold, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            df_gold = pd.read_csv(resp)
+            if not df_gold.empty:
+                df_gold.columns = ["date", "gold_usd_per_oz"]
+                df_gold["date"] = pd.to_datetime(df_gold["date"])
+                if not df_oil.empty:
+                    df_oil["date"] = pd.to_datetime(df_oil["date"])
+                    merged = pd.merge(df_oil, df_gold, on="date", how="inner").sort_values("date")
+                    merged["gold_oil_ratio"] = merged["gold_usd_per_oz"] / merged["oil_usd_per_bbl"]
+                    return merged.reset_index(drop=True)
     except Exception:
         pass
     return pd.DataFrame()
@@ -220,7 +227,7 @@ def get_top10_holdings_data():
     return df
 
 # ------------------------------------------------------------------
-# 5. Streamlit 主页面应用渲染
+# 3. Streamlit 主页面应用渲染
 # ------------------------------------------------------------------
 st.set_page_config(page_title="Financial Data Dashboard", layout="wide")
 
@@ -228,7 +235,7 @@ st.title("📈 宏观经济与市场宽度量化看板")
 
 FRED_API_KEY = _get_fred_api_key()
 if not FRED_API_KEY:
-    st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，部分宏观功能受限。")
+    st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，改用公开 FRED 数据源。")
 
 current_et_str = get_current_time_str_eastern()
 
@@ -255,13 +262,13 @@ if df_long is not None and not df_long.empty:
     st.sidebar.markdown(f"最新日期: **{latest_date}**")
     st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
 else:
-    st.error("未能加载国债收益率数据，请检查 daily-treasury-rates.csv 文件。")
+    st.error("未能加载国债收益率数据。")
 
-# --- 2. S&P 500 市场宽度分析模块 ---
+# --- 2. S&P 500 市场宽度广度 ---
 st.markdown("---")
 render_market_breadth_ui()
 
-# --- 3. 新增：SOFR - IORB 利差 & 前十大持仓集中度模块 ---
+# --- 3. SOFR - IORB 利差 & 前十大持仓集中度模块 ---
 st.markdown("---")
 st.header("📊 资金面体温计 & 指数结构集中度")
 
@@ -269,7 +276,7 @@ s_col1, s_col2 = st.columns(2)
 
 with s_col1:
     df_sofr = get_sofr_iorb_data()
-    if not df_sofr.empty:
+    if not df_sofr.empty and "SOFR" in df_sofr.columns and "IORB" in df_sofr.columns and "Spread_bps" in df_sofr.columns:
         latest_sofr_date = pd.to_datetime(df_sofr['date'].iloc[-1]).strftime('%Y-%m-%d')
         latest_sofr_val = df_sofr['SOFR'].iloc[-1]
         latest_iorb_val = df_sofr['IORB'].iloc[-1]
@@ -283,6 +290,20 @@ with s_col1:
         c2.metric("IORB 利率", f"{latest_iorb_val:.2f}%")
         c3.metric("SOFR - IORB 利差", f"{latest_spread:+.1f} bps", delta="预警线: +3.0 bps", delta_color="inverse" if latest_spread > 3.0 else "normal")
 
+        fig_sofr = create_sofr_iorb_chart(df_sofr)
+        if fig_sofr:
+            st.plotly_chart(fig_sofr, use_container_width=True)
+    elif not df_sofr.empty:
+        latest_sofr_date = pd.to_datetime(df_sofr['date'].iloc[-1]).strftime('%Y-%m-%d')
+        st.subheader("SOFR - IORB 资金面体温计")
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新日期: **{latest_sofr_date}**")
+        
+        val_cols = [c for c in df_sofr.columns if c != 'date']
+        if val_cols:
+            val_col = val_cols[0]
+            latest_val = df_sofr[val_col].iloc[-1]
+            st.metric(f"{val_col} 利率", f"{latest_val:.2f}%")
+        
         fig_sofr = create_sofr_iorb_chart(df_sofr)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
@@ -306,7 +327,7 @@ with s_col2:
     else:
         st.info("前十大持仓集中度数据加载中。")
 
-# --- 4. FRED 宏观经济指标与流动性追踪 ---
+# --- 4. FRED 宏观指标与流动性追踪 ---
 st.markdown("---")
 st.header("📊 宏观指标与流动性追踪")
 
