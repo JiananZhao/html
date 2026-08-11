@@ -247,8 +247,8 @@ st.sidebar.markdown("---")
 st.sidebar.header("⚙️ 宏观图表动态 Y 轴自动缩放控制")
 macro_tf = st.sidebar.radio(
     "选择宏观图表时间范围 (自动精细缩放 Y 轴):",
-    ["1Y", "3Y", "5Y", "10Y", "ALL"],
-    index=2,
+    ["1M", "3M", "6M", "1Y", "3Y", "5Y", "10Y", "ALL"],
+    index=5,
     key="global_macro_timeframe"
 )
 
