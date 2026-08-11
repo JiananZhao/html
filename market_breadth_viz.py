@@ -1,20 +1,31 @@
 """
 Market Breadth Visualization Component for Streamlit
 Reads pre-calculated daily market breadth from market_breadth.csv
+All timestamps formatted explicitly to US Eastern Time (EDT/EST, America/New_York)
 """
 import os
 import datetime
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from zoneinfo import ZoneInfo
 
 BREADTH_CSV = "market_breadth.csv"
 
-def get_file_updated_time(file_path=BREADTH_CSV):
+def get_file_updated_time_eastern(file_path=BREADTH_CSV):
     if os.path.exists(file_path):
         mtime = os.path.getmtime(file_path)
-        return datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        try:
+            dt = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).astimezone(ZoneInfo("America/New_York"))
+            return dt.strftime("%Y-%m-%d %H:%M EDT")
+        except Exception:
+            pass
+    try:
+        now_et = datetime.datetime.now(ZoneInfo("America/New_York"))
+        return now_et.strftime("%Y-%m-%d %H:%M EDT")
+    except Exception:
+        tz_offset = datetime.timezone(datetime.timedelta(hours=-4))
+        return datetime.datetime.now(tz_offset).strftime("%Y-%m-%d %H:%M EDT")
 
 @st.cache_data(ttl=3600)
 def load_market_breadth_data(file_path=BREADTH_CSV):
@@ -121,7 +132,7 @@ def create_market_breadth_chart(df_breadth: pd.DataFrame = None, y_range=None):
 
 def render_market_breadth_ui():
     """
-    在 Streamlit 中直接渲染市场宽度模块的 UI 组件（含具体到分钟的数据更新时间）
+    在 Streamlit 中直接渲染市场宽度模块的 UI 组件（时间严格转换至美东时间 EDT）
     """
     st.subheader("📊 S&P 500 市场宽度分析 (Market Breadth)")
     df = load_market_breadth_data()
@@ -132,9 +143,9 @@ def render_market_breadth_ui():
 
     latest_row = df.iloc[-1]
     latest_date = pd.to_datetime(latest_row['date']).strftime('%Y-%m-%d')
-    file_mtime = get_file_updated_time(BREADTH_CSV)
+    file_mtime = get_file_updated_time_eastern(BREADTH_CSV)
     
-    st.caption(f"🕒 数据刷新时间: **{file_mtime}** | 最新交易日: **{latest_date}**")
+    st.caption(f"🕒 数据刷新时间 (美东时间): **{file_mtime}** | 最新交易日: **{latest_date}**")
 
     # 顶部指标卡片
     col1, col2, col3, col4 = st.columns(4)
