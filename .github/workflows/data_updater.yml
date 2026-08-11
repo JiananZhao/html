@@ -9,6 +9,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+
 jobs:
   update-data:
     runs-on: ubuntu-latest
@@ -28,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas requests yfinance numpy
+          pip install pandas requests yfinance numpy lxml html5lib beautifulsoup4
 
       - name: Run Treasury rates update script
         id: run_treasury_script
