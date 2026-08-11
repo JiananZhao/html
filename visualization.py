@@ -21,6 +21,9 @@ def create_treasury_chart(df_long: pd.DataFrame):
     else:
         return None
 
+    # Determine maturity column name from data_processing load_and_transform_data
+    mat_col = 'Maturity_Years' if 'Maturity_Years' in df.columns else ('Maturity_Label' if 'Maturity_Label' in df.columns else 'Maturity')
+
     # 计算 1个月前 与 1年前 的目标日期
     date_1m = latest_date - pd.DateOffset(months=1)
     date_1y = latest_date - pd.DateOffset(years=1)
@@ -42,11 +45,11 @@ def create_treasury_chart(df_long: pd.DataFrame):
 
     fig = px.line(
         df_filtered,
-        x='Maturity',
+        x=mat_col,
         y='Yield',
         color='Date_Str',
         title='U.S. Treasury Yield Curve Comparison',
-        labels={'Maturity': '期限 (Maturity)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
+        labels={mat_col: '期限 (Maturity Years)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
         template='plotly_white'
     )
 
@@ -576,3 +579,4 @@ def create_top10_concentration_chart(df_top10: pd.DataFrame):
         legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
     )
     return fig
+EOF
