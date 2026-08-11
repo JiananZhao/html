@@ -579,4 +579,3 @@ def create_top10_concentration_chart(df_top10: pd.DataFrame):
         legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
     )
     return fig
-EOF
