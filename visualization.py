@@ -48,7 +48,7 @@ def create_treasury_chart(df_long: pd.DataFrame):
     return fig
 
 # ------------------------------------------------------------------
-# 2. 失业率趋势图表 (UNRATE)
+# 2. 失业率趋势图表 (UNRATE - 可调 Y 轴范围)
 # ------------------------------------------------------------------
 def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
     if df_unrate is None or df_unrate.empty:
@@ -56,7 +56,6 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
 
     df = df_unrate.copy()
 
-    # 安全确定日期列和最新日期 (适配 date 列与 RangeIndex 索引)
     if 'date' in df.columns:
         date_col = 'date'
         df[date_col] = pd.to_datetime(df[date_col])
@@ -109,12 +108,11 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
             range=[default_start, last_date]
         ),
         hovermode="x unified",
-        height=550,
+        height=500,
         yaxis_title="失业率 (%)",
         uirevision="unemployment_chart"
     )
 
-    fig.update_yaxes(fixedrange=False)
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
@@ -123,9 +121,9 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
     return fig
 
 # ------------------------------------------------------------------
-# 3. 信用利差图表 (Credit Spread)
+# 3. 信用利差图表 (Credit Spread - 可调 Y 轴范围)
 # ------------------------------------------------------------------
-def create_credit_spread_chart(df_data: pd.DataFrame):
+def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None):
     if df_data is None or df_data.empty:
         return None
 
@@ -172,13 +170,21 @@ def create_credit_spread_chart(df_data: pd.DataFrame):
             range=[default_start, last_date]
         ),
         hovermode="x unified",
-        height=550,
+        height=500,
+        yaxis_title="利差 (%)",
+        uirevision="credit_spread_chart",
         template="plotly_white"
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
+
     return fig
 
 # ------------------------------------------------------------------
-# 4. 美联储资产负债表图表 (Fed Balance Sheet)
+# 4. 美联储资产负债表图表 (Fed Balance Sheet - 可调 Y 轴范围)
 # ------------------------------------------------------------------
 def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
     if df_fed is None or df_fed.empty:
@@ -224,7 +230,6 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
         )
     )
 
-    fig.update_yaxes(fixedrange=False)
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
@@ -233,7 +238,7 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
     return fig
 
 # ------------------------------------------------------------------
-# 5. 金油比图表 (Gold / Oil Ratio)
+# 5. 金油比图表 (Gold / Oil Ratio - 可调 Y 轴范围)
 # ------------------------------------------------------------------
 def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
     if df_ratio is None or df_ratio.empty:
@@ -308,7 +313,6 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         ),
     )
 
-    fig.update_yaxes(fixedrange=False)
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
