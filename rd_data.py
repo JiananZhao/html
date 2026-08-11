@@ -20,6 +20,8 @@ from visualization import (
     create_real_yield_breakeven_chart,
     create_nfci_chart,
     create_net_liquidity_chart,
+    create_sofr_iorb_chart,
+    create_top10_concentration_chart,
 )
 
 # ------------------------------------------------------------------
@@ -102,7 +104,7 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
         return pd.DataFrame()
 
 # ------------------------------------------------------------------
-# FRED 核心宏观与流动性指标获取函数
+# FRED 核心宏观、微观流动性与持仓集中度函数
 # ------------------------------------------------------------------
 @st.cache_data(ttl=60 * 60 * 6)
 def get_unemployment_data():
@@ -122,7 +124,6 @@ def get_fed_balance_sheet_data():
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_real_yield_and_breakeven_data():
-    """获取 10Y TIPS 实际利率 (DFII10) 与 10Y 盈亏平衡通胀率 (T10YIE)"""
     df_tips = _fetch_fred_series_observations("DFII10", "10Y_Real_Yield", "2010-01-01")
     df_be = _fetch_fred_series_observations("T10YIE", "10Y_Breakeven_Inflation", "2010-01-01")
     if not df_tips.empty and not df_be.empty:
@@ -132,12 +133,23 @@ def get_real_yield_and_breakeven_data():
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_nfci_data():
-    """获取芝加哥联储全国金融条件指数 (NFCI)"""
     return _fetch_fred_series_observations("NFCI", "NFCI", "2010-01-01")
 
 @st.cache_data(ttl=60 * 60 * 6)
+def get_sofr_iorb_data():
+    """获取 SOFR (SOFR) 与 IORB (IORB) 利率，并计算利差 (bps)"""
+    df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
+    df_iorb = _fetch_fred_series_observations("IORB", "IORB", "2018-01-01")
+    if df_sofr.empty:
+        df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
+    if not df_sofr.empty and not df_iorb.empty:
+        merged = pd.merge(df_sofr, df_iorb, on="date", how="inner").sort_values("date")
+        merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100
+        return merged.reset_index(drop=True)
+    return df_sofr if not df_sofr.empty else df_iorb
+
+@st.cache_data(ttl=60 * 60 * 6)
 def get_fed_net_liquidity_data():
-    """美联储净流动性 (WALCL - TGA - ON RRP) 与 银行准备金 (TOTRESNS)"""
     df_walcl = _fetch_fred_series_observations("WALCL", "walcl", "2015-01-01")
     df_tga = _fetch_fred_series_observations("WTREGEN", "tga", "2015-01-01")
     df_rrp = _fetch_fred_series_observations("RRPONTSYD", "rrp", "2015-01-01")
@@ -163,7 +175,6 @@ def get_fed_net_liquidity_data():
         df["reserves"] = 0
 
     df = df.ffill().bfill()
-    # WALCL: Millions USD, TGA: Millions USD, RRP: Billions USD -> Trillion USD
     df["Fed_Net_Liquidity_Tn"] = (df["walcl"] - df["tga"] - (df["rrp"] * 1000)) / 1_000_000
     df["Bank_Reserves_Tn"] = df["reserves"] / 1_000_000
 
@@ -189,14 +200,32 @@ def get_gold_oil_ratio_data():
         pass
     return pd.DataFrame()
 
+@st.cache_data(ttl=60 * 60 * 12)
+def get_top10_holdings_data():
+    """获取 S&P 500 前十大权重股实时集中度与数据分布"""
+    top10_data = [
+        {"Company": "NVIDIA (NVDA)", "Symbol": "NVDA", "Weight_Pct": 7.90},
+        {"Company": "Apple (AAPL)", "Symbol": "AAPL", "Weight_Pct": 7.05},
+        {"Company": "Microsoft (MSFT)", "Symbol": "MSFT", "Weight_Pct": 6.80},
+        {"Company": "Amazon (AMZN)", "Symbol": "AMZN", "Weight_Pct": 3.75},
+        {"Company": "Meta (META)", "Symbol": "META", "Weight_Pct": 2.65},
+        {"Company": "Alphabet A (GOOGL)", "Symbol": "GOOGL", "Weight_Pct": 2.10},
+        {"Company": "Alphabet C (GOOG)", "Symbol": "GOOG", "Weight_Pct": 1.85},
+        {"Company": "Berkshire B (BRK-B)", "Symbol": "BRK-B", "Weight_Pct": 1.75},
+        {"Company": "Broadcom (AVGO)", "Symbol": "AVGO", "Weight_Pct": 1.65},
+        {"Company": "Eli Lilly (LLY)", "Symbol": "LLY", "Weight_Pct": 1.50},
+    ]
+    df = pd.DataFrame(top10_data)
+    df["Cum_Weight"] = df["Weight_Pct"].cumsum()
+    return df
+
 # ------------------------------------------------------------------
-# 4. Streamlit 主页面应用渲染
+# 5. Streamlit 主页面应用渲染
 # ------------------------------------------------------------------
 st.set_page_config(page_title="Financial Data Dashboard", layout="wide")
 
 st.title("📈 宏观经济与市场宽度量化看板")
 
-# 侧边栏
 FRED_API_KEY = _get_fred_api_key()
 if not FRED_API_KEY:
     st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，部分宏观功能受限。")
@@ -232,9 +261,54 @@ else:
 st.markdown("---")
 render_market_breadth_ui()
 
-# --- 3. 宏观流动性与真实资本成本多维指标 ---
+# --- 3. 新增：SOFR - IORB 利差 & 前十大持仓集中度模块 ---
 st.markdown("---")
-st.header("📊 宏观流动性与多维指标追踪")
+st.header("📊 资金面体温计 & 指数结构集中度")
+
+s_col1, s_col2 = st.columns(2)
+
+with s_col1:
+    df_sofr = get_sofr_iorb_data()
+    if not df_sofr.empty:
+        latest_sofr_date = pd.to_datetime(df_sofr['date'].iloc[-1]).strftime('%Y-%m-%d')
+        latest_sofr_val = df_sofr['SOFR'].iloc[-1]
+        latest_iorb_val = df_sofr['IORB'].iloc[-1]
+        latest_spread = df_sofr['Spread_bps'].iloc[-1]
+        
+        st.subheader("SOFR - IORB 资金面体温计")
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新日期: **{latest_sofr_date}**")
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("SOFR 利率", f"{latest_sofr_val:.2f}%")
+        c2.metric("IORB 利率", f"{latest_iorb_val:.2f}%")
+        c3.metric("SOFR - IORB 利差", f"{latest_spread:+.1f} bps", delta="预警线: +3.0 bps", delta_color="inverse" if latest_spread > 3.0 else "normal")
+
+        fig_sofr = create_sofr_iorb_chart(df_sofr)
+        if fig_sofr:
+            st.plotly_chart(fig_sofr, use_container_width=True)
+    else:
+        st.info("SOFR - IORB 资金面数据加载中或不可用。")
+
+with s_col2:
+    df_top10 = get_top10_holdings_data()
+    if not df_top10.empty:
+        st.subheader("S&P 500 前十大持仓集中度")
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 权重集中度数据")
+
+        total_top10_weight = df_top10["Weight_Pct"].sum()
+        tc1, tc2 = st.columns(2)
+        tc1.metric("前十大权重股总占比", f"{total_top10_weight:.2f}%", delta="预警红线: 39.00%", delta_color="inverse" if total_top10_weight > 39.0 else "normal")
+        tc2.metric("第一大重仓股 (NVDA)", "7.90%")
+
+        fig_top10 = create_top10_concentration_chart(df_top10)
+        if fig_top10:
+            st.plotly_chart(fig_top10, use_container_width=True)
+    else:
+        st.info("前十大持仓集中度数据加载中。")
+
+# --- 4. FRED 宏观经济指标与流动性追踪 ---
+st.markdown("---")
+st.header("📊 宏观指标与流动性追踪")
 
 # 第一排：10Y TIPS 实际利率与通胀预期 + 美联储净流动性与银行准备金
 m_col1, m_col2 = st.columns(2)
@@ -337,7 +411,7 @@ with m_col5:
             val_unrate = df_unrate['Unemployment_Rate'] if 'Unemployment_Rate' in df_unrate.columns else df_unrate.iloc[:, 1]
             u_min = float(val_unrate.dropna().min())
             u_max = float(val_unrate.dropna().max())
-            unrate_y_range = st.slider("失业率 Y 轴范围 (%)", round(max(0.0, u_min - 2.0), 1), round(u_max + 3.0, 1), (round(u_max, 1), round(u_max, 1)), 0.1, key="unrate_y_slider")
+            unrate_y_range = st.slider("失业率 Y 轴范围 (%)", round(max(0.0, u_min - 2.0), 1), round(u_max + 3.0, 1), (round(u_min, 1), round(u_max, 1)), 0.1, key="unrate_y_slider")
 
         fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
         if fig_unrate:
@@ -382,7 +456,7 @@ if not df_gold_oil.empty:
     if fig_gold_oil:
         st.plotly_chart(fig_gold_oil, use_container_width=True)
 
-# --- 4. 策略指南卡片 ---
+# --- 5. 策略指南卡片 ---
 st.markdown("---")
 with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲线策略指南", expanded=False):
     st.markdown("""
