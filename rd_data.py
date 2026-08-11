@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 
 from data_processing import load_and_transform_data
 from market_breadth_viz import render_market_breadth_ui
-from market_analysis import get_highyield_data
 from visualization import (
     create_treasury_chart,
     create_unemployment_chart,
@@ -104,6 +103,10 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
 @st.cache_data(ttl=60 * 60 * 6)
 def get_unemployment_data():
     return _fetch_fred_series_observations("UNRATE", "Unemployment_Rate", "2000-01-01")
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_highyield_data():
+    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "2000-01-01")
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_fed_balance_sheet_data():
