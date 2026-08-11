@@ -28,7 +28,7 @@ def get_retry_session():
     return session
 
 def fetch_sp500_symbols_online():
-    """Fetches full S&P 500 component ticker list from Wikipedia and online datasets."""
+    """Fetches full S&P 500 component ticker list from online datasets or Wikipedia."""
     urls = [
         "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
@@ -36,7 +36,7 @@ def fetch_sp500_symbols_online():
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     session = get_retry_session()
 
-    # 1. Try dataset CSV first
+    # 1. Try dataset CSV
     try:
         res = session.get(urls[0], headers=headers, timeout=15)
         if res.status_code == 200 and len(res.text) > 100:
@@ -49,7 +49,7 @@ def fetch_sp500_symbols_online():
     except Exception as e:
         print(f"Online dataset fetch failed: {e}")
 
-    # 2. Try Wikipedia
+    # 2. Try Wikipedia (requires lxml/html5lib)
     try:
         res = session.get(urls[1], headers=headers, timeout=15)
         if res.status_code == 200:
@@ -66,23 +66,23 @@ def fetch_sp500_symbols_online():
     return []
 
 def load_symbols():
-    """Loads symbols from online sources, saves to sp500_symbols.csv, or loads from existing local file."""
-    symbols = fetch_sp500_symbols_online()
-    if len(symbols) > 400:
-        pd.DataFrame(symbols, columns=['Symbol']).to_csv(SYMBOLS_CSV, index=False)
-        print(f"Saved {len(symbols)} tickers to {SYMBOLS_CSV}")
-        return symbols
-
+    """Loads symbols from local sp500_symbols.csv first if valid (>400 symbols), otherwise online sources."""
     if os.path.exists(SYMBOLS_CSV) and os.path.getsize(SYMBOLS_CSV) > 500:
         try:
             df = pd.read_csv(SYMBOLS_CSV)
             col = 'Symbol' if 'Symbol' in df.columns else df.columns[0]
             symbols = [s.replace('.', '-') for s in df[col].dropna().astype(str).str.strip() if s]
             if len(symbols) > 400:
-                print(f"Loaded {len(symbols)} tickers from {SYMBOLS_CSV}")
+                print(f"Successfully loaded {len(symbols)} symbols from local {SYMBOLS_CSV}")
                 return symbols
         except Exception as e:
-            print(f"Error reading {SYMBOLS_CSV}: {e}")
+            print(f"Error reading local {SYMBOLS_CSV}: {e}")
+
+    symbols = fetch_sp500_symbols_online()
+    if len(symbols) > 400:
+        pd.DataFrame(symbols, columns=['Symbol']).to_csv(SYMBOLS_CSV, index=False)
+        print(f"Saved {len(symbols)} tickers to {SYMBOLS_CSV}")
+        return symbols
 
     raise RuntimeError("Failed to obtain full S&P 500 constituent list (>400 stocks required).")
 
@@ -112,12 +112,11 @@ def fetch_data_in_batches(symbols, start_date):
 def update_breadth():
     print("Loading full S&P 500 constituent list...")
     symbols = load_symbols()
-    print(f"Successfully tracking {len(symbols)} S&P 500 constituent symbols.")
+    print(f"Tracking {len(symbols)} S&P 500 constituent symbols.")
 
     today = pd.to_datetime(datetime.date.today())
-    # 10 years + 300 days for 200MA warmup
     start_date = (today - datetime.timedelta(days=3650 + 300)).strftime('%Y-%m-%d')
-    print(f"Re-calculating full 10-year market breadth starting from {start_date}...")
+    print(f"Fetching market data starting from {start_date}...")
 
     data = fetch_data_in_batches(symbols, start_date)
 
@@ -128,14 +127,12 @@ def update_breadth():
 
     data = data.sort_index().dropna(how='all')
 
-    # Compute moving averages across ALL 500+ constituents
     ma20 = data.rolling(window=20, min_periods=15).mean()
     ma50 = data.rolling(window=50, min_periods=35).mean()
     ma200 = data.rolling(window=200, min_periods=150).mean()
 
-    # Count valid (non-NaN) prices per date across constituents
     valid_counts = data.notna().sum(axis=1)
-    valid_mask = valid_counts >= 100  # Must have at least 100 constituents active on trading day
+    valid_mask = valid_counts >= 100
 
     pct_above_20 = ((data > ma20).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
     pct_above_50 = ((data > ma50).sum(axis=1) / valid_counts * 100).where(valid_mask, np.nan)
@@ -156,12 +153,10 @@ def update_breadth():
         'ad_ratio': ad_ratio.values
     })
 
-    # Drop dates where moving averages are incomplete
     breadth_df = breadth_df.dropna(subset=['pct_above_20ma', 'pct_above_50ma', 'pct_above_200ma'], how='all').reset_index(drop=True)
 
-    # Save complete 10-year market_breadth.csv
     breadth_df.to_csv(BREADTH_CSV, index=False)
-    print(f"Successfully generated 10-year market breadth dataset ({len(breadth_df)} trading days) and saved to {BREADTH_CSV}")
+    print(f"Successfully updated {BREADTH_CSV} ({len(breadth_df)} trading days)")
 
     set_github_output("commit_needed", "true")
 
