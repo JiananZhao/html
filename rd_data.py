@@ -175,7 +175,7 @@ else:
 st.markdown("---")
 render_market_breadth_ui()
 
-# --- 3. FRED 宏观经济指标与流动性追踪 (失业率/美联储资产负债表/高收益债信用利差/金油比) ---
+# --- 3. FRED 宏观经济指标与流动性追踪 (含可调节 Y 轴范围控制) ---
 st.markdown("---")
 st.header("📊 宏观指标与流动性追踪")
 
@@ -189,7 +189,24 @@ with col1:
         latest_unrate_date = pd.to_datetime(df_unrate['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_unrate.columns else "最新"
         st.subheader("美国失业率 (UNRATE)")
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_unrate_date}**")
-        fig_unrate = create_unemployment_chart(df_unrate)
+        
+        # 可调节 Y 轴 UI 控制
+        val_unrate = df_unrate['Unemployment_Rate'] if 'Unemployment_Rate' in df_unrate.columns else df_unrate.iloc[:, 1]
+        u_min = float(val_unrate.dropna().min())
+        u_max = float(val_unrate.dropna().max())
+        
+        unrate_y_range = None
+        if st.checkbox("手动设置失业率 Y 轴范围", key="unrate_manual_y"):
+            unrate_y_range = st.slider(
+                "失业率 Y 轴范围 (%)",
+                min_value=round(max(0.0, u_min - 2.0), 1),
+                max_value=round(u_max + 3.0, 1),
+                value=(round(u_min, 1), round(u_max, 1)),
+                step=0.1,
+                key="unrate_y_slider"
+            )
+
+        fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
         if fig_unrate:
             st.plotly_chart(fig_unrate, use_container_width=True)
     else:
@@ -201,7 +218,24 @@ with col2:
         latest_fed_date = pd.to_datetime(df_fed_bs['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_fed_bs.columns else "最新"
         st.subheader("美联储资产负债表 (WALCL)")
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_fed_date}**")
-        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs)
+        
+        # 可调节 Y 轴 UI 控制
+        val_fed = df_fed_bs['balance_sheet_tn'] if 'balance_sheet_tn' in df_fed_bs.columns else df_fed_bs.iloc[:, 1]
+        f_min = float(val_fed.dropna().min())
+        f_max = float(val_fed.dropna().max())
+        
+        fed_y_range = None
+        if st.checkbox("手动设置资产负债表 Y 轴范围", key="fed_manual_y"):
+            fed_y_range = st.slider(
+                "资产负债表 Y 轴范围 (万亿美元)",
+                min_value=round(max(0.0, f_min - 1.0), 2),
+                max_value=round(f_max + 1.0, 2),
+                value=(round(f_min, 2), round(f_max, 2)),
+                step=0.05,
+                key="fed_y_slider"
+            )
+
+        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
         if fig_fed_bs:
             st.plotly_chart(fig_fed_bs, use_container_width=True)
     else:
@@ -215,7 +249,24 @@ with col3:
         latest_hy_date = pd.to_datetime(df_highyield['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_highyield.columns else "最新"
         st.subheader("高收益债信用利差 (US High Yield Credit Spread)")
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_hy_date}**")
-        fig_credit = create_credit_spread_chart(df_highyield)
+        
+        # 可调节 Y 轴 UI 控制
+        val_hy = df_highyield['Value'] if 'Value' in df_highyield.columns else df_highyield.iloc[:, 1]
+        hy_min = float(val_hy.dropna().min())
+        hy_max = float(val_hy.dropna().max())
+        
+        credit_y_range = None
+        if st.checkbox("手动设置信用利差 Y 轴范围", key="credit_manual_y"):
+            credit_y_range = st.slider(
+                "信用利差 Y 轴范围 (%)",
+                min_value=round(max(0.0, hy_min - 1.0), 1),
+                max_value=round(hy_max + 2.0, 1),
+                value=(round(hy_min, 1), round(hy_max, 1)),
+                step=0.1,
+                key="credit_y_slider"
+            )
+
+        fig_credit = create_credit_spread_chart(df_highyield, y_range=credit_y_range)
         if fig_credit:
             st.plotly_chart(fig_credit, use_container_width=True)
     else:
@@ -227,6 +278,23 @@ with col4:
         latest_go_date = pd.to_datetime(df_gold_oil['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_gold_oil.columns else "最新"
         st.subheader("Gold / Oil Ratio (金油比)")
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_go_date}**")
-        fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil)
+        
+        # 可调节 Y 轴 UI 控制
+        val_go = df_gold_oil['gold_oil_ratio'] if 'gold_oil_ratio' in df_gold_oil.columns else df_gold_oil.iloc[:, -1]
+        go_min = float(val_go.dropna().min())
+        go_max = float(val_go.dropna().max())
+        
+        go_y_range = None
+        if st.checkbox("手动设置金油比 Y 轴范围", key="go_manual_y"):
+            go_y_range = st.slider(
+                "金油比 Y 轴范围",
+                min_value=round(max(0.0, go_min - 5.0), 1),
+                max_value=round(go_max + 10.0, 1),
+                value=(round(go_min, 1), round(go_max, 1)),
+                step=0.5,
+                key="go_y_slider"
+            )
+
+        fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil, y_range=go_y_range)
         if fig_gold_oil:
             st.plotly_chart(fig_gold_oil, use_container_width=True)
