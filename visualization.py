@@ -321,7 +321,7 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
     return fig
 
 # ------------------------------------------------------------------
-# 6. 新增：10Y TIPS 实际利率与 10Y 盈亏平衡通胀率图表
+# 6. 10Y TIPS 实际利率与 10Y 盈亏平衡通胀率图表
 # ------------------------------------------------------------------
 def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None):
     if df_data is None or df_data.empty:
@@ -375,7 +375,7 @@ def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None):
     return fig
 
 # ------------------------------------------------------------------
-# 7. 新增：芝加哥联储金融条件指数图表 (NFCI)
+# 7. 芝加哥联储金融条件指数图表 (NFCI)
 # ------------------------------------------------------------------
 def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None):
     if df_nfci is None or df_nfci.empty:
@@ -435,7 +435,7 @@ def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None):
     return fig
 
 # ------------------------------------------------------------------
-# 8. 新增：美联储净流动性与银行准备金余额图表
+# 8. 美联储净流动性与银行准备金余额图表
 # ------------------------------------------------------------------
 def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None):
     if df_liq is None or df_liq.empty:
@@ -486,4 +486,81 @@ def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None):
     else:
         fig.update_yaxes(autorange=True)
 
+    return fig
+
+# ------------------------------------------------------------------
+# 9. 新增：SOFR - IORB 利率与利差双轴图表
+# ------------------------------------------------------------------
+def create_sofr_iorb_chart(df_sofr: pd.DataFrame, y_range=None):
+    if df_sofr is None or df_sofr.empty:
+        return None
+
+    df = df_sofr.copy()
+    date_col = 'date' if 'date' in df.columns else df.columns[0]
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col)
+
+    fig = go.Figure()
+
+    if 'SOFR' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['SOFR'], name="SOFR (%)", line=dict(color="#2563eb", width=2)))
+    if 'IORB' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['IORB'], name="IORB (%)", line=dict(color="#16a34a", width=2)))
+    if 'Spread_bps' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_bps'], name="SOFR - IORB 利差 (bps)", yaxis="y2", line=dict(color="#dc2626", width=1.5, dash="dot")))
+
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+    default_start = max(first_date, last_date - pd.DateOffset(years=3))
+
+    fig.update_layout(
+        title="SOFR 隔夜融资利率 vs IORB 准备金利率 & 利差 (bps)",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        uirevision="sofr_iorb_chart",
+        yaxis=dict(title="利率 (%)"),
+        yaxis2=dict(title="利差 (bps)", overlaying="y", side="right"),
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+
+    return fig
+
+# ------------------------------------------------------------------
+# 10. 新增：S&P 500 前十大权重股集中度饼图/柱状图
+# ------------------------------------------------------------------
+def create_top10_concentration_chart(df_top10: pd.DataFrame):
+    if df_top10 is None or df_top10.empty:
+        return None
+
+    df = df_top10.copy()
+    fig = px.pie(
+        df,
+        names="Company",
+        values="Weight_Pct",
+        title="S&P 500 前十大持仓权重占比 (总占比 39.30%)",
+        color_discrete_sequence=px.colors.qualitative.Prism,
+        template="plotly_white"
+    )
+
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    fig.update_layout(
+        height=450,
+        uirevision="top10_pie_chart",
+        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+    )
     return fig
