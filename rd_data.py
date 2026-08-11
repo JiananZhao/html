@@ -125,7 +125,7 @@ FRED_API_KEY = _get_fred_api_key()
 if not FRED_API_KEY:
     st.sidebar.warning("⚠️ 未检测到 FRED_API_KEY，部分宏观功能受限。")
 
-# --- 1. 原版国债收益率曲线图表 (使用原版 load_and_transform_data 和 visualization.create_treasury_chart) ---
+# --- 1. 原版国债收益率曲线图表 ---
 st.markdown("---")
 st.header("📊 美债收益率曲线 (Yield Curve)")
 
@@ -148,7 +148,7 @@ else:
 st.markdown("---")
 render_market_breadth_ui()
 
-# --- 3. FRED 宏观经济数据 (失业率、资产负债表、金油比) ---
+# --- 3. FRED 宏观经济指标与流动性追踪 (失业率/美联储资产负债表/高收益债信用利差/金油比) ---
 st.markdown("---")
 st.header("📊 宏观指标与流动性追踪")
 
@@ -174,10 +174,22 @@ with col2:
     else:
         st.info("美联储资产负债表数据加载中或不可用。")
 
-# 金油比
-df_gold_oil = get_gold_oil_ratio_data()
-if not df_gold_oil.empty:
-    st.subheader("Gold / Oil Ratio (金油比)")
-    fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil)
-    if fig_gold_oil:
-        st.plotly_chart(fig_gold_oil, use_container_width=True)
+col3, col4 = st.columns(2)
+
+with col3:
+    df_highyield = get_highyield_data()
+    if not df_highyield.empty:
+        st.subheader("高收益债信用利差 (US High Yield Option-Adjusted Spread)")
+        fig_credit = create_credit_spread_chart(df_highyield)
+        if fig_credit:
+            st.plotly_chart(fig_credit, use_container_width=True)
+    else:
+        st.info("高收益债信用利差数据加载中或不可用。")
+
+with col4:
+    df_gold_oil = get_gold_oil_ratio_data()
+    if not df_gold_oil.empty:
+        st.subheader("Gold / Oil Ratio (金油比)")
+        fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil)
+        if fig_gold_oil:
+            st.plotly_chart(fig_gold_oil, use_container_width=True)
