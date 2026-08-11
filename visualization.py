@@ -319,3 +319,171 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         fig.update_yaxes(autorange=True)
 
     return fig
+
+# ------------------------------------------------------------------
+# 6. 新增：10Y TIPS 实际利率与 10Y 盈亏平衡通胀率图表
+# ------------------------------------------------------------------
+def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None):
+    if df_data is None or df_data.empty:
+        return None
+
+    df = df_data.copy()
+    date_col = 'date' if 'date' in df.columns else df.columns[0]
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col)
+
+    cols = [c for c in ['10Y_Real_Yield', '10Y_Breakeven_Inflation'] if c in df.columns]
+    if not cols:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=cols,
+        title="10Y TIPS 实际利率 & 10Y 盈亏平衡通胀率 (%)",
+        labels={"value": "利率/通胀率 (%)", date_col: "Date", "variable": "指标"},
+        template="plotly_white"
+    )
+
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+    default_start = max(first_date, last_date - pd.DateOffset(years=5))
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="率 (%)",
+        uirevision="real_yield_breakeven_chart",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
+
+    return fig
+
+# ------------------------------------------------------------------
+# 7. 新增：芝加哥联储金融条件指数图表 (NFCI)
+# ------------------------------------------------------------------
+def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None):
+    if df_nfci is None or df_nfci.empty:
+        return None
+
+    df = df_nfci.copy()
+    date_col = 'date' if 'date' in df.columns else df.columns[0]
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col)
+
+    val_col = 'NFCI' if 'NFCI' in df.columns else df.columns[1]
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title="芝加哥联储全国金融条件指数 (NFCI)",
+        labels={val_col: "NFCI 指数", date_col: "Date"},
+        template="plotly_white"
+    )
+
+    fig.add_hline(
+        y=0,
+        line_dash="dash",
+        line_color="rgba(239, 68, 68, 0.7)",
+        annotation_text="零轴分界 (<0宽松, >0紧缩)",
+        annotation_position="top left"
+    )
+
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+    default_start = max(first_date, last_date - pd.DateOffset(years=5))
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="NFCI 指数",
+        uirevision="nfci_chart",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
+
+    return fig
+
+# ------------------------------------------------------------------
+# 8. 新增：美联储净流动性与银行准备金余额图表
+# ------------------------------------------------------------------
+def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None):
+    if df_liq is None or df_liq.empty:
+        return None
+
+    df = df_liq.copy()
+    date_col = 'date' if 'date' in df.columns else df.columns[0]
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col)
+
+    cols = [c for c in ['Fed_Net_Liquidity_Tn', 'Bank_Reserves_Tn'] if c in df.columns]
+    if not cols:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=cols,
+        title="美联储净流动性 & 银行准备金余额 (万亿美元)",
+        labels={"value": "万亿美元 (Trillion USD)", date_col: "Date", "variable": "指标"},
+        template="plotly_white"
+    )
+
+    last_date = df[date_col].max()
+    first_date = df[date_col].min()
+    default_start = max(first_date, last_date - pd.DateOffset(years=5))
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="万亿美元 (Trillion USD)",
+        uirevision="net_liquidity_chart",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(step="all", label="all"),
+                ])
+            ),
+            rangeslider=dict(visible=True, thickness=0.07),
+            range=[default_start, last_date],
+        ),
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True)
+
+    return fig
