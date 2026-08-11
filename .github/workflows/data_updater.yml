@@ -12,7 +12,7 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,10 +45,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add daily-treasury-rates.csv market_breadth.csv
+          git add daily-treasury-rates.csv market_breadth.csv sp500_symbols.csv
           
           if ! git diff-index --quiet HEAD; then
-            git commit -m "Auto: Update daily market data and market_breadth.csv"
+            git commit -m "Auto: Update daily market data, market_breadth.csv, and treasury rates"
             git push
           else
             echo "No changes to commit."
