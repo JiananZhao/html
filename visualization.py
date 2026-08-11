@@ -1,13 +1,10 @@
-# visualization.py
-
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import streamlit as st
 
 # ------------------------------------------------------------------
-# 1. 美债收益率曲线图表 (Yield Curve)
+# 1. 国债收益率形态演变图表
 # ------------------------------------------------------------------
 def create_treasury_chart(df_long: pd.DataFrame):
     """
@@ -17,38 +14,54 @@ def create_treasury_chart(df_long: pd.DataFrame):
     if df_long is None or df_long.empty:
         return None
 
-    df = df_long.sort_values(by=['Date', 'Maturity_Years']).copy()
-    df['Date_Str'] = df['Date'].dt.strftime('%Y-%m-%d')
+    df = df_long.copy()
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+        latest_date = df['Date'].max()
+    else:
+        return None
 
-    latest_date = df['Date'].max()
-    date_1m_ago = df[df['Date'] <= latest_date - pd.DateOffset(months=1)]['Date'].max()
-    date_1y_ago = df[df['Date'] <= latest_date - pd.DateOffset(years=1)]['Date'].max()
+    # 计算 1个月前 与 1年前 的目标日期
+    date_1m = latest_date - pd.DateOffset(months=1)
+    date_1y = latest_date - pd.DateOffset(years=1)
 
-    ref_dates = [d for d in [latest_date, date_1m_ago, date_1y_ago] if pd.notna(d)]
-    df_filtered = df[df['Date'].isin(ref_dates)].copy()
+    available_dates = df['Date'].unique()
+    
+    def _find_nearest_date(target):
+        past_dates = [d for d in available_dates if d <= target]
+        return max(past_dates) if past_dates else min(available_dates)
+
+    target_dates = [
+        latest_date,
+        _find_nearest_date(date_1m),
+        _find_nearest_date(date_1y)
+    ]
+
+    df_filtered = df[df['Date'].isin(target_dates)].copy()
+    df_filtered['Date_Str'] = df_filtered['Date'].dt.strftime('%Y-%m-%d')
 
     fig = px.line(
         df_filtered,
-        x='Maturity_Label',
+        x='Maturity',
         y='Yield',
         color='Date_Str',
-        markers=True,
-        title=f"US Treasury Yield Curve ({latest_date.strftime('%Y-%m-%d')})",
-        labels={'Maturity_Label': '期限 (Maturity)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
+        title='U.S. Treasury Yield Curve Comparison',
+        labels={'Maturity': '期限 (Maturity)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
         template='plotly_white'
     )
 
+    fig.update_traces(mode='lines+markers', marker=dict(size=6))
     fig.update_layout(
-        hovermode='x unified',
         height=500,
-        yaxis_title='收益率 (%)',
-        xaxis_title='期限 (Maturity)',
-        uirevision='treasury_yield_curve'
+        hovermode='x unified',
+        uirevision='treasury_yield_chart',
+        yaxis_title='收益率 (%)'
     )
+    fig.update_yaxes(autorange=True, fixedrange=False)
     return fig
 
 # ------------------------------------------------------------------
-# 2. 失业率趋势图表 (UNRATE - 可调 Y 轴范围)
+# 2. 失业率趋势图表 (UNRATE - 动态 Y 轴)
 # ------------------------------------------------------------------
 def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
     if df_unrate is None or df_unrate.empty:
@@ -101,10 +114,10 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
                     dict(count=1, label="1y", step="year", stepmode="backward"),
                     dict(count=5, label="5y", step="year", stepmode="backward"),
                     dict(count=10, label="10y", step="year", stepmode="backward"),
-                    dict(step="all")
+                    dict(step="all", label="all")
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date]
         ),
         hovermode="x unified",
@@ -116,12 +129,12 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 # ------------------------------------------------------------------
-# 3. 信用利差图表 (Credit Spread - 可调 Y 轴范围)
+# 3. 信用利差图表 (Credit Spread - 动态 Y 轴)
 # ------------------------------------------------------------------
 def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None):
     if df_data is None or df_data.empty:
@@ -162,11 +175,12 @@ def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None):
             rangeselector=dict(
                 buttons=list([
                     dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
                     dict(count=5, label="5y", step="year", stepmode="backward"),
-                    dict(step="all")
+                    dict(step="all", label="all")
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date]
         ),
         hovermode="x unified",
@@ -179,12 +193,12 @@ def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 # ------------------------------------------------------------------
-# 4. 美联储资产负债表图表 (Fed Balance Sheet - 可调 Y 轴范围)
+# 4. 美联储资产负债表图表 (Fed Balance Sheet - 动态 Y 轴)
 # ------------------------------------------------------------------
 def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
     if df_fed is None or df_fed.empty:
@@ -226,6 +240,15 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
         yaxis_title="Total Assets (Trillion USD)",
         uirevision="fed_balance_sheet_chart",
         xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=5, label="5y", step="year", stepmode="backward"),
+                    dict(count=10, label="10y", step="year", stepmode="backward"),
+                    dict(step="all", label="all")
+                ])
+            ),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date]
         )
     )
@@ -233,12 +256,12 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 # ------------------------------------------------------------------
-# 5. 金油比图表 (Gold / Oil Ratio - 可调 Y 轴范围)
+# 5. 金油比图表 (Gold / Oil Ratio - 动态 Y 轴)
 # ------------------------------------------------------------------
 def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
     if df_ratio is None or df_ratio.empty:
@@ -268,24 +291,12 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
         template="plotly_white"
     )
 
-    if "gold_usd_per_oz" in df_ratio.columns and "oil_usd_per_bbl" in df_ratio.columns:
-        fig.update_traces(
-            customdata=df_ratio[["gold_usd_per_oz", "oil_usd_per_bbl"]].to_numpy(),
-            hovertemplate=(
-                "Date=%{x|%Y-%m-%d}"
-                "<br>Gold/Oil Ratio=%{y:.2f}"
-                "<br>Gold=%{customdata[0]:.2f} USD/oz"
-                "<br>WTI=%{customdata[1]:.2f} USD/bbl"
-                "<extra></extra>"
-            )
-        )
-
-    median_ratio = float(df_ratio["gold_oil_ratio"].median())
+    avg_ratio = df_ratio["gold_oil_ratio"].mean()
     fig.add_hline(
-        y=median_ratio,
+        y=avg_ratio,
         line_dash="dot",
         line_color="gray",
-        annotation_text=f"Median ({median_ratio:.2f})",
+        annotation_text=f"历史平均值 ({avg_ratio:.1f})",
         annotation_position="bottom left",
     )
 
@@ -295,28 +306,27 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None):
 
     fig.update_layout(
         hovermode="x unified",
-        height=420,
+        height=500,
         yaxis_title="Gold / Oil Ratio",
         uirevision="gold_oil_ratio_chart",
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
-                    dict(count=3, label="3m", step="month", stepmode="backward"),
                     dict(count=1, label="1y", step="year", stepmode="backward"),
+                    dict(count=3, label="3y", step="year", stepmode="backward"),
                     dict(count=5, label="5y", step="year", stepmode="backward"),
-                    dict(count=10, label="10y", step="year", stepmode="backward"),
-                    dict(step="all", label="all"),
+                    dict(step="all", label="all")
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
-            range=[default_start, last_date],
+            rangeslider=dict(visible=False),
+            range=[default_start, last_date]
         ),
     )
 
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
@@ -362,7 +372,7 @@ def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None):
                     dict(step="all", label="all"),
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date],
         ),
     )
@@ -370,7 +380,7 @@ def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
@@ -422,7 +432,7 @@ def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None):
                     dict(step="all", label="all"),
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date],
         ),
     )
@@ -430,7 +440,7 @@ def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
@@ -476,7 +486,7 @@ def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None):
                     dict(step="all", label="all"),
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date],
         ),
     )
@@ -484,12 +494,12 @@ def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None):
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
     else:
-        fig.update_yaxes(autorange=True)
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 # ------------------------------------------------------------------
-# 9. 新增：SOFR - IORB 利率与利差双轴图表
+# 9. SOFR - IORB 利率与利差双轴图表
 # ------------------------------------------------------------------
 def create_sofr_iorb_chart(df_sofr: pd.DataFrame, y_range=None):
     if df_sofr is None or df_sofr.empty:
@@ -530,18 +540,20 @@ def create_sofr_iorb_chart(df_sofr: pd.DataFrame, y_range=None):
                     dict(step="all", label="all"),
                 ])
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=False),
             range=[default_start, last_date],
         ),
     )
 
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 # ------------------------------------------------------------------
-# 10. 新增：S&P 500 前十大权重股集中度饼图/柱状图
+# 10. S&P 500 前十大权重股集中度饼图/柱状图
 # ------------------------------------------------------------------
 def create_top10_concentration_chart(df_top10: pd.DataFrame):
     if df_top10 is None or df_top10.empty:
