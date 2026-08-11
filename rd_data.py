@@ -33,8 +33,17 @@ from market_breadth_viz import (
 )
 
 # ------------------------------------------------------------------
-# 3. FRED 宏观经济数据获取辅助函数
+# 3. 辅助函数：格式化文件与数据刷新时间 (具体到小时/分钟 YYYY-MM-DD HH:MM)
 # ------------------------------------------------------------------
+def get_file_updated_time(file_path):
+    if os.path.exists(file_path):
+        mtime = os.path.getmtime(file_path)
+        return datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+def get_current_time_str():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
 def _get_fred_api_key():
     try:
         return st.secrets["FRED_API_KEY"]
@@ -129,18 +138,24 @@ if not FRED_API_KEY:
 st.markdown("---")
 st.header("📊 美债收益率曲线 (Yield Curve)")
 
+treasury_csv = "daily-treasury-rates.csv"
+treasury_updated = get_file_updated_time(treasury_csv)
+
 with st.spinner("正在获取并转换国债收益率数据..."):
     df_long = load_and_transform_data()
 
 if df_long is not None and not df_long.empty:
+    latest_date = df_long['Date'].max().strftime('%Y-%m-%d')
+    st.caption(f"🕒 数据刷新时间: **{treasury_updated}** | 最新数据交易日: **{latest_date}**")
+
     fig_treasury = create_treasury_chart(df_long)
     if fig_treasury:
         st.plotly_chart(fig_treasury, use_container_width=True)
     
-    latest_date = df_long['Date'].max().date()
     st.sidebar.header("国债数据信息")
-    st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
+    st.sidebar.markdown(f"刷新时间: **{treasury_updated}**")
     st.sidebar.markdown(f"最新日期: **{latest_date}**")
+    st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
 else:
     st.error("未能加载国债收益率数据，请检查 daily-treasury-rates.csv 文件。")
 
@@ -157,7 +172,9 @@ col1, col2 = st.columns(2)
 with col1:
     df_unrate = get_unemployment_data()
     if not df_unrate.empty:
+        latest_unrate_date = pd.to_datetime(df_unrate['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_unrate.columns else "最新"
         st.subheader("美国失业率 (UNRATE)")
+        st.caption(f"🕒 数据刷新时间: **{get_current_time_str()}** | 最新公布日期: **{latest_unrate_date}**")
         fig_unrate = create_unemployment_chart(df_unrate)
         if fig_unrate:
             st.plotly_chart(fig_unrate, use_container_width=True)
@@ -167,7 +184,9 @@ with col1:
 with col2:
     df_fed_bs = get_fed_balance_sheet_data()
     if not df_fed_bs.empty:
+        latest_fed_date = pd.to_datetime(df_fed_bs['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_fed_bs.columns else "最新"
         st.subheader("美联储资产负债表 (WALCL)")
+        st.caption(f"🕒 数据刷新时间: **{get_current_time_str()}** | 最新公布日期: **{latest_fed_date}**")
         fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs)
         if fig_fed_bs:
             st.plotly_chart(fig_fed_bs, use_container_width=True)
@@ -179,7 +198,9 @@ col3, col4 = st.columns(2)
 with col3:
     df_highyield = get_highyield_data()
     if not df_highyield.empty:
-        st.subheader("高收益债信用利差 (US High Yield Option-Adjusted Spread)")
+        latest_hy_date = pd.to_datetime(df_highyield['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_highyield.columns else "最新"
+        st.subheader("高收益债信用利差 (US High Yield Credit Spread)")
+        st.caption(f"🕒 数据刷新时间: **{get_current_time_str()}** | 最新公布日期: **{latest_hy_date}**")
         fig_credit = create_credit_spread_chart(df_highyield)
         if fig_credit:
             st.plotly_chart(fig_credit, use_container_width=True)
@@ -189,7 +210,9 @@ with col3:
 with col4:
     df_gold_oil = get_gold_oil_ratio_data()
     if not df_gold_oil.empty:
+        latest_go_date = pd.to_datetime(df_gold_oil['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_gold_oil.columns else "最新"
         st.subheader("Gold / Oil Ratio (金油比)")
+        st.caption(f"🕒 数据刷新时间: **{get_current_time_str()}** | 最新公布日期: **{latest_go_date}**")
         fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil)
         if fig_gold_oil:
             st.plotly_chart(fig_gold_oil, use_container_width=True)
