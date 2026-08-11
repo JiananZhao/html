@@ -242,6 +242,16 @@ if not FRED_API_KEY:
 
 current_et_str = get_current_time_str_eastern()
 
+# --- 全局宏观图表时间范围选择器 ---
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ 宏观图表动态 Y 轴自动缩放控制")
+macro_tf = st.sidebar.radio(
+    "选择宏观图表时间范围 (自动精细缩放 Y 轴):",
+    ["1Y", "3Y", "5Y", "10Y", "ALL"],
+    index=2,
+    key="global_macro_timeframe"
+)
+
 # --- 1. 原版国债收益率曲线图表 ---
 st.markdown("---")
 st.header("📊 美债收益率曲线 (Yield Curve)")
@@ -293,7 +303,7 @@ with s_col1:
         c2.metric("IORB 利率", f"{latest_iorb_val:.2f}%")
         c3.metric("SOFR - IORB 利差", f"{latest_spread:+.1f} bps", delta="预警线: +3.0 bps", delta_color="inverse" if latest_spread > 3.0 else "normal")
 
-        fig_sofr = create_sofr_iorb_chart(df_sofr)
+        fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
     elif not df_sofr.empty:
@@ -307,7 +317,7 @@ with s_col1:
             latest_val = df_sofr[val_col].iloc[-1]
             st.metric(f"{val_col} 利率", f"{latest_val:.2f}%")
         
-        fig_sofr = create_sofr_iorb_chart(df_sofr)
+        fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
     else:
@@ -345,13 +355,13 @@ with m_col1:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_ry_date}**")
 
         ry_y_range = None
-        if st.checkbox("手动设置实际利率 Y 轴范围", key="ry_manual_y"):
+        if st.checkbox("手动自定义实际利率 Y 轴范围", key="ry_manual_y"):
             val_ry = df_ry['10Y_Real_Yield'] if '10Y_Real_Yield' in df_ry.columns else df_ry.iloc[:, 1]
             r_min = float(val_ry.dropna().min())
             r_max = float(val_ry.dropna().max())
             ry_y_range = st.slider("实际利率 Y 轴范围 (%)", round(r_min - 1.0, 1), round(r_max + 1.0, 1), (round(r_min, 1), round(r_max, 1)), 0.1, key="ry_slider")
 
-        fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range)
+        fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range, timeframe=macro_tf)
         if fig_ry:
             st.plotly_chart(fig_ry, use_container_width=True)
     else:
@@ -365,13 +375,13 @@ with m_col2:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_liq_date}**")
 
         liq_y_range = None
-        if st.checkbox("手动设置净流动性 Y 轴范围", key="liq_manual_y"):
+        if st.checkbox("手动自定义净流动性 Y 轴范围", key="liq_manual_y"):
             val_liq = df_net_liq['Fed_Net_Liquidity_Tn']
             l_min = float(val_liq.dropna().min())
             l_max = float(val_liq.dropna().max())
             liq_y_range = st.slider("净流动性 Y 轴范围 (万亿 USD)", round(l_min - 0.5, 2), round(l_max + 0.5, 2), (round(l_min, 2), round(l_max, 2)), 0.05, key="liq_slider")
 
-        fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range)
+        fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range, timeframe=macro_tf)
         if fig_liq:
             st.plotly_chart(fig_liq, use_container_width=True)
     else:
@@ -388,13 +398,13 @@ with m_col3:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_nfci_date}**")
 
         nfci_y_range = None
-        if st.checkbox("手动设置 NFCI Y 轴范围", key="nfci_manual_y"):
+        if st.checkbox("手动自定义 NFCI Y 轴范围", key="nfci_manual_y"):
             val_n = df_nfci['NFCI']
             n_min = float(val_n.dropna().min())
             n_max = float(val_n.dropna().max())
             nfci_y_range = st.slider("NFCI Y 轴范围", round(n_min - 0.5, 2), round(n_max + 0.5, 2), (round(n_min, 2), round(n_max, 2)), 0.05, key="nfci_slider")
 
-        fig_nfci = create_nfci_chart(df_nfci, y_range=nfci_y_range)
+        fig_nfci = create_nfci_chart(df_nfci, y_range=nfci_y_range, timeframe=macro_tf)
         if fig_nfci:
             st.plotly_chart(fig_nfci, use_container_width=True)
     else:
@@ -408,13 +418,13 @@ with m_col4:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_hy_date}**")
 
         credit_y_range = None
-        if st.checkbox("手动设置信用利差 Y 轴范围", key="credit_manual_y"):
+        if st.checkbox("手动自定义信用利差 Y 轴范围", key="credit_manual_y"):
             val_hy = df_highyield['Value'] if 'Value' in df_highyield.columns else df_highyield.iloc[:, 1]
             hy_min = float(val_hy.dropna().min())
             hy_max = float(val_hy.dropna().max())
             credit_y_range = st.slider("信用利差 Y 轴范围 (%)", round(max(0.0, hy_min - 1.0), 1), round(hy_max + 2.0, 1), (round(hy_min, 1), round(hy_max, 1)), 0.1, key="credit_y_slider")
 
-        fig_credit = create_credit_spread_chart(df_highyield, y_range=credit_y_range)
+        fig_credit = create_credit_spread_chart(df_highyield, y_range=credit_y_range, timeframe=macro_tf)
         if fig_credit:
             st.plotly_chart(fig_credit, use_container_width=True)
     else:
@@ -431,13 +441,13 @@ with m_col5:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_unrate_date}**")
 
         unrate_y_range = None
-        if st.checkbox("手动设置失业率 Y 轴范围", key="unrate_manual_y"):
+        if st.checkbox("手动自定义失业率 Y 轴范围", key="unrate_manual_y"):
             val_unrate = df_unrate['Unemployment_Rate'] if 'Unemployment_Rate' in df_unrate.columns else df_unrate.iloc[:, 1]
             u_min = float(val_unrate.dropna().min())
             u_max = float(val_unrate.dropna().max())
             unrate_y_range = st.slider("失业率 Y 轴范围 (%)", round(max(0.0, u_min - 2.0), 1), round(u_max + 3.0, 1), (round(u_min, 1), round(u_max, 1)), 0.1, key="unrate_y_slider")
 
-        fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range)
+        fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range, timeframe=macro_tf)
         if fig_unrate:
             st.plotly_chart(fig_unrate, use_container_width=True)
     else:
@@ -451,13 +461,13 @@ with m_col6:
         st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_fed_date}**")
 
         fed_y_range = None
-        if st.checkbox("手动设置资产负债表 Y 轴范围", key="fed_manual_y"):
+        if st.checkbox("手动自定义资产负债表 Y 轴范围", key="fed_manual_y"):
             val_fed = df_fed_bs['balance_sheet_tn'] if 'balance_sheet_tn' in df_fed_bs.columns else df_fed_bs.iloc[:, 1]
             f_min = float(val_fed.dropna().min())
             f_max = float(val_fed.dropna().max())
             fed_y_range = st.slider("资产负债表 Y 轴范围 (万亿美元)", round(max(0.0, f_min - 1.0), 2), round(f_max + 1.0, 2), (round(f_min, 2), round(f_max, 2)), 0.05, key="fed_y_slider")
 
-        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range)
+        fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range, timeframe=macro_tf)
         if fig_fed_bs:
             st.plotly_chart(fig_fed_bs, use_container_width=True)
     else:
@@ -470,13 +480,13 @@ if not df_gold_oil.empty:
     st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_go_date}**")
 
     go_y_range = None
-    if st.checkbox("手动设置金油比 Y 轴范围", key="go_manual_y"):
+    if st.checkbox("手动自定义金油比 Y 轴范围", key="go_manual_y"):
         val_go = df_gold_oil['gold_oil_ratio'] if 'gold_oil_ratio' in df_gold_oil.columns else df_gold_oil.iloc[:, -1]
         go_min = float(val_go.dropna().min())
         go_max = float(val_go.dropna().max())
         go_y_range = st.slider("金油比 Y 轴范围", round(max(0.0, go_min - 5.0), 1), round(go_max + 10.0, 1), (round(go_min, 1), round(go_max, 1)), 0.5, key="go_y_slider")
 
-    fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil, y_range=go_y_range)
+    fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil, y_range=go_y_range, timeframe=macro_tf)
     if fig_gold_oil:
         st.plotly_chart(fig_gold_oil, use_container_width=True)
 
@@ -535,3 +545,4 @@ with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲
     * **高收益债信用利差 (BAMLH0A0HYM2)**：预警红线为 **500 bps (5.0%)**。利差陡峭走阔标志着信用风险向实体经济扩散。
     * **美联储净流动性 (WALCL - TGA - RRP)**：作为美股流动性的先行指标，净流动性拐点通常领先标普 500 指数 2-4 周。
     """)
+EOF
