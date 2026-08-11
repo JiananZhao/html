@@ -68,6 +68,8 @@ def filter_by_timeframe(df: pd.DataFrame, date_col: str, timeframe: str = "ALL")
     last_date = df_sorted[date_col].max()
 
     tf_map = {
+        "1M": pd.DateOffset(months=1),
+        "3M": pd.DateOffset(months=3),
         "6M": pd.DateOffset(months=6),
         "1Y": pd.DateOffset(years=1),
         "3Y": pd.DateOffset(years=3),
@@ -103,7 +105,6 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="
 
     val_col = 'Unemployment_Rate' if 'Unemployment_Rate' in df.columns else df.columns[1]
 
-    # 切片过滤以确保 Plotly 在选中时间范围内完美自动缩放 Y 轴
     df = filter_by_timeframe(df, date_col, timeframe)
     if df.empty:
         return None
@@ -123,7 +124,7 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="
         y=avg_rate,
         line_dash="dot",
         line_color="gray",
-        annotation_text=f"历史平均值 ({avg_rate:.1f}%)",
+        annotation_text=f"阶段平均值 ({avg_rate:.1f}%)",
         annotation_position="bottom left",
     )
 
