@@ -306,6 +306,15 @@ with s_col1:
         fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
+            with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+                st.markdown("""
+                * **指标构成**：
+                  * **SOFR (担保隔夜融资利率)**：回购市场非银及银行的真实隔夜借贷成本。
+                  * **IORB (准备金利率)**：美联储向商业银行存放于央行的准备金支付的利息（政策锚点）。
+                * **解读逻辑**：
+                  * **正常区间 ($\le 0$ 或 $< +3$ bps)**：商业银行体系准备金充裕，隔夜批发市场资金供需平稳。
+                  * **预警信号 (利差 $> +3$ bps)**：非银与银行资金需求激增或银行出借意愿降低，提示隔夜微观流动性出现结构性摩擦或紧缺。
+                """)
     elif not df_sofr.empty:
         latest_sofr_date = pd.to_datetime(df_sofr['date'].iloc[-1]).strftime('%Y-%m-%d')
         st.subheader("SOFR - IORB 资金面体温计")
@@ -320,6 +329,15 @@ with s_col1:
         fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
+            with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+                st.markdown("""
+                * **指标构成**：
+                  * **SOFR (担保隔夜融资利率)**：回购市场非银及银行的真实隔夜借贷成本。
+                  * **IORB (准备金利率)**：美联储向商业银行存放于央行的准备金支付的利息（政策锚点）。
+                * **解读逻辑**：
+                  * **正常区间 ($\le 0$ 或 $< +3$ bps)**：商业银行体系准备金充裕，隔夜批发市场资金供需平稳。
+                  * **预警信号 (利差 $> +3$ bps)**：非银与银行资金需求激增或银行出借意愿降低，提示隔夜微观流动性出现结构性摩擦或紧缺。
+                """)
     else:
         st.info("SOFR - IORB 资金面数据加载中或不可用。")
 
@@ -364,6 +382,15 @@ with m_col1:
         fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range, timeframe=macro_tf)
         if fig_ry:
             st.plotly_chart(fig_ry, use_container_width=True)
+            with st.expander("💡 10Y TIPS 实际利率 & 通胀预期解读指南", expanded=False):
+                st.markdown("""
+                * **费雪拆解**：$\text{10Y 名义收益率} = \text{10Y TIPS 实际利率} + \text{10Y 盈亏平衡通胀率}$。
+                * **10Y TIPS 实际利率 (Real Yield)**：
+                  * 代表全社会真实无风险资本成本（资产定价之锚）。
+                  * **估值挤压**：当 10Y 实际利率 $> 2.0\%$ 或快速上行时，无风险真实折现率升高，压制科技股等高估值资产。
+                * **通胀预期 (Breakeven Inflation)**：
+                  * 反映市场交易出的未来 10 年平均通胀中枢。若实际利率升而通胀预期降，说明货币紧缩在真实压制通胀。
+                """)
     else:
         st.info("实际利率与通胀预期数据加载中或不可用。")
 
@@ -384,6 +411,14 @@ with m_col2:
         fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range, timeframe=macro_tf)
         if fig_liq:
             st.plotly_chart(fig_liq, use_container_width=True)
+            with st.expander("💡 美联储净流动性 & 银行准备金解读指南", expanded=False):
+                st.markdown("""
+                * **计算公式**：$\text{美联储净流动性} = \text{美联储总资产 (WALCL)} - \text{财政部账户 (TGA)} - \text{隔夜逆回购 (RRP)}$。
+                * **传导机制**：
+                  * **TGA / RRP 上升**：资金抽离市场（流动性收紧）。
+                  * **WALCL 扩表 / RRP 释放**：资金注入银行体系（流动性改善）。
+                * **股市先行指标**：美联储净流动性增减拐点通常**领先标普 500 指数 2–4 周**，是量化微观流动性宽裕度的核心先行指标。
+                """)
     else:
         st.info("美联储净流动性数据加载中或不可用。")
 
