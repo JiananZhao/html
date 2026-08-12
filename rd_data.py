@@ -182,7 +182,6 @@ def get_fed_net_liquidity_data():
     if not df_res.empty:
         dfs.append(df_res)
 
-    # 采用 outer 方式对齐异频/不同周几公布的序列，避免强行 left join 导致 key 错位全报 NaN
     merged = dfs[0]
     for d in dfs[1:]:
         merged = pd.merge(merged, d, on="date", how="outer")
@@ -194,26 +193,18 @@ def get_fed_net_liquidity_data():
         if col not in merged.columns:
             merged[col] = 0.0
 
-    # 日期前后插值前向补全
     merged[["walcl", "tga", "rrp", "reserves"]] = merged[["walcl", "tga", "rrp", "reserves"]].ffill().bfill().fillna(0.0)
-
-    # 只保留 anchor 序列 (WALCL) 存在数据的交易日
     merged = merged[merged["walcl"] > 0].copy()
 
-    # WALCL (Millions USD) -> Trillions USD
     walcl_tn = merged["walcl"] / 1_000_000.0
-
-    # TGA (Millions USD) -> Trillions USD
     tga_tn = merged["tga"] / 1_000_000.0
 
-    # RRP -> Trillions USD (自动判定单位：Billions vs Millions)
     rrp_mean = merged["rrp"].mean()
     if rrp_mean > 1000:
         rrp_tn = merged["rrp"] / 1_000_000.0
     else:
         rrp_tn = merged["rrp"] / 1_000.0
 
-    # Reserves -> Trillions USD (自动判定单位：Billions vs Millions)
     res_mean = merged["reserves"].mean()
     if res_mean > 100_000:
         res_tn = merged["reserves"] / 1_000_000.0
@@ -306,6 +297,14 @@ if df_long is not None and not df_long.empty:
     fig_treasury = create_treasury_chart(df_long)
     if fig_treasury:
         st.plotly_chart(fig_treasury, use_container_width=True)
+        with st.expander("💡 美债收益率曲线 (Yield Curve) 解读指南", expanded=False):
+            st.markdown("""
+            * **形态演变比较**：对比最新曲线、1个月前及1年前曲线。
+            * **倒挂阶段 (Inversion, 2Y > 10Y)**：短端政策利率高企压低长端衰退预期，预示银行净息差受挤压与信用紧缩。
+            * **陡峭化阶段 (Steepening)**：
+              * **牛陡 (Bull Steepening)**：降息周期开启，短端利率急跌，恢复正利差（通常伴随衰退后期的流动性修复）。
+              * **熊陡 (Bear Steepening)**：长端利率飙升，由通胀中枢上移、美债供给冲击或期限溢价走高驱动。
+            """)
     
     st.sidebar.header("国债数据信息")
     st.sidebar.markdown(f"刷新时间 (美东): **{treasury_updated}**")
@@ -343,6 +342,15 @@ with s_col1:
         fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
+            with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+                st.markdown("""
+                * **指标构成**：
+                  * **SOFR (担保隔夜融资利率)**：回购市场非银及银行的真实隔夜借贷成本。
+                  * **IORB (准备金利率)**：美联储向商业银行存放于央行的准备金支付的利息（政策锚点）。
+                * **解读逻辑**：
+                  * **正常区间 ($\le 0$ 或 $< +3$ bps)**：商业银行体系准备金充裕，隔夜批发市场资金供需平稳。
+                  * **预警信号 (利差 $> +3$ bps)**：非银与银行资金需求激增或银行出借意愿降低，提示隔夜微观流动性出现结构性摩擦或紧缺。
+                """)
     elif not df_sofr.empty:
         latest_sofr_date = pd.to_datetime(df_sofr['date'].iloc[-1]).strftime('%Y-%m-%d')
         st.subheader("SOFR - IORB 资金面体温计")
@@ -357,6 +365,15 @@ with s_col1:
         fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
         if fig_sofr:
             st.plotly_chart(fig_sofr, use_container_width=True)
+            with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+                st.markdown("""
+                * **指标构成**：
+                  * **SOFR (担保隔夜融资利率)**：回购市场非银及银行的真实隔夜借贷成本。
+                  * **IORB (准备金利率)**：美联储向商业银行存放于央行的准备金支付的利息（政策锚点）。
+                * **解读逻辑**：
+                  * **正常区间 ($\le 0$ 或 $< +3$ bps)**：商业银行体系准备金充裕，隔夜批发市场资金供需平稳。
+                  * **预警信号 (利差 $> +3$ bps)**：非银与银行资金需求激增或银行出借意愿降低，提示隔夜微观流动性出现结构性摩擦或紧缺。
+                """)
     else:
         st.info("SOFR - IORB 资金面数据加载中或不可用。")
 
@@ -374,6 +391,11 @@ with s_col2:
         fig_top10 = create_top10_concentration_chart(df_top10)
         if fig_top10:
             st.plotly_chart(fig_top10, use_container_width=True)
+            with st.expander("💡 S&P 500 前十大持仓集中度解读指南", expanded=False):
+                st.markdown("""
+                * **指标含义**：前十大持仓股（NVDA, AAPL, MSFT, AMZN, META, GOOGL, GOOG, BRK-B, AVGO, LLY）在标普 500 指数中的合计权重占比（目前约 ~39.30%）。
+                * **预警红线 (39.00%)**：集中度处于历史极高位表明指数涨幅高度依赖极少数巨头（Top-heavy），大盘整体易受单一巨头财报波动冲击；关注等权重指数 (RSP) 与市值权重指数的背离。
+                """)
     else:
         st.info("前十大持仓集中度数据加载中。")
 
@@ -401,6 +423,15 @@ with m_col1:
         fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range, timeframe=macro_tf)
         if fig_ry:
             st.plotly_chart(fig_ry, use_container_width=True)
+            with st.expander("💡 10Y TIPS 实际利率 & 通胀预期解读指南", expanded=False):
+                st.markdown("""
+                * **费雪拆解**：$\text{10Y 名义收益率} = \text{10Y TIPS 实际利率} + \text{10Y 盈亏平衡通胀率}$。
+                * **10Y TIPS 实际利率 (Real Yield)**：
+                  * 代表全社会真实无风险资本成本（资产定价之锚）。
+                  * **估值挤压**：当 10Y 实际利率 $> 2.0\%$ 或快速上行时，无风险真实折现率升高，压制科技股等高估值资产。
+                * **通胀预期 (Breakeven Inflation)**：
+                  * 反映市场交易出的未来 10 年平均通胀中枢。若实际利率升而通胀预期降，说明货币紧缩在真实压制通胀。
+                """)
     else:
         st.info("实际利率与通胀预期数据加载中或不可用。")
 
@@ -421,6 +452,14 @@ with m_col2:
         fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range, timeframe=macro_tf)
         if fig_liq:
             st.plotly_chart(fig_liq, use_container_width=True)
+            with st.expander("💡 美联储净流动性 & 银行准备金解读指南", expanded=False):
+                st.markdown("""
+                * **计算公式**：$\text{美联储净流动性} = \text{美联储总资产 (WALCL)} - \text{财政部账户 (TGA)} - \text{隔夜逆回购 (RRP)}$。
+                * **传导机制**：
+                  * **TGA / RRP 上升**：资金抽离市场（流动性收紧）。
+                  * **WALCL 扩表 / RRP 释放**：资金注入银行体系（流动性改善）。
+                * **股市先行指标**：美联储净流动性增减拐点通常**领先标普 500 指数 2–4 周**，是量化微观流动性宽裕度的核心先行指标。
+                """)
     else:
         st.info("美联储净流动性数据加载中或不可用。")
 
@@ -444,6 +483,13 @@ with m_col3:
         fig_nfci = create_nfci_chart(df_nfci, y_range=nfci_y_range, timeframe=macro_tf)
         if fig_nfci:
             st.plotly_chart(fig_nfci, use_container_width=True)
+            with st.expander("💡 芝加哥联储全国金融条件指数 (NFCI) 解读指南", expanded=False):
+                st.markdown("""
+                * **指标含义**：综合了货币市场、股权市场、债权市场以及传统/影子银行体系的 100+ 个微观金融指标。
+                * **零轴分界**：
+                  * **NFCI $< 0$**：全美金融条件比历史平均水平更宽松。
+                  * **NFCI $> 0$**：金融条件处于紧缩状态，陡峭上行提示信用紧缩与市场波动率上升。
+                """)
     else:
         st.info("NFCI 数据加载中或不可用。")
 
@@ -464,6 +510,13 @@ with m_col4:
         fig_credit = create_credit_spread_chart(df_highyield, y_range=credit_y_range, timeframe=macro_tf)
         if fig_credit:
             st.plotly_chart(fig_credit, use_container_width=True)
+            with st.expander("💡 高收益债信用利差 (US High Yield Spread) 解读指南", expanded=False):
+                st.markdown("""
+                * **指标含义**：美债高收益垃圾债（High Yield）收益率相对于同期限国债收益率的期权调整利差 (OAS)。
+                * **预警红线 (500 bps / 5.0%)**：
+                  * **利差 $< 3.5\%$**：市场风险偏好处于极度乐观状态。
+                  * **利差走阔并 $> 500$ bps**：违约风险升温，信用风险向实体经济扩散。
+                """)
     else:
         st.info("高收益债信用利差数据加载中或不可用。")
 
@@ -487,6 +540,11 @@ with m_col5:
         fig_unrate = create_unemployment_chart(df_unrate, y_range=unrate_y_range, timeframe=macro_tf)
         if fig_unrate:
             st.plotly_chart(fig_unrate, use_container_width=True)
+            with st.expander("💡 美国失业率 (UNRATE) 解读指南", expanded=False):
+                st.markdown("""
+                * **核心指标**：美联储双重目标（充分就业与物价稳定）的核心评估依据，历史均值约 5.6%。
+                * **萨姆规则 (Sahm Rule)**：当失业率 3 个月移动平均值较过去 12 个月低点升高 0.5 个百分点时，预示经济进入衰退期，倒逼央行降息。
+                """)
     else:
         st.info("失业率数据加载中或不可用。")
 
@@ -507,6 +565,11 @@ with m_col6:
         fig_fed_bs = create_fed_balance_sheet_chart(df_fed_bs, y_range=fed_y_range, timeframe=macro_tf)
         if fig_fed_bs:
             st.plotly_chart(fig_fed_bs, use_container_width=True)
+            with st.expander("💡 美联储总资产 (WALCL) 解读指南", expanded=False):
+                st.markdown("""
+                * **指标含义**：美联储资产负债表总规模（万亿美元）。QE 扩表注入流动性，QT 缩表回收流动性。
+                * **量化紧缩 (QT) 减速**：关注美联储慢速缩表（QT Taper）及停止缩表节点，总资产规模是央行资产负债表政策的直接反映。
+                """)
     else:
         st.info("美联储资产负债表数据加载中或不可用。")
 
@@ -526,6 +589,11 @@ if not df_gold_oil.empty:
     fig_gold_oil = create_gold_oil_ratio_chart(df_gold_oil, y_range=go_y_range, timeframe=macro_tf)
     if fig_gold_oil:
         st.plotly_chart(fig_gold_oil, use_container_width=True)
+        with st.expander("💡 Gold / Oil Ratio (金油比) 解读指南", expanded=False):
+            st.markdown("""
+            * **指标含义**：1 盎司黄金可购买的原油桶数（黄金现价 / WTI 或布伦特原油现价）。
+            * **避险与衰退预警**：金油比 $> 25\text{–}30$ 通常反映强避险需求（金价强）或大宗商品需求疲软（油价弱），是地缘政治风险或全球衰退危机的指示器。
+            """)
 
 # --- 5. 深度策略指南卡片 ---
 st.markdown("---")
