@@ -84,7 +84,7 @@ def filter_by_timeframe(df: pd.DataFrame, date_col: str, timeframe: str = "ALL")
     return df
 
 # ------------------------------------------------------------------
-# 2. 失业率趋势图表 (UNRATE - 动态切片自动缩放 Y 轴)
+# 2. 失业率趋势图表 (UNRATE)
 # ------------------------------------------------------------------
 def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="ALL"):
     if df_unrate is None or df_unrate.empty:
@@ -492,4 +492,68 @@ def create_top10_concentration_chart(df_top10: pd.DataFrame):
         uirevision="top10_pie_chart",
         legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
     )
+    return fig
+
+# ------------------------------------------------------------------
+# 11. CBOE VIX 恐慌指数图表
+# ------------------------------------------------------------------
+def create_vix_chart(df_vix: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_vix is None or df_vix.empty:
+        return None
+
+    df = df_vix.copy()
+
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'VIX' if 'VIX' in df.columns else df.columns[1]
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title=f'CBOE Volatility Index (VIX 恐慌指数) - [{timeframe}]',
+        labels={val_col: 'VIX 指数', date_col: '日期'},
+        template="plotly_white"
+    )
+
+    fig.add_hline(
+        y=20,
+        line_dash="dash",
+        line_color="rgba(234, 179, 8, 0.8)",
+        annotation_text="20 (情绪分界)",
+        annotation_position="top left"
+    )
+    fig.add_hline(
+        y=30,
+        line_dash="dash",
+        line_color="rgba(239, 68, 68, 0.8)",
+        annotation_text="30 (高恐慌预警)",
+        annotation_position="top left"
+    )
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="VIX 指数",
+        uirevision=f"vix_chart_{timeframe}"
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
     return fig
