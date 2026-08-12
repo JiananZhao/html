@@ -1,6 +1,7 @@
 import os
 import sys
 import datetime
+import json
 import urllib.request
 import pandas as pd
 import numpy as np
@@ -21,6 +22,7 @@ from visualization import (
     create_sofr_iorb_chart,
     create_top10_concentration_chart,
     create_vix_chart,
+    create_cnn_fear_greed_chart,
 )
 
 # ------------------------------------------------------------------
@@ -53,7 +55,7 @@ def _get_fred_api_key():
         return os.getenv("FRED_API_KEY", "")
 
 # ------------------------------------------------------------------
-# 2. FRED 核心宏观、微观流动性与持仓集中度函数
+# 2. FRED 核心宏观、微观流动性、情绪与持仓集中度函数
 # ------------------------------------------------------------------
 @st.cache_data(ttl=60 * 60 * 6)
 def _fetch_fred_series_observations(series_id, value_col, observation_start="2000-01-01"):
@@ -105,6 +107,74 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
 def get_vix_data():
     """获取 CBOE VIX 恐慌指数数据 (VIXCLS)"""
     return _fetch_fred_series_observations("VIXCLS", "VIX", "2000-01-01")
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_cnn_fear_and_greed_data():
+    """获取 CNN 恐慌与贪婪指数 (CNN Fear & Greed Index) 实时与历史数据"""
+    url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Referer": "https://www.cnn.com/",
+    }
+    
+    try:
+        import requests
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            json_data = resp.json()
+            fng = json_data.get("fear_and_greed", {})
+            hist_obj = json_data.get("fear_and_greed_historical", {})
+            hist_data = hist_obj.get("data", []) if isinstance(hist_obj, dict) else []
+            
+            latest_score = fng.get("score")
+            latest_rating = fng.get("rating")
+            
+            df_hist = pd.DataFrame()
+            if hist_data:
+                df_hist = pd.DataFrame(hist_data)
+                if "x" in df_hist.columns and "y" in df_hist.columns:
+                    df_hist["date"] = pd.to_datetime(df_hist["x"], unit="ms", errors="coerce")
+                    df_hist["Score"] = pd.to_numeric(df_hist["y"], errors="coerce")
+                    df_hist = df_hist.dropna(subset=["date", "Score"]).sort_values("date").reset_index(drop=True)
+            
+            return {
+                "latest_score": latest_score,
+                "latest_rating": latest_rating,
+                "previous_close": fng.get("previous_close"),
+                "previous_1_week": fng.get("previous_1_week"),
+                "previous_1_month": fng.get("previous_1_month"),
+                "previous_1_year": fng.get("previous_1_year"),
+                "df_hist": df_hist
+            }
+    except Exception as e:
+        print(f"Error fetching CNN Fear and Greed Index: {e}")
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+            fng = data.get("fear_and_greed", {})
+            hist_data = data.get("fear_and_greed_historical", {}).get("data", [])
+            df_hist = pd.DataFrame()
+            if hist_data:
+                df_hist = pd.DataFrame(hist_data)
+                df_hist["date"] = pd.to_datetime(df_hist["x"], unit="ms", errors="coerce")
+                df_hist["Score"] = pd.to_numeric(df_hist["y"], errors="coerce")
+                df_hist = df_hist.dropna(subset=["date", "Score"]).sort_values("date").reset_index(drop=True)
+            return {
+                "latest_score": fng.get("score"),
+                "latest_rating": fng.get("rating"),
+                "previous_close": fng.get("previous_close"),
+                "previous_1_week": fng.get("previous_1_week"),
+                "previous_1_month": fng.get("previous_1_month"),
+                "previous_1_year": fng.get("previous_1_year"),
+                "df_hist": df_hist
+            }
+    except Exception:
+        pass
+
+    return {}
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_unemployment_data():
@@ -170,7 +240,6 @@ def get_fed_net_liquidity_data():
     df_tga = _fetch_fred_series_observations("WTREGEN", "tga", "2015-01-01")
     df_rrp = _fetch_fred_series_observations("RRPONTSYD", "rrp", "2015-01-01")
     
-    # 替换停用系列 TOTRESNS：优先抓取美联储现行银行准备金数据 WRESBAL (Billions USD) 或 WRBWFRBL (Millions USD)
     df_res = _fetch_fred_series_observations("WRESBAL", "reserves", "2015-01-01")
     if df_res.empty:
         df_res = _fetch_fred_series_observations("WRBWFRBL", "reserves", "2015-01-01")
@@ -319,16 +388,18 @@ if df_long is not None and not df_long.empty:
 else:
     st.error("未能加载国债收益率数据。")
 
-# --- 2. S&P 500 市场宽度广度 & CBOE VIX 恐慌指数 (左右双列布局) ---
+# --- 2. S&P 500 市场宽度广度 ---
 st.markdown("---")
+render_market_breadth_ui()
 
-mb_col1, mb_col2 = st.columns(2)
+# --- 3. 市场情绪量化指标：CBOE VIX 恐慌指数 & CNN 恐慌与贪婪指数 (左右双列并排) ---
+st.markdown("---")
+st.header("📊 市场情绪量化指标 (VIX & CNN Fear/Greed Index)")
 
-with mb_col1:
-    render_market_breadth_ui()
+e_col1, e_col2 = st.columns(2)
 
-with mb_col2:
-    st.header("📊 CBOE VIX 恐慌指数")
+with e_col1:
+    st.subheader("CBOE VIX 恐慌指数")
     df_vix = get_vix_data()
     if not df_vix.empty:
         latest_vix_date = pd.to_datetime(df_vix['date'].iloc[-1]).strftime('%Y-%m-%d')
@@ -352,17 +423,60 @@ with mb_col2:
             st.plotly_chart(fig_vix, use_container_width=True)
             with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
                 st.markdown("""
-                * **指标含义**：芝加哥期权交易所（CBOE）波动率指数（VIX），通过 S&P 500 期权隐含波动率计算得出，反映市场对未来 30 天年化波动率的预判。
+                * **指标含义**：芝加哥期权交易所 (CBOE) 波动率指数 (VIX)，反映市场对未来 30 天 S&P 500 年化波动率的预判。
                 * **情绪分界 (20.0)**：
-                  * **VIX $< 15$**：市场处于低波动、高风险偏好阶段（注意情绪过于自满可能积聚调整风险）。
-                  * **$15 \le \text{VIX} < 20$**：市场处于常态合理波动区间。
-                  * **$\text{VIX} \ge 20$**：情绪焦虑升温，市场避险与对冲成本上升。
-                  * **$\text{VIX} \ge 30$**：高恐慌预警，通常对应急跌抛售或尾部风险释放，但也往往伴随着阶段性恐慌底的探明。
+                  * **VIX $< 15$**：低波动、高风险偏好阶段。
+                  * **$15 \le \text{VIX} < 20$**：常态合理波动区间。
+                  * **$\text{VIX} \ge 20$**：情绪焦虑升温，避险需求增加。
+                  * **$\text{VIX} \ge 30$**：高恐慌预警，对应急跌抛售或阶段性恐慌底探明。
                 """)
     else:
         st.info("VIX 恐慌指数数据加载中或不可用。")
 
-# --- 3. SOFR - IORB 利差 & 前十大持仓集中度模块 ---
+with e_col2:
+    st.subheader("CNN 恐慌与贪婪指数 (Fear & Greed)")
+    cnn_dict = get_cnn_fear_and_greed_data()
+    if cnn_dict:
+        score = cnn_dict.get("latest_score")
+        rating = str(cnn_dict.get("latest_rating", "")).title()
+        prev_close = cnn_dict.get("previous_close")
+        prev_1w = cnn_dict.get("previous_1_week")
+        df_fgi = cnn_dict.get("df_hist")
+
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | CNN 官方实时指数")
+
+        fc1, fc2, fc3 = st.columns(3)
+        if score is not None:
+            fc1.metric("当前分值 (0-100)", f"{score:.1f}", delta=f"状态: {rating}")
+        if prev_close is not None:
+            fc2.metric("前一交易日收盘", f"{prev_close:.1f}")
+        if prev_1w is not None:
+            fc3.metric("1 周前得分", f"{prev_1w:.1f}")
+
+        fgi_y_range = None
+        if st.checkbox("手动自定义 CNN 指数 Y 轴范围", key="fgi_manual_y"):
+            fgi_y_range = st.slider("FGI Y 轴范围", 0.0, 100.0, (0.0, 100.0), 5.0, key="fgi_y_slider")
+
+        if df_fgi is not None and not df_fgi.empty:
+            fig_fgi = create_cnn_fear_greed_chart(df_fgi, y_range=fgi_y_range, timeframe=macro_tf)
+            if fig_fgi:
+                st.plotly_chart(fig_fgi, use_container_width=True)
+                with st.expander("💡 CNN 恐慌与贪婪指数解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标构成**：综合了市场动量 (Market Momentum)、股价强度 (Stock Price Strength)、股价广度 (Stock Price Breadth)、认沽/认购期权比率 (Put/Call Ratio)、垃圾债利差 (Junk Bond Demand)、避险需求 (Safe Haven Demand) 和市场波动率 (Market Volatility) 7 维指标。
+                    * **分值区间 (0 - 100)**：
+                      * **0 – 25 (极度恐慌 Extreme Fear)**：情绪陷于极度悲观，常对应逆向投资博弈买点。
+                      * **25 – 45 (恐慌 Fear)**：避险情绪主导。
+                      * **45 – 55 (中性 Neutral)**：情绪相对均衡。
+                      * **55 – 75 (贪婪 Greed)**：风险偏好升温。
+                      * **75 – 100 (极度贪婪 Extreme Greed)**：市场情绪过热自满，需警惕回调风险。
+                    """)
+        else:
+            st.info("CNN 恐慌与贪婪指数历史趋势加载中。")
+    else:
+        st.info("CNN 恐慌与贪婪指数实时数据加载中或不可用。")
+
+# --- 4. SOFR - IORB 利差 & 前十大持仓集中度模块 ---
 st.markdown("---")
 st.header("📊 资金面体温计 & 指数结构集中度")
 
@@ -444,7 +558,7 @@ with s_col2:
     else:
         st.info("前十大持仓集中度数据加载中。")
 
-# --- 4. FRED 宏观指标与流动性追踪 ---
+# --- 5. FRED 宏观指标与流动性追踪 ---
 st.markdown("---")
 st.header("📊 宏观指标与流动性追踪")
 
@@ -640,7 +754,7 @@ if not df_gold_oil.empty:
             * **避险与衰退预警**：金油比 $> 25\text{–}30$ 通常反映强避险需求（金价强）或大宗商品需求疲软（油价弱），是地缘政治风险或全球衰退危机的指示器。
             """)
 
-# --- 5. 深度策略指南卡片 ---
+# --- 6. 深度策略指南卡片 ---
 st.markdown("---")
 with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲线策略指南（深度解析版）", expanded=False):
     st.markdown("""
