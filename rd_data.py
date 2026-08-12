@@ -165,43 +165,67 @@ def get_fed_net_liquidity_data():
     df_rrp = _fetch_fred_series_observations("RRPONTSYD", "rrp", "2015-01-01")
     
     # 替换停用系列 TOTRESNS：优先抓取美联储现行银行准备金数据 WRESBAL (Billions USD) 或 WRBWFRBL (Millions USD)
-    is_res_in_billions = True
     df_res = _fetch_fred_series_observations("WRESBAL", "reserves", "2015-01-01")
     if df_res.empty:
         df_res = _fetch_fred_series_observations("WRBWFRBL", "reserves", "2015-01-01")
-        is_res_in_billions = False
     if df_res.empty:
         df_res = _fetch_fred_series_observations("TOTRESNS", "reserves", "2015-01-01")
-        is_res_in_billions = True
 
     if df_walcl.empty:
         return pd.DataFrame()
 
-    df = df_walcl.copy()
+    dfs = [df_walcl]
     if not df_tga.empty:
-        df = pd.merge(df, df_tga, on="date", how="left")
-    else:
-        df["tga"] = 0
-
+        dfs.append(df_tga)
     if not df_rrp.empty:
-        df = pd.merge(df, df_rrp, on="date", how="left")
-    else:
-        df["rrp"] = 0
-
+        dfs.append(df_rrp)
     if not df_res.empty:
-        df = pd.merge(df, df_res, on="date", how="left")
-    else:
-        df["reserves"] = 0
+        dfs.append(df_res)
 
-    df = df.ffill().bfill()
-    df["Fed_Net_Liquidity_Tn"] = (df["walcl"] - df["tga"] - (df["rrp"] * 1000)) / 1_000_000
-    
-    if is_res_in_billions:
-        df["Bank_Reserves_Tn"] = df["reserves"] / 1_000
-    else:
-        df["Bank_Reserves_Tn"] = df["reserves"] / 1_000_000
+    # 采用 outer 方式对齐异频/不同周几公布的序列，避免强行 left join 导致 key 错位全报 NaN
+    merged = dfs[0]
+    for d in dfs[1:]:
+        merged = pd.merge(merged, d, on="date", how="outer")
 
-    return df[["date", "Fed_Net_Liquidity_Tn", "Bank_Reserves_Tn"]].dropna().reset_index(drop=True)
+    merged["date"] = pd.to_datetime(merged["date"])
+    merged = merged.sort_values("date").reset_index(drop=True)
+
+    for col in ["walcl", "tga", "rrp", "reserves"]:
+        if col not in merged.columns:
+            merged[col] = 0.0
+
+    # 日期前后插值前向补全
+    merged[["walcl", "tga", "rrp", "reserves"]] = merged[["walcl", "tga", "rrp", "reserves"]].ffill().bfill().fillna(0.0)
+
+    # 只保留 anchor 序列 (WALCL) 存在数据的交易日
+    merged = merged[merged["walcl"] > 0].copy()
+
+    # WALCL (Millions USD) -> Trillions USD
+    walcl_tn = merged["walcl"] / 1_000_000.0
+
+    # TGA (Millions USD) -> Trillions USD
+    tga_tn = merged["tga"] / 1_000_000.0
+
+    # RRP -> Trillions USD (自动判定单位：Billions vs Millions)
+    rrp_mean = merged["rrp"].mean()
+    if rrp_mean > 1000:
+        rrp_tn = merged["rrp"] / 1_000_000.0
+    else:
+        rrp_tn = merged["rrp"] / 1_000.0
+
+    # Reserves -> Trillions USD (自动判定单位：Billions vs Millions)
+    res_mean = merged["reserves"].mean()
+    if res_mean > 100_000:
+        res_tn = merged["reserves"] / 1_000_000.0
+    elif res_mean > 10:
+        res_tn = merged["reserves"] / 1_000.0
+    else:
+        res_tn = merged["reserves"]
+
+    merged["Fed_Net_Liquidity_Tn"] = walcl_tn - tga_tn - rrp_tn
+    merged["Bank_Reserves_Tn"] = res_tn
+
+    return merged[["date", "Fed_Net_Liquidity_Tn", "Bank_Reserves_Tn"]].dropna().reset_index(drop=True)
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_gold_oil_ratio_data():
@@ -558,3 +582,4 @@ with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲
     * **高收益债信用利差 (BAMLH0A0HYM2)**：预警红线为 **500 bps (5.0%)**。利差陡峭走阔标志着信用风险向实体经济扩散。
     * **美联储净流动性 (WALCL - TGA - RRP)**：作为美股流动性的先行指标，净流动性拐点通常领先标普 500 指数 2-4 周。
     """)
+EOF
