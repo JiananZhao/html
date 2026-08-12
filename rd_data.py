@@ -20,6 +20,7 @@ from visualization import (
     create_net_liquidity_chart,
     create_sofr_iorb_chart,
     create_top10_concentration_chart,
+    create_vix_chart,
 )
 
 # ------------------------------------------------------------------
@@ -99,6 +100,11 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
         print(f"Fallback CSV fetch error for {series_id}: {e}")
 
     return pd.DataFrame()
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_vix_data():
+    """获取 CBOE VIX 恐慌指数数据 (VIXCLS)"""
+    return _fetch_fred_series_observations("VIXCLS", "VIX", "2000-01-01")
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_unemployment_data():
@@ -313,9 +319,48 @@ if df_long is not None and not df_long.empty:
 else:
     st.error("未能加载国债收益率数据。")
 
-# --- 2. S&P 500 市场宽度广度 ---
+# --- 2. S&P 500 市场宽度广度 & CBOE VIX 恐慌指数 (左右双列布局) ---
 st.markdown("---")
-render_market_breadth_ui()
+
+mb_col1, mb_col2 = st.columns(2)
+
+with mb_col1:
+    render_market_breadth_ui()
+
+with mb_col2:
+    st.header("📊 CBOE VIX 恐慌指数")
+    df_vix = get_vix_data()
+    if not df_vix.empty:
+        latest_vix_date = pd.to_datetime(df_vix['date'].iloc[-1]).strftime('%Y-%m-%d')
+        latest_vix_val = df_vix['VIX'].iloc[-1]
+        
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_vix_date}**")
+        
+        vc1, vc2 = st.columns(2)
+        vc1.metric("最新 VIX 指数", f"{latest_vix_val:.2f}", delta="情绪分界: 20.0", delta_color="inverse" if latest_vix_val > 20.0 else "normal")
+        vc2.metric("高恐慌警戒线", "30.00")
+
+        vix_y_range = None
+        if st.checkbox("手动自定义 VIX Y 轴范围", key="vix_manual_y"):
+            val_vix = df_vix['VIX']
+            v_min = float(val_vix.dropna().min())
+            v_max = float(val_vix.dropna().max())
+            vix_y_range = st.slider("VIX Y 轴范围", round(max(0.0, v_min - 5.0), 1), round(v_max + 10.0, 1), (round(v_min, 1), round(v_max, 1)), 0.5, key="vix_y_slider")
+
+        fig_vix = create_vix_chart(df_vix, y_range=vix_y_range, timeframe=macro_tf)
+        if fig_vix:
+            st.plotly_chart(fig_vix, use_container_width=True)
+            with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
+                st.markdown("""
+                * **指标含义**：芝加哥期权交易所（CBOE）波动率指数（VIX），通过 S&P 500 期权隐含波动率计算得出，反映市场对未来 30 天年化波动率的预判。
+                * **情绪分界 (20.0)**：
+                  * **VIX $< 15$**：市场处于低波动、高风险偏好阶段（注意情绪过于自满可能积聚调整风险）。
+                  * **$15 \le \text{VIX} < 20$**：市场处于常态合理波动区间。
+                  * **$\text{VIX} \ge 20$**：情绪焦虑升温，市场避险与对冲成本上升。
+                  * **$\text{VIX} \ge 30$**：高恐慌预警，通常对应急跌抛售或尾部风险释放，但也往往伴随着阶段性恐慌底的探明。
+                """)
+    else:
+        st.info("VIX 恐慌指数数据加载中或不可用。")
 
 # --- 3. SOFR - IORB 利差 & 前十大持仓集中度模块 ---
 st.markdown("---")
@@ -650,3 +695,4 @@ with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲
     * **高收益债信用利差 (BAMLH0A0HYM2)**：预警红线为 **500 bps (5.0%)**。利差陡峭走阔标志着信用风险向实体经济扩散。
     * **美联储净流动性 (WALCL - TGA - RRP)**：作为美股流动性的先行指标，净流动性拐点通常领先标普 500 指数 2-4 周。
     """)
+EOF
