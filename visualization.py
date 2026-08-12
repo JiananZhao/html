@@ -557,3 +557,74 @@ def create_vix_chart(df_vix: pd.DataFrame, y_range=None, timeframe="ALL"):
         fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
+
+# ------------------------------------------------------------------
+# 12. CNN 恐慌与贪婪指数图表 (Fear & Greed Index)
+# ------------------------------------------------------------------
+def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_fgi is None or df_fgi.empty:
+        return None
+
+    df = df_fgi.copy()
+
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    elif 'Date' in df.columns:
+        date_col = 'Date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'Score' if 'Score' in df.columns else df.columns[1]
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title=f'CNN Fear & Greed Index (恐慌与贪婪指数) - [{timeframe}]',
+        labels={val_col: '指数 Score (0-100)', date_col: '日期'},
+        template="plotly_white"
+    )
+
+    fig.add_hline(
+        y=25,
+        line_dash="dash",
+        line_color="rgba(220, 38, 38, 0.8)",
+        annotation_text="25 (极度恐慌)",
+        annotation_position="bottom left"
+    )
+    fig.add_hline(
+        y=50,
+        line_dash="dot",
+        line_color="gray",
+        annotation_text="50 (中性)",
+        annotation_position="bottom left"
+    )
+    fig.add_hline(
+        y=75,
+        line_dash="dash",
+        line_color="rgba(22, 163, 74, 0.8)",
+        annotation_text="75 (极度贪婪)",
+        annotation_position="top left"
+    )
+
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="指数分值 (0-100)",
+        uirevision=f"cnn_fgi_chart_{timeframe}"
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=list(y_range), autorange=False)
+    else:
+        fig.update_yaxes(range=[0, 100], autorange=False)
+
+    return fig
