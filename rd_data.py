@@ -3,6 +3,7 @@ import sys
 import datetime
 import json
 import urllib.request
+import importlib
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -10,6 +11,16 @@ from zoneinfo import ZoneInfo
 
 from data_processing import load_and_transform_data
 from market_breadth_viz import render_market_breadth_ui
+
+# ------------------------------------------------------------------
+# 模块导入与热重载安全机制 (防止 Streamlit Cloud 内存模块缓存导致 ImportError)
+# ------------------------------------------------------------------
+try:
+    import visualization
+    importlib.reload(visualization)
+except Exception:
+    pass
+
 from visualization import (
     create_treasury_chart,
     create_unemployment_chart,
@@ -26,9 +37,20 @@ from visualization import (
     create_stock_price_chart,
     create_relative_performance_chart,
     create_financial_trends_chart,
-    create_pe_ps_band_chart,
-    create_technical_momentum_chart,
 )
+
+try:
+    from visualization import create_pe_ps_band_chart, create_technical_momentum_chart
+except ImportError:
+    try:
+        import visualization
+        importlib.reload(visualization)
+        from visualization import create_pe_ps_band_chart, create_technical_momentum_chart
+    except Exception:
+        def create_pe_ps_band_chart(*args, **kwargs):
+            return None
+        def create_technical_momentum_chart(*args, **kwargs):
+            return None
 
 # ------------------------------------------------------------------
 # 1. 辅助函数：严格转换为美东时间 (US/Eastern - America/New_York, EDT)
@@ -1689,3 +1711,4 @@ with tab_semi:
         * **通用 GPU (NVDA / AMD)**：凭借 CUDA 生态与最高灵活性垄断大模型前沿训练与复杂推理。
         * **定制 ASIC (AVGO / MRVL)**：云厂商 (CSP) 为降低单 Token 成本自研推理芯片（如 Google TPU, AWS Trainium/Inferentia, Meta MTIA），博通作为芯片物理设计与 SerDes IP 独家合作伙伴长期受益。
         """)
+EOF
