@@ -628,3 +628,251 @@ def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="A
         fig.update_yaxes(range=[0, 100], autorange=False)
 
     return fig
+
+
+# ------------------------------------------------------------------
+# 14. 个股量化与交互式 K 线 / 均线走势图
+# ------------------------------------------------------------------
+def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: str = "Candlestick", timeframe: str = "1Y"):
+    """
+    绘制个股交互式价格走势图，支持 Candlestick / Line 切换，叠加 20MA, 50MA, 200MA 与成交量副图
+    """
+    if df_stock is None or df_stock.empty:
+        return None
+
+    df = df_stock.copy()
+    if 'Date' not in df.columns:
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index()
+            df.rename(columns={'index': 'Date'}, inplace=True)
+        elif 'date' in df.columns:
+            df.rename(columns={'date': 'Date'}, inplace=True)
+        else:
+            return None
+
+    df['Date'] = pd.to_datetime(df['Date'])
+    
+    # 确保列名大写规范
+    col_map = {c: c.capitalize() for c in df.columns if c.lower() in ['open', 'high', 'low', 'close', 'volume']}
+    df.rename(columns=col_map, inplace=True)
+
+    # 均线计算
+    if 'Close' in df.columns:
+        df['MA20'] = df['Close'].rolling(window=20).mean()
+        df['MA50'] = df['Close'].rolling(window=50).mean()
+        df['MA200'] = df['Close'].rolling(window=200).mean()
+
+    df = filter_by_timeframe(df, 'Date', timeframe)
+    if df.empty:
+        return None
+
+    from plotly.subplots import make_subplots
+    has_volume = 'Volume' in df.columns and (df['Volume'] > 0).any()
+
+    if has_volume:
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=[0.75, 0.25],
+            subplot_titles=(f"{symbol} 价格与均线系统 (MA20 / MA50 / MA200)", "成交量 (Volume)")
+        )
+    else:
+        fig = make_subplots(rows=1, cols=1)
+
+    # 1. 价格主图
+    has_ohlc = all(col in df.columns for col in ['Open', 'High', 'Low', 'Close'])
+    if chart_type == "Candlestick" and has_ohlc:
+        fig.add_trace(
+            go.Candlestick(
+                x=df['Date'],
+                open=df['Open'],
+                high=df['High'],
+                low=df['Low'],
+                close=df['Close'],
+                name=f"{symbol} K线",
+                increasing_line_color='#22c55e',
+                decreasing_line_color='#ef4444',
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+    elif 'Close' in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'],
+                y=df['Close'],
+                mode='lines',
+                name=f"{symbol} 收盘价",
+                line=dict(color='#2563eb', width=2),
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+
+    # 叠加均线
+    if 'MA20' in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'], y=df['MA20'],
+                mode='lines', name='20 MA (月线)',
+                line=dict(color='#f59e0b', width=1.5),
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+    if 'MA50' in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'], y=df['MA50'],
+                mode='lines', name='50 MA (季线)',
+                line=dict(color='#06b6d4', width=1.5),
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+    if 'MA200' in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'], y=df['MA200'],
+                mode='lines', name='200 MA (年线/牛熊分界)',
+                line=dict(color='#8b5cf6', width=2),
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+
+    # 2. 成交量副图
+    if has_volume:
+        vol_colors = []
+        if has_ohlc:
+            for _, row in df.iterrows():
+                if row['Close'] >= row['Open']:
+                    vol_colors.append('rgba(34, 197, 94, 0.6)')
+                else:
+                    vol_colors.append('rgba(239, 68, 68, 0.6)')
+        else:
+            vol_colors = 'rgba(100, 116, 139, 0.6)'
+
+        fig.add_trace(
+            go.Bar(
+                x=df['Date'],
+                y=df['Volume'],
+                name="成交量",
+                marker_color=vol_colors,
+                showlegend=False
+            ),
+            row=2, col=1
+        )
+        fig.update_yaxes(title_text="Volume", row=2, col=1)
+
+    fig.update_layout(
+        template="plotly_white",
+        hovermode="x unified",
+        xaxis_rangeslider_visible=False,
+        height=580,
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        uirevision=f"stock_chart_{symbol}_{timeframe}_{chart_type}"
+    )
+    fig.update_yaxes(title_text="股价 (USD)", row=1, col=1)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 15. 半导体产业链多股归一化相对收益对比图
+# ------------------------------------------------------------------
+def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list, timeframe: str = "YTD"):
+    """
+    计算多股相对于区间基准日的百分比累计收益率 ((P_t / P_0 - 1) * 100) 并绘制对比图
+    """
+    if df_prices is None or df_prices.empty:
+        return None
+
+    df = df_prices.copy()
+    if 'Date' not in df.columns:
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index()
+            df.rename(columns={'index': 'Date'}, inplace=True)
+        elif 'date' in df.columns:
+            df.rename(columns={'date': 'Date'}, inplace=True)
+        else:
+            return None
+
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = filter_by_timeframe(df, 'Date', timeframe)
+    if df.empty or len(df) < 2:
+        return None
+
+    valid_tickers = [t for t in tickers if t in df.columns and df[t].dropna().count() > 1]
+    if not valid_tickers:
+        return None
+
+    fig = go.Figure()
+
+    # 调色板
+    palette = [
+        '#2563eb', '#16a34a', '#dc2626', '#d97706', '#9333ea',
+        '#0891b2', '#e11d48', '#4f46e5', '#059669', '#ca8a04',
+        '#7c3aed', '#0284c7', '#be123c', '#475569'
+    ]
+
+    for i, ticker in enumerate(valid_tickers):
+        s = df[ticker].dropna()
+        if s.empty:
+            continue
+        base_val = s.iloc[0]
+        if base_val == 0 or pd.isna(base_val):
+            continue
+        norm_series = (df[ticker] / base_val - 1.0) * 100.0
+        color = palette[i % len(palette)]
+        
+        # 突出基准或核心标的线条粗细
+        width = 2.5 if ticker in ['NVDA', 'SOXX', 'SMH'] else 1.8
+        
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'],
+                y=norm_series,
+                mode='lines',
+                name=ticker,
+                line=dict(color=color, width=width),
+                hovertemplate=f"<b>{ticker}</b>: %{y:+.2f}%<extra></extra>"
+            )
+        )
+
+    # 添加 0% 收益基准线
+    fig.add_hline(
+        y=0,
+        line_dash="dash",
+        line_color="gray",
+        annotation_text="0% 基准线",
+        annotation_position="bottom left"
+    )
+
+    fig.update_layout(
+        title=f"半导体核心标的累计收益率对比 (Relative Performance) - [{timeframe}]",
+        xaxis_title="日期",
+        yaxis_title="累计收益率 (%)",
+        template="plotly_white",
+        hovermode="x unified",
+        height=520,
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        uirevision=f"semi_rel_perf_{timeframe}"
+    )
+
+    return fig
