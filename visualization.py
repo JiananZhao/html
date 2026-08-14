@@ -113,8 +113,8 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="
         df,
         x=date_col,
         y=val_col,
-        title=f'UNRATE (美国失业率) - [{timeframe}]',\
-        labels={val_col: '失业率 (%)', date_col: '日期'},\
+        title=f'UNRATE (美国失业率) - [{timeframe}]',
+        labels={val_col: '失业率 (%)', date_col: '日期'},
         template="plotly_white",
         line_shape='spline'
     )
@@ -172,8 +172,8 @@ def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None, timeframe="A
         df,
         x=date_col,
         y=val_col,
-        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',\
-        labels={val_col: '利差 (%)', date_col: '日期'},\
+        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',
+        labels={val_col: '利差 (%)', date_col: '日期'},
         template="plotly_white"
     )
 
@@ -652,11 +652,9 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
 
     df['Date'] = pd.to_datetime(df['Date'])
     
-    # 确保列名大写规范
     col_map = {c: c.capitalize() for c in df.columns if c.lower() in ['open', 'high', 'low', 'close', 'volume']}
     df.rename(columns=col_map, inplace=True)
 
-    # 均线计算
     if 'Close' in df.columns:
         df['MA20'] = df['Close'].rolling(window=20).mean()
         df['MA50'] = df['Close'].rolling(window=50).mean()
@@ -680,7 +678,6 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
     else:
         fig = make_subplots(rows=1, cols=1)
 
-    # 1. 价格主图
     has_ohlc = all(col in df.columns for col in ['Open', 'High', 'Low', 'Close'])
     if chart_type == "Candlestick" and has_ohlc:
         fig.add_trace(
@@ -710,7 +707,6 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
             row=1, col=1
         )
 
-    # 叠加均线
     if 'MA20' in df.columns:
         fig.add_trace(
             go.Scatter(
@@ -742,7 +738,6 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
             row=1, col=1
         )
 
-    # 2. 成交量副图
     if has_volume:
         vol_colors = []
         if has_ohlc:
@@ -817,7 +812,6 @@ def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list, ti
 
     fig = go.Figure()
 
-    # 调色板
     palette = [
         '#2563eb', '#16a34a', '#dc2626', '#d97706', '#9333ea',
         '#0891b2', '#e11d48', '#4f46e5', '#059669', '#ca8a04',
@@ -833,8 +827,6 @@ def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list, ti
             continue
         norm_series = (df[ticker] / base_val - 1.0) * 100.0
         color = palette[i % len(palette)]
-        
-        # 突出基准或核心标的线条粗细
         width = 2.5 if ticker in ['NVDA', 'SOXX', 'SMH'] else 1.8
         
         fig.add_trace(
@@ -844,11 +836,10 @@ def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list, ti
                 mode='lines',
                 name=ticker,
                 line=dict(color=color, width=width),
-                hovertemplate=f"<b>{ticker}</b>: %{y:+.2f}%<extra></extra>"
+                hovertemplate=f"<b>{ticker}</b>: %{{y:+.2f}}%<extra></extra>"
             )
         )
 
-    # 添加 0% 收益基准线
     fig.add_hline(
         y=0,
         line_dash="dash",
@@ -891,7 +882,6 @@ def create_financial_trends_chart(df_trends: pd.DataFrame, period_type: str = "�
     from plotly.subplots import make_subplots
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # 1. 柱状图：营收与净利润
     if 'Revenue_Bn' in df_trends.columns:
         fig.add_trace(
             go.Bar(
@@ -928,7 +918,6 @@ def create_financial_trends_chart(df_trends: pd.DataFrame, period_type: str = "�
             secondary_y=False
         )
 
-    # 2. 折线图 (次 Y 轴)：毛利率与净利率
     if 'GrossMargin_Pct' in df_trends.columns:
         fig.add_trace(
             go.Scatter(
@@ -976,5 +965,207 @@ def create_financial_trends_chart(df_trends: pd.DataFrame, period_type: str = "�
 
     fig.update_yaxes(title_text="金额 (十亿美元, $B)", secondary_y=False)
     fig.update_yaxes(title_text="利润率 (%)", secondary_y=True)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 17. 个股历史 PE / PS Band 估值通道走势图
+# ------------------------------------------------------------------
+def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: float = None, current_pe: float = None, valuation_type: str = "PE", timeframe: str = "3Y"):
+    """
+    绘制个股历史股价与动态 PE / PS 估值带 (PE/PS Band) 叠加走势图
+    """
+    if df_stock is None or df_stock.empty:
+        return None
+
+    df = df_stock.copy()
+    if 'Date' not in df.columns:
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index()
+            df.rename(columns={'index': 'Date'}, inplace=True)
+        elif 'date' in df.columns:
+            df.rename(columns={'date': 'Date'}, inplace=True)
+        else:
+            return None
+
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = filter_by_timeframe(df, 'Date', timeframe)
+    if df.empty or len(df) < 5:
+        return None
+
+    close_col = 'Close' if 'Close' in df.columns else ('close' if 'close' in df.columns else df.columns[1])
+    
+    if current_eps and current_eps > 0:
+        base_metric = current_eps
+    elif current_pe and current_pe > 0:
+        base_metric = df[close_col].iloc[-1] / current_pe
+    else:
+        base_metric = df[close_col].mean() / 25.0
+
+    if current_pe and current_pe > 0:
+        anchor_pe = current_pe
+    else:
+        anchor_pe = 30.0
+
+    multiples = [
+        round(anchor_pe * 0.6, 1),
+        round(anchor_pe * 0.8, 1),
+        round(anchor_pe * 1.0, 1),
+        round(anchor_pe * 1.25, 1),
+        round(anchor_pe * 1.5, 1),
+    ]
+
+    fig = go.Figure()
+    colors = ['rgba(16, 185, 129, 0.7)', 'rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.8)', 'rgba(245, 158, 11, 0.7)', 'rgba(239, 68, 68, 0.7)']
+    
+    for mult, color in zip(multiples, colors):
+        band_price = mult * base_metric
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'],
+                y=[band_price] * len(df),
+                mode='lines',
+                name=f"{mult:.1f}x {valuation_type} (${band_price:.2f})",
+                line=dict(color=color, width=1.5, dash='dot'),
+                hovertemplate=f"{mult:.1f}x 估值线: ${band_price:.2f}<extra></extra>"
+            )
+        )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df['Date'],
+            y=df[close_col],
+            mode='lines',
+            name=f"{symbol} 真实股价",
+            line=dict(color='#1e293b', width=2.5),
+            hovertemplate=f"<b>{symbol} 股价</b>: $%{y:.2f}<extra></extra>"
+        )
+    )
+
+    fig.update_layout(
+        title=f"{symbol} 动态 {valuation_type} Band 估值通道走势 - [{timeframe}]",
+        xaxis_title="日期",
+        yaxis_title="价格 (USD)",
+        template="plotly_white",
+        hovermode="x unified",
+        height=500,
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        uirevision=f"pe_band_{symbol}_{valuation_type}_{timeframe}"
+    )
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 18. 个股技术面动量指标系统 (K线 + MACD + RSI + 200MA偏离度)
+# ------------------------------------------------------------------
+def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timeframe: str = "1Y"):
+    """
+    绘制包含 K线/均线、MACD (12, 26, 9) 与 RSI (14) 的三层技术动量综合看板
+    """
+    if df_stock is None or df_stock.empty:
+        return None
+
+    df = df_stock.copy()
+    if 'Date' not in df.columns:
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index()
+            df.rename(columns={'index': 'Date'}, inplace=True)
+        elif 'date' in df.columns:
+            df.rename(columns={'date': 'Date'}, inplace=True)
+        else:
+            return None
+
+    df['Date'] = pd.to_datetime(df['Date'])
+    col_map = {c: c.capitalize() for c in df.columns if c.lower() in ['open', 'high', 'low', 'close', 'volume']}
+    df.rename(columns=col_map, inplace=True)
+
+    if 'Close' not in df.columns:
+        return None
+
+    df['MA20'] = df['Close'].rolling(window=20).mean()
+    df['MA50'] = df['Close'].rolling(window=50).mean()
+    df['MA200'] = df['Close'].rolling(window=200).mean()
+
+    ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+    ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = ema12 - ema26
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
+
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0.0)).fillna(0.0)
+    loss = (-delta.where(delta < 0, 0.0)).fillna(0.0)
+    avg_gain = gain.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    df['RSI'] = (100.0 - (100.0 / (1.0 + rs))).fillna(50.0)
+
+    df = filter_by_timeframe(df, 'Date', timeframe)
+    if df.empty or len(df) < 5:
+        return None
+
+    from plotly.subplots import make_subplots
+    fig = make_subplots(
+        rows=3, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=[0.55, 0.25, 0.20],
+        subplot_titles=(
+            f"{symbol} 价格走势与均线系统 (MA20 / MA50 / MA200)",
+            "MACD (12, 26, 9) 动量指标",
+            "RSI (14) 强弱动量 (30 超卖 / 70 超买)"
+        )
+    )
+
+    has_ohlc = all(c in df.columns for c in ['Open', 'High', 'Low', 'Close'])
+    if has_ohlc:
+        fig.add_trace(
+            go.Candlestick(
+                x=df['Date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                name="K线", increasing_line_color='#22c55e', decreasing_line_color='#ef4444', showlegend=False
+            ),
+            row=1, col=1
+        )
+    else:
+        fig.add_trace(
+            go.Scatter(x=df['Date'], y=df['Close'], mode='lines', name="收盘价", line=dict(color='#2563eb', width=2)),
+            row=1, col=1
+        )
+
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA20'], mode='lines', name="20 MA", line=dict(color='#f59e0b', width=1.2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA50'], mode='lines', name="50 MA", line=dict(color='#06b6d4', width=1.2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MA200'], mode='lines', name="200 MA (年线)", line=dict(color='#8b5cf6', width=2)), row=1, col=1)
+
+    hist_colors = ['rgba(34, 197, 94, 0.7)' if h >= 0 else 'rgba(239, 68, 68, 0.7)' for h in df['MACD_Hist']]
+    fig.add_trace(go.Bar(x=df['Date'], y=df['MACD_Hist'], name="MACD 柱 (Hist)", marker_color=hist_colors, showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MACD'], mode='lines', name="DIF (快线)", line=dict(color='#2563eb', width=1.5)), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['MACD_Signal'], mode='lines', name="DEA (慢线)", line=dict(color='#f97316', width=1.5)), row=2, col=1)
+
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], mode='lines', name="RSI(14)", line=dict(color='#7c3aed', width=2)), row=3, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="rgba(239, 68, 68, 0.8)", row=3, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="rgba(34, 197, 94, 0.8)", row=3, col=1)
+
+    fig.update_layout(
+        template="plotly_white",
+        hovermode="x unified",
+        xaxis_rangeslider_visible=False,
+        height=680,
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        uirevision=f"tech_chart_{symbol}_{timeframe}"
+    )
+
+    fig.update_yaxes(title_text="股价", row=1, col=1)
+    fig.update_yaxes(title_text="MACD", row=2, col=1)
+    fig.update_yaxes(title_text="RSI", range=[0, 100], row=3, col=1)
 
     return fig
