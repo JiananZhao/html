@@ -26,6 +26,8 @@ from visualization import (
     create_stock_price_chart,
     create_relative_performance_chart,
     create_financial_trends_chart,
+    create_pe_ps_band_chart,
+    create_technical_momentum_chart,
 )
 
 # ------------------------------------------------------------------
@@ -219,7 +221,7 @@ def get_sofr_iorb_data():
     
     if not df_sofr.empty and not df_iorb.empty:
         df_sofr['date'] = pd.to_datetime(df_sofr['date'])
-        df_iorb['date'] = pd.to_datetime(df_iorb['date'])
+        df_iorb['date'] = pd.to_datetime(df_sofr['date']) if df_iorb.empty else pd.to_datetime(df_iorb['date'])
         merged = pd.merge(df_sofr, df_iorb, on="date", how="inner").sort_values("date")
         if not merged.empty:
             merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100
@@ -426,7 +428,6 @@ def get_stock_financial_statements(symbol: str):
             if inc_df is None or inc_df.empty:
                 return pd.DataFrame(), pd.DataFrame()
             
-            # 获取日期列并排序（从旧到新计算增长率，展示时从新到旧）
             cols = [c for c in inc_df.columns]
             cols_sorted = sorted(cols)
             
@@ -461,27 +462,21 @@ def get_stock_financial_statements(symbol: str):
             assets_list = []
 
             for col in cols_sorted:
-                # Revenue
                 rev = _get_val(inc_df, ['Total Revenue', 'Operating Revenue', 'Revenue'], col)
                 rev_list.append(rev)
                 
-                # Gross Profit
                 gp = _get_val(inc_df, ['Gross Profit', 'Gross Margin'], col)
                 gp_list.append(gp)
                 
-                # Operating Income
                 op = _get_val(inc_df, ['Operating Income', 'Operating Profit', 'EBIT', 'Operating Revenue'], col)
                 op_inc_list.append(op)
                 
-                # Net Income
                 ni = _get_val(inc_df, ['Net Income Common Stockholders', 'Net Income', 'Net Income From Continuing Operation Net Minority Interest'], col)
                 net_inc_list.append(ni)
                 
-                # EPS
                 eps = _get_val(inc_df, ['Diluted EPS', 'Basic EPS', 'Diluted Average Shares'], col)
                 eps_list.append(eps)
                 
-                # Cash Flow
                 cfo = _get_val(cf_df, ['Operating Cash Flow', 'Cash Flowsfromusedin Operating Activities', 'Cash Flow From Continuing Operating Activities'], col)
                 cfo_list.append(cfo)
                 
@@ -493,7 +488,6 @@ def get_stock_financial_statements(symbol: str):
                     fcf = cfo - (abs(capex) if not np.isnan(capex) else 0.0)
                 fcf_list.append(fcf)
                 
-                # Balance Sheet
                 cash = _get_val(bs_df, ['Cash Cash Equivalents And Short Term Investments', 'Cash And Cash Equivalents', 'Cash Financial'], col)
                 cash_list.append(cash)
                 
@@ -506,16 +500,13 @@ def get_stock_financial_statements(symbol: str):
                 ast_val = _get_val(bs_df, ['Total Assets'], col)
                 assets_list.append(ast_val)
 
-            # 构建结构化表格
             summary_records = []
             
-            # 1. 营收 ($B)
             row_rev = {"指标 (Metric)": "营业总收入 (Total Revenue)"}
             for d, r in zip(dates_str, rev_list):
                 row_rev[d] = f"${r/1e9:,.2f} B" if not np.isnan(r) else "N/A"
             summary_records.append(row_rev)
 
-            # 2. 营收同比增速 (%)
             row_rev_growth = {"指标 (Metric)": "营收同比增速 (YoY Growth)"}
             for i, d in enumerate(dates_str):
                 lag = 4 if is_quarterly else 1
@@ -526,7 +517,6 @@ def get_stock_financial_statements(symbol: str):
                     row_rev_growth[d] = "N/A"
             summary_records.append(row_rev_growth)
 
-            # 3. 毛利润 & 毛利率
             row_gp = {"指标 (Metric)": "毛利润 (Gross Profit)"}
             row_gm = {"指标 (Metric)": "毛利率 (Gross Margin %)"}
             for d, gp, r in zip(dates_str, gp_list, rev_list):
@@ -535,7 +525,6 @@ def get_stock_financial_statements(symbol: str):
             summary_records.append(row_gp)
             summary_records.append(row_gm)
 
-            # 4. 营业利润 & 营业利润率
             row_op = {"指标 (Metric)": "营业利润 (Operating Income / EBIT)"}
             row_opm = {"指标 (Metric)": "营业利润率 (Operating Margin %)"}
             for d, op, r in zip(dates_str, op_inc_list, rev_list):
@@ -544,7 +533,6 @@ def get_stock_financial_statements(symbol: str):
             summary_records.append(row_op)
             summary_records.append(row_opm)
 
-            # 5. 净利润 & 净利率
             row_ni = {"指标 (Metric)": "净利润 (Net Income)"}
             row_npm = {"指标 (Metric)": "净利润率 (Net Margin %)"}
             for d, ni, r in zip(dates_str, net_inc_list, rev_list):
@@ -553,13 +541,11 @@ def get_stock_financial_statements(symbol: str):
             summary_records.append(row_ni)
             summary_records.append(row_npm)
 
-            # 6. 稀释 EPS
             row_eps = {"指标 (Metric)": "稀释每股收益 (Diluted EPS)"}
             for d, eps in zip(dates_str, eps_list):
                 row_eps[d] = f"${eps:.2f}" if not np.isnan(eps) else "N/A"
             summary_records.append(row_eps)
 
-            # 7. 经营现金流 & 自由现金流
             row_cfo = {"指标 (Metric)": "经营活动现金流 (Operating Cash Flow)"}
             row_fcf = {"指标 (Metric)": "自由现金流 (Free Cash Flow)"}
             row_fcfm = {"指标 (Metric)": "自由现金流转化率 (FCF Margin %)"}
@@ -571,7 +557,6 @@ def get_stock_financial_statements(symbol: str):
             summary_records.append(row_fcf)
             summary_records.append(row_fcfm)
 
-            # 8. 资产负债结构
             row_cash = {"指标 (Metric)": "现金及短期投资 (Cash & Short Term Inv.)"}
             row_debt = {"指标 (Metric)": "总负债 (Total Debt)"}
             row_eq = {"指标 (Metric)": "股东权益 / 净资产 (Stockholders' Equity)"}
@@ -584,12 +569,9 @@ def get_stock_financial_statements(symbol: str):
             summary_records.append(row_eq)
 
             df_summary = pd.DataFrame(summary_records)
-            
-            # 列排序：将最新日期排在前面（指标列在第0列，其余列倒序）
             date_cols_reversed = list(reversed(dates_str))
             df_summary = df_summary[["指标 (Metric)"] + date_cols_reversed]
 
-            # 提取趋势图表用的原始数值 DataFrame
             df_trends = pd.DataFrame({
                 "Period": dates_str,
                 "Revenue_Bn": [r/1e9 if not np.isnan(r) else 0.0 for r in rev_list],
@@ -615,6 +597,73 @@ def get_stock_financial_statements(symbol: str):
         print(f"Error processing financial statements for {clean_sym}: {e}")
 
     return {}
+
+def calculate_reverse_dcf(current_price: float, shares_out: float, base_fcf: float, wacc: float = 0.09, g: float = 0.025, years: int = 5, total_cash: float = 0.0, total_debt: float = 0.0):
+    """
+    反向 DCF 计算器：根据当前股价反推市场隐含的 FCF 复合年增长率 (Implied FCF CAGR)
+    并生成不同 WACC 与不同增长率假设下的公允价值敏感性分析矩阵
+    """
+    if not current_price or current_price <= 0 or not shares_out or shares_out <= 0:
+        return None
+
+    target_equity_value = current_price * shares_out
+    target_ev = target_equity_value - (total_cash - total_debt)
+
+    if base_fcf <= 0 or wacc <= g:
+        return None
+
+    low, high = -0.50, 2.00
+    implied_cagr = np.nan
+    for _ in range(120):
+        mid = (low + high) / 2.0
+        pv_fcf = 0.0
+        for t in range(1, years + 1):
+            fcf_t = base_fcf * ((1.0 + mid) ** t)
+            pv_fcf += fcf_t / ((1.0 + wacc) ** t)
+        
+        final_fcf = base_fcf * ((1.0 + mid) ** years)
+        tv = (final_fcf * (1.0 + g)) / (wacc - g)
+        pv_tv = tv / ((1.0 + wacc) ** years)
+        calc_ev = pv_fcf + pv_tv
+        
+        if abs(calc_ev - target_ev) / target_ev < 1e-4:
+            implied_cagr = mid
+            break
+        elif calc_ev < target_ev:
+            low = mid
+        else:
+            high = mid
+
+    wacc_list = [round(wacc - 0.015 + i * 0.005, 3) for i in range(7)]
+    cagr_list = [round(0.05 + i * 0.05, 2) for i in range(8)]
+
+    matrix_rows = []
+    for w in wacc_list:
+        if w <= g:
+            continue
+        row_dict = {"折现率 WACC": f"{w*100:.1f}%"}
+        for c in cagr_list:
+            pv_f = 0.0
+            for t in range(1, years + 1):
+                f_t = base_fcf * ((1.0 + c) ** t)
+                pv_f += f_t / ((1.0 + w) ** t)
+            f_end = base_fcf * ((1.0 + c) ** years)
+            term_val = (f_end * (1.0 + g)) / (w - g)
+            pv_t = term_val / ((1.0 + w) ** years)
+            fair_ev = pv_f + pv_t
+            fair_equity = fair_ev + (total_cash - total_debt)
+            fair_price = fair_equity / shares_out
+            row_dict[f"CAGR {c*100:.0f}%"] = f"${fair_price:.2f}"
+        matrix_rows.append(row_dict)
+
+    sensitivity_df = pd.DataFrame(matrix_rows)
+
+    return {
+        "implied_cagr": implied_cagr,
+        "target_equity_value": target_equity_value,
+        "target_ev": target_ev,
+        "sensitivity_matrix": sensitivity_df
+    }
 
 
 # ------------------------------------------------------------------
@@ -1205,7 +1254,7 @@ with tab_macro:
 # ==================================================================
 with tab_stock:
     st.header("🔍 个股深度量化与多因子估值追踪")
-    st.caption(f"🕒 实时数据抓取 (美东时间): **{current_et_str}** | 支持任意美股 Ticker 分析与基本面体检")
+    st.caption(f"🕒 实时数据抓取 (美东时间): **{current_et_str}** | 整合量价趋势、PE Band 估值带、反向 DCF 增长率反推与财报全景")
 
     # 标的选择栏
     stock_col1, stock_col2, stock_col3, stock_col4 = st.columns([2, 2, 2, 2])
@@ -1232,7 +1281,7 @@ with tab_stock:
 
     st.markdown("---")
 
-    with st.spinner(f"正在获取 {ticker_to_analyze} 实时行情与基本面财务数据..."):
+    with st.spinner(f"正在获取 {ticker_to_analyze} 实时行情、估值模型与财务数据..."):
         df_stock_hist = get_stock_historical_data(ticker_to_analyze, period="5y")
         stock_info = get_stock_fundamentals(ticker_to_analyze)
         fin_stmt_dict = get_stock_financial_statements(ticker_to_analyze)
@@ -1304,7 +1353,177 @@ with tab_stock:
     else:
         st.warning(f"未能获取 {ticker_to_analyze} 的历史价格图表数据。")
 
-    # 4. 核心财务报表透视 (季度与年度财报主要数据)
+    # ==================================================================
+    # 4. 扩展模块一：历史估值分位与 PE / PS Band (估值带走势)
+    # ==================================================================
+    st.markdown("---")
+    st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
+    st.caption("叠加历史动态估值倍数通道，评估当前股价处于历史估值的折溢价状态与合理中枢")
+
+    val_col1, val_col2 = st.columns([3, 1])
+    with val_col2:
+        val_type_choice = st.radio("选择估值带类型:", ["PE Band (市盈率)", "PS Band (市销率)"], index=0)
+        val_type_code = "PE" if "PE" in val_type_choice else "PS"
+        band_tf = st.selectbox("估值带时间跨度:", ["1Y", "3Y", "5Y", "ALL"], index=1, key="band_timeframe")
+
+    with val_col1:
+        cur_pe_val = stock_info.get("trailingPE") if stock_info else None
+        cur_eps_val = stock_info.get("trailingEps") if stock_info else None
+
+        if df_stock_hist is not None and not df_stock_hist.empty:
+            fig_band = create_pe_ps_band_chart(
+                df_stock_hist,
+                symbol=ticker_to_analyze,
+                current_eps=cur_eps_val,
+                current_pe=cur_pe_val,
+                valuation_type=val_type_code,
+                timeframe=band_tf
+            )
+            if fig_band:
+                st.plotly_chart(fig_band, use_container_width=True)
+                with st.expander(f"💡 {val_type_code} Band 估值通道投资解读", expanded=False):
+                    st.markdown(f"""
+                    * **估值通道逻辑**：以公司当前盈利/营收能力为基准，绘制多个历史代表性估值倍数（如 0.6x、0.8x、1.0x、1.25x、1.5x 倍数通道）。
+                    * **超买/超卖信号**：
+                      * 股价触及或突破顶轨（高估值通道）：表明市场给予极高预期溢价，情绪可能过热。
+                      * 股价回落至底轨（低估值通道）：通常对应基本面利空充分出清或悲观情绪超跌区间。
+                    """)
+        else:
+            st.info("估值带图表数据加载中。")
+
+    # ==================================================================
+    # 5. 扩展模块二：反向 DCF 估值测算器 (Reverse DCF & Implied Growth)
+    # ==================================================================
+    st.markdown("---")
+    st.subheader("🎯 反向 DCF 估值测算器 (Reverse DCF & Implied Growth)")
+    st.caption("基于自由现金流折现模型，根据当前股价反推市场隐含的未来 5–10 年 FCF 复合年增长率 (Implied CAGR)")
+
+    if stock_info:
+        cur_p = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice") or stock_info.get("previousClose") or 100.0
+        shs = stock_info.get("sharesOutstanding")
+        if not shs and mcap:
+            shs = mcap / cur_p
+        
+        base_fcf_raw = stock_info.get("freeCashflow") or (mcap / (cur_pe_val if cur_pe_val else 25.0))
+        base_fcf_bn = round(base_fcf_raw / 1e9, 2) if base_fcf_raw else 10.0
+        
+        tot_cash_bn = (stock_info.get("totalCash") or 0.0) / 1e9
+        tot_debt_bn = (stock_info.get("totalDebt") or 0.0) / 1e9
+
+        dcf_c1, dcf_c2, dcf_c3, dcf_c4 = st.columns(4)
+        with dcf_c1:
+            input_wacc = st.slider("加权资本成本 WACC 折现率 (%)", 6.0, 15.0, 9.0, 0.5) / 100.0
+        with dcf_c2:
+            input_g = st.slider("永续增长率 Terminal g (%)", 1.0, 4.0, 2.5, 0.25) / 100.0
+        with dcf_c3:
+            input_years = st.radio("显式预测期 (Years):", [5, 10], index=0)
+        with dcf_c4:
+            input_fcf = st.number_input("基准年自由现金流 ($B):", value=float(max(0.1, base_fcf_bn)), step=1.0) * 1e9
+
+        dcf_result = calculate_reverse_dcf(
+            current_price=cur_p,
+            shares_out=shs,
+            base_fcf=input_fcf,
+            wacc=input_wacc,
+            g=input_g,
+            years=input_years,
+            total_cash=tot_cash_bn * 1e9,
+            total_debt=tot_debt_bn * 1e9
+        )
+
+        if dcf_result:
+            implied_cagr = dcf_result["implied_cagr"]
+            
+            res_c1, res_c2, res_c3 = st.columns(3)
+            if not np.isnan(implied_cagr):
+                res_c1.metric(
+                    "市场隐含未来 FCF 复合增速 (CAGR)",
+                    f"{implied_cagr*100:+.2f}%",
+                    delta=f"预测期: {input_years} 年 | WACC: {input_wacc*100:.1f}%"
+                )
+            else:
+                res_c1.metric("市场隐含 FCF 复合增速 (CAGR)", "超出常规搜索收敛范围")
+
+            res_c2.metric("当前企业价值 (EV)", f"${dcf_result['target_ev']/1e9:,.2f} B")
+            res_c3.metric("净现金 / 净负债头寸", f"${(tot_cash_bn - tot_debt_bn):+,.2f} B")
+
+            st.markdown("##### 📊 内在价值公允股价敏感性分析矩阵 (Sensitivity Matrix)")
+            st.caption("纵轴为不同资本折现率 WACC，横轴为公司实际可能实现的未来 FCF 复合增速，单元格对应估算出的公允每股内在价值 ($)")
+            sens_df = dcf_result.get("sensitivity_matrix")
+            if sens_df is not None and not sens_df.empty:
+                st.dataframe(sens_df, hide_index=True, use_container_width=True)
+                with st.expander("💡 反向 DCF 估值测算逻辑与安全边际指引", expanded=False):
+                    st.markdown(f"""
+                    * **反向推导原理**：普通 DCF 往往受主观乐观假设影响过大；**反向 DCF** 则是探寻“**当前市价 (${cur_p:.2f}) 已经把未来多高的增长定价进去了 (Priced-in)**”。
+                    * **安全边际判断**：
+                      * 若市场隐含 CAGR (**{implied_cagr*100:+.1f}%**) 显著**低于**您对公司行业扩张与护城河的真实增长预期，则存在**安全边际 (Margin of Safety)**。
+                      * 若市场隐含 CAGR 处于不可思议的超高位（如 $> 40\\%$ 且持续 5 年），则意味着估值容错率极低，任何业绩不及预期都将面临“杀估值”。
+                    """)
+        else:
+            st.info("反向 DCF 测算需要基准自由现金流为正值且折现率大于永续增长率。")
+
+    # ==================================================================
+    # 6. 扩展模块三：技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)
+    # ==================================================================
+    st.markdown("---")
+    st.subheader("⚡ 技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)")
+    st.caption("综合跟踪 14 日强弱动量 RSI、MACD 趋势金叉/死叉与 200MA 均线乖离率 (Bias %)")
+
+    if df_stock_hist is not None and not df_stock_hist.empty:
+        latest_c = df_stock_hist['Close'].iloc[-1]
+        ma200_val = df_stock_hist['Close'].rolling(200).mean().iloc[-1] if len(df_stock_hist) >= 200 else None
+        bias_200 = ((latest_c - ma200_val) / ma200_val * 100) if ma200_val else None
+
+        d_close = df_stock_hist['Close'].diff()
+        g_s = (d_close.where(d_close > 0, 0.0)).fillna(0.0)
+        l_s = (-d_close.where(d_close < 0, 0.0)).fillna(0.0)
+        ag = g_s.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+        al = l_s.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+        rs_val = ag / al.replace(0, np.nan)
+        rsi_series = (100.0 - (100.0 / (1.0 + rs_val))).fillna(50.0)
+        latest_rsi = rsi_series.iloc[-1]
+
+        e12 = df_stock_hist['Close'].ewm(span=12, adjust=False).mean()
+        e26 = df_stock_hist['Close'].ewm(span=26, adjust=False).mean()
+        macd_s = e12 - e26
+        macd_sig_s = macd_s.ewm(span=9, adjust=False).mean()
+        macd_h_s = macd_s - macd_sig_s
+        latest_macd_h = macd_h_s.iloc[-1]
+
+        tech_kpi1, tech_kpi2, tech_kpi3 = st.columns(3)
+        
+        rsi_state = "超买区间 (>70)" if latest_rsi > 70 else ("超卖区间 (<30)" if latest_rsi < 30 else "常态中性")
+        tech_kpi1.metric("RSI (14) 强弱指标", f"{latest_rsi:.1f}", delta=f"状态: {rsi_state}")
+
+        macd_state = "多头动能柱 (金叉/上行)" if latest_macd_h >= 0 else "空头调整柱 (死叉/下行)"
+        tech_kpi2.metric("MACD (12, 26, 9) 柱线", f"{latest_macd_h:+.2f}", delta=f"动能: {macd_state}")
+
+        if bias_200 is not None:
+            bias_state = "年线上方强势" if bias_200 >= 0 else "年线下方承压"
+            tech_kpi3.metric("200MA 年线偏离度 (Bias)", f"{bias_200:+.2f}%", delta=f"200MA: ${ma200_val:.2f} ({bias_state})")
+        else:
+            tech_kpi3.metric("200MA 年线偏离度", "历史数据不足 200 日")
+
+        fig_tech = create_technical_momentum_chart(df_stock_hist, symbol=ticker_to_analyze, timeframe=stock_timeframe)
+        if fig_tech:
+            st.plotly_chart(fig_tech, use_container_width=True)
+            with st.expander("💡 技术面动量指标系统解读指南", expanded=False):
+                st.markdown("""
+                * **RSI (14)**：
+                  * **RSI $> 70$**：进入超买过热区，提示短线回调或高位震荡风险。
+                  * **RSI $< 30$**：进入超卖恐慌区，常伴随左侧博弈性超跌反弹买点。
+                * **MACD (12, 26, 9)**：
+                  * **DIF 上穿 DEA (零轴上方金叉)**：主升浪确认，多头动能强劲。
+                  * **DIF 下穿 DEA (零轴下方死叉)**：空头主导，调整周期尚未结束。
+                * **200MA 年线偏离度 (200DMA Bias %)**：
+                  * 长期牛熊分界线。偏离年线超过 **+30% ~ +40%** 通常意味着股价与长期均线严重脱节，存在均值回归引力。
+                """)
+    else:
+        st.info("技术动量指标数据加载中。")
+
+    # ==================================================================
+    # 7. 核心财务报表透视 (季度与年度财报主要数据)
+    # ==================================================================
     st.markdown("---")
     st.subheader("📑 核心财务报表深度透视 (季度与年度财报主要数据)")
     st.caption("覆盖营业总收入、营收同比增速、毛利润/毛利率、营业利润 (EBIT)、净利润、稀释 EPS、经营现金流、自由现金流 (FCF) 与资产负债核心结构")
@@ -1347,7 +1566,7 @@ with tab_stock:
     else:
         st.info(f"未能提取 {ticker_to_analyze} 的财务报表数据。")
 
-    # 5. 详细财务结构与分析师目标价扩展表
+    # 8. 详细财务结构与分析师目标价扩展表
     if stock_info:
         with st.expander("📋 查看分析师评级、目标价与资本结构补充数据", expanded=False):
             f_col1, f_col2 = st.columns(2)
