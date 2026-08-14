@@ -113,8 +113,8 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="
         df,
         x=date_col,
         y=val_col,
-        title=f'UNRATE (美国失业率) - [{timeframe}]',
-        labels={val_col: '失业率 (%)', date_col: '日期'},
+        title=f'UNRATE (美国失业率) - [{timeframe}]',\
+        labels={val_col: '失业率 (%)', date_col: '日期'},\
         template="plotly_white",
         line_shape='spline'
     )
@@ -172,8 +172,8 @@ def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None, timeframe="A
         df,
         x=date_col,
         y=val_col,
-        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',
-        labels={val_col: '利差 (%)', date_col: '日期'},
+        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',\
+        labels={val_col: '利差 (%)', date_col: '日期'},\
         template="plotly_white"
     )
 
@@ -874,5 +874,107 @@ def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list, ti
         ),
         uirevision=f"semi_rel_perf_{timeframe}"
     )
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 16. 个股季度/年度核心财务规模与利润率走势双轴图
+# ------------------------------------------------------------------
+def create_financial_trends_chart(df_trends: pd.DataFrame, period_type: str = "季度"):
+    """
+    绘制个股营收、净利润、自由现金流规模 (柱状图) 与毛利率、净利率 (双轴折线图)
+    """
+    if df_trends is None or df_trends.empty:
+        return None
+
+    from plotly.subplots import make_subplots
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # 1. 柱状图：营收与净利润
+    if 'Revenue_Bn' in df_trends.columns:
+        fig.add_trace(
+            go.Bar(
+                x=df_trends['Period'],
+                y=df_trends['Revenue_Bn'],
+                name="总营收 ($B)",
+                marker_color='#3b82f6',
+                hovertemplate="%{x} 营收: $%{y:.2f} B<extra></extra>"
+            ),
+            secondary_y=False
+        )
+
+    if 'NetIncome_Bn' in df_trends.columns:
+        fig.add_trace(
+            go.Bar(
+                x=df_trends['Period'],
+                y=df_trends['NetIncome_Bn'],
+                name="净利润 ($B)",
+                marker_color='#10b981',
+                hovertemplate="%{x} 净利润: $%{y:.2f} B<extra></extra>"
+            ),
+            secondary_y=False
+        )
+
+    if 'FCF_Bn' in df_trends.columns and (df_trends['FCF_Bn'] != 0).any():
+        fig.add_trace(
+            go.Bar(
+                x=df_trends['Period'],
+                y=df_trends['FCF_Bn'],
+                name="自由现金流 FCF ($B)",
+                marker_color='#f59e0b',
+                hovertemplate="%{x} FCF: $%{y:.2f} B<extra></extra>"
+            ),
+            secondary_y=False
+        )
+
+    # 2. 折线图 (次 Y 轴)：毛利率与净利率
+    if 'GrossMargin_Pct' in df_trends.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df_trends['Period'],
+                y=df_trends['GrossMargin_Pct'],
+                name="毛利率 (%)",
+                mode="lines+markers",
+                line=dict(color='#8b5cf6', width=2.5),
+                marker=dict(size=6),
+                hovertemplate="%{x} 毛利率: %{y:.1f}%<extra></extra>"
+            ),
+            secondary_y=True
+        )
+
+    if 'NetMargin_Pct' in df_trends.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df_trends['Period'],
+                y=df_trends['NetMargin_Pct'],
+                name="净利润率 (%)",
+                mode="lines+markers",
+                line=dict(color='#ec4899', width=2.5, dash="dot"),
+                marker=dict(size=6),
+                hovertemplate="%{x} 净利率: %{y:.1f}%<extra></extra>"
+            ),
+            secondary_y=True
+        )
+
+    fig.update_layout(
+        title=f"个股历年{period_type}核心财务规模 ($B) 与盈利质量趋势 (%)",
+        template="plotly_white",
+        barmode='group',
+        hovermode="x unified",
+        height=480,
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        uirevision=f"fin_trends_{period_type}"
+    )
+
+    fig.update_yaxes(title_text="金额 (十亿美元, $B)", secondary_y=False)
+    fig.update_yaxes(title_text="利润率 (%)", secondary_y=True)
 
     return fig
