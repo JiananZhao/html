@@ -1,12 +1,12 @@
 """
-Company Profile & Financial Breakdown Tab for Streamlit App (Ultra-Robust Edition)
-==================================================================================
+Company Profile & Financial Breakdown Tab for Streamlit App (Full Financial Statements Edition)
+=============================================================================================
 Features:
-- Dual-schema News Parser (supports both modern yfinance nested content and legacy flat news)
-- Real-time RSS News Fallback (ensures news is never blank)
-- Multi-tier Financial Statement Engine (Quarterly -> Annual -> ticker.info TTM reconstruction)
-- Universal Industry Accounting (Tech, Manufacturing, Financials/Banks, Energy, REITs, ADRs)
-- Dynamic Adaptive P&L Waterfall & Expense Donut Charts
+1. Company Header & Fundamental Metadata
+2. Business Operations & Business Model
+3. Latest Quarter P&L Cost & Expense Breakdown (Universal Donut + Dynamic Waterfall)
+4. Multi-Period Financial Statements Explorer (Past 4-5 Quarters & Annual Summary Table + Trend Charts)
+5. Live Catalysts & Breaking News Feed (Dual-schema + RSS Fallback)
 """
 
 import streamlit as st
@@ -29,6 +29,11 @@ try:
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
+
+try:
+    from visualization import create_financial_trends_chart
+except ImportError:
+    create_financial_trends_chart = None
 
 
 # =====================================================================
@@ -86,9 +91,6 @@ def format_timestamp(ts):
 # 2. 深度新闻解析器 (兼顾 yfinance 新老版本结构及 RSS 自动兜底)
 # =====================================================================
 def parse_and_enrich_news(ticker_obj, ticker_symbol: str, company_name: str = ""):
-    """
-    自适应解析 yfinance 嵌套/扁平结构新闻；若为空则自动触发实时 RSS 新闻流
-    """
     news_list = []
     
     # 1. 尝试从 yfinance 提取并解析
@@ -182,25 +184,203 @@ def parse_and_enrich_news(ticker_obj, ticker_symbol: str, company_name: str = ""
 
 
 # =====================================================================
-# 3. 多层级财务损益表提取引擎 (Multi-Tier P&L Engine)
+# 3. 过去 4-5 周期/年度核心财务报表全景解析器 (Multi-Period Statements)
 # =====================================================================
-def extract_robust_pnl_data(ticker_obj, info: dict):
+def extract_multi_period_statements(ticker_obj):
     """
-    三层容错财务提取架构：
-    1. 优先提取最新季度利润表 (Quarterly Income Statement)
-    2. 次选提取最新年度/已审利润表 (Annual Income Statement)
-    3. 兜底通过 ticker.info 核心财务字段重建全量 P&L 结构与瀑布流
+    抓取个股的季度与年度三大财务报表并生成完整的 12 项财务指标结构化透视表
     """
-    # -------------------------------------------------------------
-    # 策略 1 & 2: 从 DataFrame 结构化财报中提取
-    # -------------------------------------------------------------
+    q_inc = getattr(ticker_obj, 'quarterly_income_stmt', None)
+    if q_inc is None or q_inc.empty:
+        q_inc = getattr(ticker_obj, 'quarterly_financials', None)
+
+    a_inc = getattr(ticker_obj, 'income_stmt', None)
+    if a_inc is None or a_inc.empty:
+        a_inc = getattr(ticker_obj, 'financials', None)
+
+    q_bs = getattr(ticker_obj, 'quarterly_balance_sheet', None)
+    a_bs = getattr(ticker_obj, 'balance_sheet', None)
+
+    q_cf = getattr(ticker_obj, 'quarterly_cashflow', None)
+    if q_cf is None or q_cf.empty:
+        q_cf = getattr(ticker_obj, 'quarterly_cash_flow', None)
+
+    a_cf = getattr(ticker_obj, 'cashflow', None)
+    if a_cf is None or a_cf.empty:
+        a_cf = getattr(ticker_obj, 'cash_flow', None)
+
+    def _process(inc_df, bs_df, cf_df, is_quarterly=True):
+        if inc_df is None or inc_df.empty:
+            return pd.DataFrame(), pd.DataFrame()
+
+        cols = [c for c in inc_df.columns]
+        cols_sorted = sorted(cols)
+        dates_str = [pd.to_datetime(c).strftime('%Y-%m' if is_quarterly else '%Y') for c in cols_sorted]
+
+        def _get_val(df, candidates, date_col):
+            if df is None or df.empty or date_col not in df.columns:
+                return np.nan
+            index_map = {str(idx).strip().lower(): idx for idx in df.index}
+            for cand in candidates:
+                cand_lower = cand.strip().lower()
+                if cand_lower in index_map:
+                    orig_k = index_map[cand_lower]
+                    val = df.loc[orig_k, date_col]
+                    if isinstance(val, pd.Series):
+                        val = val.iloc[0]
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        pass
+            return np.nan
+
+        rev_list, gp_list, op_inc_list, net_inc_list = [], [], [], []
+        eps_list, cfo_list, capex_list, fcf_list = [], [], [], []
+        cash_list, debt_list, eq_list = [], [], []
+
+        for col in cols_sorted:
+            r = _get_val(inc_df, ['Total Revenue', 'Operating Revenue', 'Revenue', 'Gross Sales'], col)
+            rev_list.append(r)
+            gp = _get_val(inc_df, ['Gross Profit', 'Gross Margin'], col)
+            gp_list.append(gp)
+            op = _get_val(inc_df, ['Operating Income', 'Operating Profit', 'EBIT', 'Operating Revenue'], col)
+            op_inc_list.append(op)
+            ni = _get_val(inc_df, ['Net Income Common Stockholders', 'Net Income', 'Net Income From Continuing Operation Net Minority Interest'], col)
+            net_inc_list.append(ni)
+            eps = _get_val(inc_df, ['Diluted EPS', 'Basic EPS', 'Diluted Average Shares'], col)
+            eps_list.append(eps)
+
+            cfo = _get_val(cf_df, ['Operating Cash Flow', 'Cash Flowsfromusedin Operating Activities', 'Cash Flow From Continuing Operating Activities'], col)
+            cfo_list.append(cfo)
+            capex = _get_val(cf_df, ['Capital Expenditure', 'Capital Expenditures', 'Purchase Of Property Plant And Equipment'], col)
+            capex_list.append(capex)
+            fcf = _get_val(cf_df, ['Free Cash Flow'], col)
+            if np.isnan(fcf) and not np.isnan(cfo):
+                fcf = cfo - (abs(capex) if not np.isnan(capex) else 0.0)
+            fcf_list.append(fcf)
+
+            cash = _get_val(bs_df, ['Cash Cash Equivalents And Short Term Investments', 'Cash And Cash Equivalents', 'Cash Financial'], col)
+            cash_list.append(cash)
+            debt = _get_val(bs_df, ['Total Debt', 'Long Term Debt And Capital Securities', 'Current Debt And Capital Lease Obligation'], col)
+            debt_list.append(debt)
+            eq = _get_val(bs_df, ['Stockholders Equity', 'Common Stock Equity', 'Total Equity Gross Minority Interest'], col)
+            eq_list.append(eq)
+
+        summary_records = []
+        
+        # 1. 营收
+        row_rev = {"指标 (Metric)": "营业总收入 (Total Revenue)"}
+        for d, r in zip(dates_str, rev_list):
+            row_rev[d] = f"${r/1e9:,.2f} B" if not np.isnan(r) else "N/A"
+        summary_records.append(row_rev)
+
+        # 2. 营收同比增速
+        row_growth = {"指标 (Metric)": "营收同比增速 (YoY Growth)"}
+        for i, d in enumerate(dates_str):
+            lag = 4 if is_quarterly else 1
+            if i >= lag and not np.isnan(rev_list[i]) and not np.isnan(rev_list[i-lag]) and rev_list[i-lag] != 0:
+                g = (rev_list[i] - rev_list[i-lag]) / abs(rev_list[i-lag]) * 100
+                row_growth[d] = f"{g:+.2f}%"
+            else:
+                row_growth[d] = "N/A"
+        summary_records.append(row_growth)
+
+        # 3. 毛利润 & 毛利率
+        row_gp = {"指标 (Metric)": "毛利润 (Gross Profit)"}
+        row_gm = {"指标 (Metric)": "毛利率 (Gross Margin %)"}
+        for d, gp, r in zip(dates_str, gp_list, rev_list):
+            row_gp[d] = f"${gp/1e9:,.2f} B" if not np.isnan(gp) else "N/A"
+            row_gm[d] = f"{(gp/r)*100:.2f}%" if not np.isnan(gp) and not np.isnan(r) and r != 0 else "N/A"
+        summary_records.append(row_gp)
+        summary_records.append(row_gm)
+
+        # 4. 营业利润 & 营业利润率
+        row_op = {"指标 (Metric)": "营业利润 (Operating Income / EBIT)"}
+        row_opm = {"指标 (Metric)": "营业利润率 (Operating Margin %)"}
+        for d, op, r in zip(dates_str, op_inc_list, rev_list):
+            row_op[d] = f"${op/1e9:,.2f} B" if not np.isnan(op) else "N/A"
+            row_opm[d] = f"{(op/r)*100:.2f}%" if not np.isnan(op) and not np.isnan(r) and r != 0 else "N/A"
+        summary_records.append(row_op)
+        summary_records.append(row_opm)
+
+        # 5. 净利润 & 净利率
+        row_ni = {"指标 (Metric)": "净利润 (Net Income)"}
+        row_npm = {"指标 (Metric)": "净利润率 (Net Margin %)"}
+        for d, ni, r in zip(dates_str, net_inc_list, rev_list):
+            row_ni[d] = f"${ni/1e9:,.2f} B" if not np.isnan(ni) else "N/A"
+            row_npm[d] = f"{(ni/r)*100:.2f}%" if not np.isnan(ni) and not np.isnan(r) and r != 0 else "N/A"
+        summary_records.append(row_ni)
+        summary_records.append(row_npm)
+
+        # 6. 稀释 EPS
+        row_eps = {"指标 (Metric)": "稀释每股收益 (Diluted EPS)"}
+        for d, eps in zip(dates_str, eps_list):
+            row_eps[d] = f"${eps:.2f}" if not np.isnan(eps) else "N/A"
+        summary_records.append(row_eps)
+
+        # 7. 现金流
+        row_cfo = {"指标 (Metric)": "经营活动现金流 (Operating Cash Flow)"}
+        row_fcf = {"指标 (Metric)": "自由现金流 (Free Cash Flow)"}
+        row_fcfm = {"指标 (Metric)": "自由现金流转化率 (FCF Margin %)"}
+        for d, cfo, fcf, r in zip(dates_str, cfo_list, fcf_list, rev_list):
+            row_cfo[d] = f"${cfo/1e9:,.2f} B" if not np.isnan(cfo) else "N/A"
+            row_fcf[d] = f"${fcf/1e9:,.2f} B" if not np.isnan(fcf) else "N/A"
+            row_fcfm[d] = f"{(fcf/r)*100:.2f}%" if not np.isnan(fcf) and not np.isnan(r) and r != 0 else "N/A"
+        summary_records.append(row_cfo)
+        summary_records.append(row_fcf)
+        summary_records.append(row_fcfm)
+
+        # 8. 资产负债
+        row_cash = {"指标 (Metric)": "现金及短期投资 (Cash & Short Term Inv.)"}
+        row_debt = {"指标 (Metric)": "总负债 (Total Debt)"}
+        row_eq = {"指标 (Metric)": "股东权益 / 净资产 (Stockholders' Equity)"}
+        for d, cash, debt, eq in zip(dates_str, cash_list, debt_list, eq_list):
+            row_cash[d] = f"${cash/1e9:,.2f} B" if not np.isnan(cash) else "N/A"
+            row_debt[d] = f"${debt/1e9:,.2f} B" if not np.isnan(debt) else "N/A"
+            row_eq[d] = f"${eq/1e9:,.2f} B" if not np.isnan(eq) else "N/A"
+        summary_records.append(row_cash)
+        summary_records.append(row_debt)
+        summary_records.append(row_eq)
+
+        df_summary = pd.DataFrame(summary_records)
+        date_cols_reversed = list(reversed(dates_str))
+        df_summary = df_summary[["指标 (Metric)"] + date_cols_reversed]
+
+        df_trends = pd.DataFrame({
+            "Period": dates_str,
+            "Revenue_Bn": [r/1e9 if not np.isnan(r) else 0.0 for r in rev_list],
+            "GrossProfit_Bn": [gp/1e9 if not np.isnan(gp) else 0.0 for gp in gp_list],
+            "OperatingIncome_Bn": [op/1e9 if not np.isnan(op) else 0.0 for op in op_inc_list],
+            "NetIncome_Bn": [ni/1e9 if not np.isnan(ni) else 0.0 for ni in net_inc_list],
+            "FCF_Bn": [f/1e9 if not np.isnan(f) else 0.0 for f in fcf_list],
+            "GrossMargin_Pct": [(gp/r)*100 if not np.isnan(gp) and not np.isnan(r) and r != 0 else np.nan for gp, r in zip(gp_list, rev_list)],
+            "OperatingMargin_Pct": [(op/r)*100 if not np.isnan(op) and not np.isnan(r) and r != 0 else np.nan for op, r in zip(op_inc_list, rev_list)],
+            "NetMargin_Pct": [(ni/r)*100 if not np.isnan(ni) and not np.isnan(r) and r != 0 else np.nan for ni, r in zip(net_inc_list, rev_list)],
+        })
+
+        return df_summary, df_trends
+
+    q_sum, q_tr = _process(q_inc, q_bs, q_cf, is_quarterly=True)
+    a_sum, a_tr = _process(a_inc, a_bs, a_cf, is_quarterly=False)
+
+    return {
+        "q_summary": q_sum,
+        "q_trends": q_tr,
+        "a_summary": a_sum,
+        "a_trends": a_tr
+    }
+
+
+# =====================================================================
+# 4. 单季度 P&L 支出拆解与瀑布流数据生成器
+# =====================================================================
+def extract_single_quarter_pnl(ticker_obj, info: dict):
     stmt_df = None
     period_label = "最新季度财报"
 
     try:
-        # 尝试季度报表
         q_inc = ticker_obj.quarterly_income_stmt
-        if q_inc is not None and not q_inc.empty and q_inc.shape[1] > 0:
+        if q_inc is not None and not q_inc.empty:
             stmt_df = q_inc
             period_label = "最新季度财报"
         else:
@@ -211,24 +391,21 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
     except Exception:
         pass
 
-    # 若季度报表为空，自动回退至年度利润表 (例如 TEAM 或财报归档窗口期的公司)
     if stmt_df is None or stmt_df.empty:
         try:
             a_inc = ticker_obj.income_stmt
             if a_inc is not None and not a_inc.empty:
                 stmt_df = a_inc
-                period_label = "最新财年财报 (Annual Financials)"
+                period_label = "最新财年财报"
             else:
                 a_inc_alt = ticker_obj.financials
                 if a_inc_alt is not None and not a_inc_alt.empty:
                     stmt_df = a_inc_alt
-                    period_label = "最新财年财报 (Annual Financials)"
+                    period_label = "最新财年财报"
         except Exception:
             pass
 
-    # 如果成功获取到 DataFrame 表格，执行通用全行业科目提取
     if stmt_df is not None and not stmt_df.empty:
-        # 寻找包含有效数字最多的最新一列
         valid_cols = [c for c in stmt_df.columns if stmt_df[c].dropna().count() >= 3]
         latest_col = valid_cols[0] if valid_cols else stmt_df.columns[0]
         latest_date_str = pd.to_datetime(latest_col).strftime("%Y-%m-%d") if hasattr(latest_col, 'strftime') else str(latest_col)[:10]
@@ -290,7 +467,6 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
 
             opex = get_val(["Operating Expense", "Total Operating Expenses", "Operating Expenses"])
             op_income = get_val(["Operating Income", "Operating Profit", "EBIT", "Operating Revenue", "Net Income Before Taxes"])
-
             interest_exp = get_val(["Interest Expense", "Interest Expense Non Operating", "Total Interest Expense"])
             tax = get_val(["Tax Provision", "Provision For Income Tax", "Income Tax Expense", "Taxes"])
             net_inc = get_val([
@@ -304,7 +480,6 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
                 elif net_inc != 0.0:
                     op_income = net_inc + tax + interest_exp
 
-            # 动态生成支出细分字典
             expense_dict = {}
             if cogs > 0:
                 expense_dict["营业成本 / 销货成本 (COGS)"] = cogs
@@ -346,13 +521,10 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
                 "operating_income": op_income,
                 "tax_provision": tax,
                 "net_income": net_inc,
-                "expense_dict": expense_dict,
-                "history_df": stmt_df
+                "expense_dict": expense_dict
             }
 
-    # -------------------------------------------------------------
-    # 策略 3: 终极兜底方案 (从 ticker.info 的 TTM 财务指标中重建)
-    # -------------------------------------------------------------
+    # 兜底：从 info TTM 重建
     if info and isinstance(info, dict):
         total_rev = float(info.get("totalRevenue") or 0.0)
         if total_rev > 0:
@@ -364,15 +536,14 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
             cogs = total_rev - gross_profit if gm > 0 else 0.0
             op_income = total_rev * opm if opm != 0 else 0.0
             net_inc = total_rev * npm if npm != 0 else 0.0
-
             total_opex = gross_profit - op_income if (gross_profit > 0 and op_income != 0) else max(0.0, total_rev - cogs - op_income)
-            
+
             expense_dict = {}
             if cogs > 0:
                 expense_dict["营业成本 / 销货成本 (COGS)"] = cogs
             if total_opex > 0:
                 expense_dict["运营管理与研发开支 (Total Operating Expenses)"] = total_opex
-            
+
             tax_or_other = max(0.0, op_income - net_inc) if op_income > net_inc else 0.0
             if tax_or_other > 0:
                 expense_dict["所得税与非经常性项目 (Taxes & Other)"] = tax_or_other
@@ -388,21 +559,17 @@ def extract_robust_pnl_data(ticker_obj, info: dict):
                 "operating_income": op_income,
                 "tax_provision": tax_or_other,
                 "net_income": net_inc,
-                "expense_dict": expense_dict,
-                "history_df": pd.DataFrame()
+                "expense_dict": expense_dict
             }
 
     return {}
 
 
 # =====================================================================
-# 4. 数据获取主函数 (带缓存)
+# 5. 主数据加载函数 (带缓存)
 # =====================================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_company_data(ticker_symbol: str):
-    """
-    通过 yfinance 获取公司核心概况、结构化财务与新闻资讯
-    """
     if not yf:
         return {"status": "error", "message": "未安装 yfinance 库，请在 requirements.txt 中添加 yfinance。"}
 
@@ -416,16 +583,20 @@ def fetch_company_data(ticker_symbol: str):
 
         company_name = info.get("longName") or info.get("shortName") or ticker_symbol
 
-        # 解析新闻（自适应嵌套结构 + 自动 RSS 兜底）
-        news_list = parse_and_enrich_news(ticker, ticker_symbol, company_name)
+        # 1. 结构化多周期财报 (季度与年度 4-5 期)
+        statements_dict = extract_multi_period_statements(ticker)
 
-        # 多层级提取财务结构
-        pnl_data = extract_robust_pnl_data(ticker, info)
+        # 2. 单季度支出拆解
+        single_pnl = extract_single_quarter_pnl(ticker, info)
+
+        # 3. 新闻资讯 (双模 + RSS 兜底)
+        news_list = parse_and_enrich_news(ticker, ticker_symbol, company_name)
 
         return {
             "status": "success",
             "info": info,
-            "pnl_data": pnl_data,
+            "statements_dict": statements_dict,
+            "single_pnl": single_pnl,
             "news": news_list
         }
     except Exception as e:
@@ -433,7 +604,7 @@ def fetch_company_data(ticker_symbol: str):
 
 
 # =====================================================================
-# 5. 前端样式定义
+# 6. 前端 CSS 样式
 # =====================================================================
 def inject_custom_css():
     st.markdown(
@@ -510,13 +681,13 @@ def inject_custom_css():
 
 
 # =====================================================================
-# 6. Tab 渲染核心主函数
+# 7. Tab 渲染核心主函数
 # =====================================================================
 def render_company_deep_dive_tab():
     inject_custom_css()
 
     st.markdown("## 🏢 个股深度与基本面剖析 (Company Profile & Financials)")
-    st.caption("全景透视上市公司：公司档案、主营业务、最新季报收入与支出构成剖析、关键财务比率及实时新闻动态。")
+    st.caption("全景透视上市公司：公司档案、主营业务、最新季报收入与支出构成拆解、多季度/年度核心财务报表及实时新闻动态。")
 
     # 1. 搜索框与常用标的快捷切换
     if "selected_ticker" not in st.session_state:
@@ -556,7 +727,8 @@ def render_company_deep_dive_tab():
         return
 
     info = data["info"]
-    pnl_data = data["pnl_data"]
+    single_pnl = data["single_pnl"]
+    statements_dict = data["statements_dict"]
     news_list = data["news"]
 
     # 3. 头部信息卡片与核心量化指标
@@ -639,24 +811,23 @@ def render_company_deep_dive_tab():
 
     st.markdown("---")
 
-    # 5. 最新财报拆解：收入与支出构成 (自适应全行业)
+    # 5. 最新财报拆解：单期支出与成本构成 (自适应全行业)
     st.markdown("### 📊 2. 最新财报财务拆解：收入与支出构成 (Financial Breakdown)")
 
-    if pnl_data and pnl_data.get("total_revenue", 0) > 0:
-        latest_date_str = pnl_data["latest_date_str"]
-        total_revenue = pnl_data["total_revenue"]
-        cost_of_revenue = pnl_data["cost_of_revenue"]
-        gross_profit = pnl_data["gross_profit"]
-        rd_expense = pnl_data["rd_expense"]
-        sga_expense = pnl_data["sga_expense"]
-        operating_income = pnl_data["operating_income"]
-        net_income = pnl_data["net_income"]
-        expense_dict = pnl_data["expense_dict"]
-        history_df = pnl_data.get("history_df", pd.DataFrame())
+    if single_pnl and single_pnl.get("total_revenue", 0) > 0:
+        latest_date_str = single_pnl["latest_date_str"]
+        total_revenue = single_pnl["total_revenue"]
+        cost_of_revenue = single_pnl["cost_of_revenue"]
+        gross_profit = single_pnl["gross_profit"]
+        rd_expense = single_pnl["rd_expense"]
+        sga_expense = single_pnl["sga_expense"]
+        operating_income = single_pnl["operating_income"]
+        net_income = single_pnl["net_income"]
+        expense_dict = single_pnl["expense_dict"]
 
         rev_base = total_revenue if total_revenue > 0 else 1.0
 
-        st.info(f"📅 财务数据源: **{pnl_data.get('source_type', '最新财报')}** (核算基准: **{latest_date_str}**)")
+        st.info(f"📅 财务数据源: **{single_pnl.get('source_type', '最新财报')}** (核算基准: **{latest_date_str}**)")
 
         # 核心比率卡片
         c_kpi1, c_kpi2, c_kpi3, c_kpi4, c_kpi5 = st.columns(5)
@@ -750,32 +921,54 @@ def render_company_deep_dive_tab():
                 "占营收比重": format_percent(net_income / rev_base)
             })
             st.dataframe(pd.DataFrame(summary_table), use_container_width=True, hide_index=True)
-
-        # 3. 历史多期趋势对比
-        if history_df is not None and not history_df.empty and history_df.shape[1] > 1:
-            with st.expander("📈 查看历史多期营收与利润演变趋势 (Historical Quarters Trend)"):
-                dates = [col for col in history_df.columns]
-                hist_data = []
-                for d in dates[:6]:
-                    d_str = pd.to_datetime(d).strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10]
-                    r = history_df.loc["Total Revenue", d] if "Total Revenue" in history_df.index else (history_df.loc["Operating Revenue", d] if "Operating Revenue" in history_df.index else 0)
-                    op = history_df.loc["Operating Income", d] if "Operating Income" in history_df.index else 0
-                    ni = history_df.loc["Net Income", d] if "Net Income" in history_df.index else (history_df.loc["Net Income Common Stockholders", d] if "Net Income Common Stockholders" in history_df.index else 0)
-                    hist_data.append({
-                        "报告期": d_str,
-                        "总营收 ($)": float(r) if pd.notna(r) else 0,
-                        "营业利润 ($)": float(op) if pd.notna(op) else 0,
-                        "净利润 ($)": float(ni) if pd.notna(ni) else 0,
-                    })
-                df_hist = pd.DataFrame(hist_data).sort_values("报告期")
-                st.line_chart(df_hist.set_index("报告期"))
     else:
-        st.warning("暂未获取到该公司的财务报表数据，请稍后刷新或核对标的代码。")
+        st.warning("暂未获取到该公司的单期财务拆解数据。")
 
     st.markdown("---")
 
-    # 6. 公司近期重要新闻动态 (带外链跳转)
-    st.markdown("### 📰 3. 公司近期重要新闻与重大动态 (Key News & Market Catalysts)")
+    # 6. 多季度/年度核心财务报表深度透视 (过去 4-5 期结构化总览与趋势图)
+    st.markdown("### 📑 3. 核心财务报表深度透视 (季度与年度过去 4–5 期全量明细与趋势图)")
+    st.caption("覆盖营业总收入、营收同比增速、毛利润/毛利率、营业利润 (EBIT)、净利润、稀释 EPS、经营现金流、自由现金流 (FCF) 与资产负债核心结构")
+
+    if statements_dict:
+        fin_tab_q, fin_tab_a = st.tabs(["📊 季度财务报表明细 (Quarterly Financials)", "📅 年度财务报表明细 (Annual Financials)"])
+
+        with fin_tab_q:
+            df_q_sum = statements_dict.get("q_summary")
+            df_q_trend = statements_dict.get("q_trends")
+
+            if df_q_sum is not None and not df_q_sum.empty:
+                st.markdown("##### 季度核心财务指标精选总览 (最近 5 个季度)")
+                st.dataframe(df_q_sum, hide_index=True, use_container_width=True)
+
+                if df_q_trend is not None and not df_q_trend.empty and create_financial_trends_chart:
+                    fig_q_trend = create_financial_trends_chart(df_q_trend, period_type="季度")
+                    if fig_q_trend:
+                        st.plotly_chart(fig_q_trend, use_container_width=True)
+            else:
+                st.info("暂无季度结构化多期财务报表数据。")
+
+        with fin_tab_a:
+            df_a_sum = statements_dict.get("a_summary")
+            df_a_trend = statements_dict.get("a_trends")
+
+            if df_a_sum is not None and not df_a_sum.empty:
+                st.markdown("##### 年度核心财务指标精选总览 (最近 4 个财年)")
+                st.dataframe(df_a_sum, hide_index=True, use_container_width=True)
+
+                if df_a_trend is not None and not df_a_trend.empty and create_financial_trends_chart:
+                    fig_a_trend = create_financial_trends_chart(df_a_trend, period_type="年度")
+                    if fig_a_trend:
+                        st.plotly_chart(fig_a_trend, use_container_width=True)
+            else:
+                st.info("暂无年度结构化多期财务报表数据。")
+    else:
+        st.info("未能提取该公司的多期财务报表明细。")
+
+    st.markdown("---")
+
+    # 7. 公司近期重要新闻动态 (带外链跳转)
+    st.markdown("### 📰 4. 公司近期重要新闻与重大动态 (Key News & Market Catalysts)")
 
     if news_list and len(news_list) > 0:
         for item in news_list[:8]:
