@@ -1039,7 +1039,7 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
             mode='lines',
             name=f"{symbol} 真实股价",
             line=dict(color='#1e293b', width=2.5),
-            hovertemplate=f"<b>{symbol} 股价</b>: $%{y:.2f}<extra></extra>"
+            hovertemplate=f"<b>{symbol} 股价</b>: $%{{y:.2f}}<extra></extra>"
         )
     )
 
