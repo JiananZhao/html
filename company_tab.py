@@ -1,9 +1,12 @@
 """
-Company Profile & Financial Breakdown Tab for Streamlit App
+Company Profile & Financial Breakdown Tab for Streamlit App (Universal Industry Version)
+========================================================================================
+Supports Tech, Manufacturing, Banks, Financial Services, Insurance, Energy, REITs & ADRs.
 """
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import datetime
 
 # 尝试导入金融与图表库（带容错回退）
@@ -192,7 +195,157 @@ def inject_custom_css():
 
 
 # =====================================================================
-# 4. Tab 核心渲染函数
+# 4. 全行业智能财务科目提取器 (Universal P&L Extractor)
+# =====================================================================
+def extract_universal_income_data(q_income: pd.DataFrame):
+    """
+    智能解析科技、制造、金融银行、保险、能源与公共事业等全行业损益表
+    """
+    if q_income is None or q_income.empty:
+        return {}
+
+    # 寻找包含最多非空数据的有效最新季度列
+    valid_cols = [c for c in q_income.columns if q_income[c].dropna().count() > 3]
+    latest_date = valid_cols[0] if valid_cols else q_income.columns[0]
+    latest_date_str = pd.to_datetime(latest_date).strftime("%Y-%m-%d") if hasattr(latest_date, 'strftime') else str(latest_date)[:10]
+
+    # 构建不区分大小写和下划线的索引字典
+    index_map = {str(idx).lower().strip().replace("_", " "): idx for idx in q_income.index}
+
+    def get_val(aliases):
+        if isinstance(aliases, str):
+            aliases = [aliases]
+        for a in aliases:
+            norm_a = a.lower().strip().replace("_", " ")
+            if norm_a in index_map:
+                orig_key = index_map[norm_a]
+                v = q_income.loc[orig_key, latest_date]
+                if pd.notna(v) and v != 0:
+                    try:
+                        return float(v)
+                    except Exception:
+                        pass
+        return 0.0
+
+    # 1. 营业总收入 (Total Revenue / Net Interest Income + Non-Interest Income)
+    total_revenue = get_val([
+        "Total Revenue", "Operating Revenue", "Revenue", "Gross Sales",
+        "Net Interest Income", "Interest And Dividend Income", "Total Net Revenue"
+    ])
+
+    # 2. 营业成本 / 主营直接业务成本 (COGS / Cost of Services / Policy Claims)
+    cost_of_revenue = get_val([
+        "Cost Of Revenue", "Reconciled Cost Of Revenue", "Cost of Goods Sold",
+        "Cost of Goods and Services Sold", "Cost of Services", "Policyholder Benefits And Claims",
+        "Net Policyholder Claims And Benefits", "Benefits Losses And Expenses"
+    ])
+
+    # 3. 毛利润 (Gross Profit)
+    gross_profit = get_val(["Gross Profit", "Gross Margin"])
+    if gross_profit == 0.0 and total_revenue > 0 and cost_of_revenue > 0:
+        gross_profit = total_revenue - cost_of_revenue
+
+    # 4. 研发费用 (R&D)
+    rd_expense = get_val([
+        "Research And Development", "Research & Development", "Research Development",
+        "Research Development Expense", "Research and Development"
+    ])
+
+    # 5. 销售与管理费用 (SG&A) 或 分开列报的销售/行政费用
+    sga_expense = get_val([
+        "Selling General And Administration", "Selling General & Administrative",
+        "Selling General and Administrative Expense", "Selling General Administrative"
+    ])
+    if sga_expense == 0.0:
+        sm = get_val(["Selling And Marketing Expense", "Selling and Marketing", "Sales And Marketing", "Marketing Expense"])
+        ga = get_val(["General And Administrative Expense", "General and Administrative", "Administrative Expense", "General Administrative"])
+        sga_expense = sm + ga
+
+    # 6. 金融/银行业专属开支 (Non-Interest Expense & Credit Losses)
+    non_interest_exp = get_val([
+        "Non Interest Expense", "Non-Interest Expense", "Total Noninterest Expense",
+        "Salaries And Employee Benefits", "Other Non Interest Expense"
+    ])
+    credit_loss_provision = get_val([
+        "Provision For Credit Losses", "Provision For Loan Losses", "Credit Loss Provision"
+    ])
+
+    # 7. 营业总费用 (Operating Expense) & 营业利润 (Operating Income / EBIT)
+    operating_expense = get_val(["Operating Expense", "Total Operating Expenses", "Operating Expenses"])
+    operating_income = get_val(["Operating Income", "Operating Profit", "EBIT", "Operating Revenue", "Net Income Before Taxes"])
+
+    # 8. 利息支出、税费与净利润
+    interest_expense = get_val(["Interest Expense", "Interest Expense Non Operating", "Total Interest Expense"])
+    tax_provision = get_val(["Tax Provision", "Provision For Income Tax", "Income Tax Expense", "Taxes"])
+    net_income = get_val([
+        "Net Income", "Net Income Common Stockholders",
+        "Net Income From Continuing Operation Net Minority Interest", "Net Income Including Noncontrolling Interests"
+    ])
+
+    # 如果没有营业利润但有总营收和总费用，尝试推算
+    if operating_income == 0.0 and total_revenue > 0:
+        if operating_expense > 0:
+            operating_income = total_revenue - cost_of_revenue - operating_expense
+        elif net_income > 0:
+            operating_income = net_income + tax_provision + interest_expense
+
+    # -------------------------------------------------------------
+    # 动态组装全行业支出细分字典 (Dynamic Expense Map)
+    # -------------------------------------------------------------
+    expense_dict = {}
+    if cost_of_revenue > 0:
+        expense_dict["营业成本 (COGS / Cost of Sales)"] = cost_of_revenue
+    if rd_expense > 0:
+        expense_dict["研发支出 (R&D)"] = rd_expense
+    if sga_expense > 0:
+        expense_dict["销售与行政费用 (SG&A)"] = sga_expense
+    if non_interest_exp > 0 and sga_expense == 0:
+        expense_dict["非利息运营支出 (Non-Interest Exp.)"] = non_interest_exp
+    if credit_loss_provision > 0:
+        expense_dict["信贷坏账拨备 (Credit Loss Provision)"] = credit_loss_provision
+
+    # 残差推算其他运营开支
+    known_opex = rd_expense + sga_expense + (non_interest_exp if sga_expense == 0 else 0) + credit_loss_provision
+    if operating_expense > known_opex:
+        other_op = operating_expense - known_opex
+        if other_op > 0:
+            expense_dict["其他运营及管理费用 (Other OpEx)"] = other_op
+    elif total_revenue > 0 and operating_income > 0:
+        calc_total_op = total_revenue - cost_of_revenue - operating_income
+        if calc_total_op > known_opex:
+            other_op = calc_total_op - known_opex
+            if other_op > 0:
+                expense_dict["其他运营开支 (Other OpEx)"] = other_op
+
+    # 如果依然没有任何细分，但存在总运营费用，则作为打包项
+    if not expense_dict and operating_expense > 0:
+        expense_dict["总营业与运营支出 (Total OpEx)"] = operating_expense
+
+    if tax_provision > 0:
+        expense_dict["所得税费用 (Income Tax)"] = tax_provision
+    if interest_expense > 0:
+        expense_dict["利息支出 (Interest Expense)"] = interest_expense
+
+    return {
+        "latest_date_str": latest_date_str,
+        "total_revenue": total_revenue,
+        "cost_of_revenue": cost_of_revenue,
+        "gross_profit": gross_profit,
+        "rd_expense": rd_expense,
+        "sga_expense": sga_expense,
+        "non_interest_exp": non_interest_exp,
+        "credit_loss_provision": credit_loss_provision,
+        "operating_expense": operating_expense,
+        "operating_income": operating_income,
+        "interest_expense": interest_expense,
+        "tax_provision": tax_provision,
+        "net_income": net_income,
+        "expense_dict": expense_dict
+    }
+
+
+# =====================================================================
+# 5. Tab 核心渲染函数
 # =====================================================================
 def render_company_deep_dive_tab():
     inject_custom_css()
@@ -211,7 +364,7 @@ def render_company_deep_dive_tab():
             "🔍 输入美股代码 (Ticker):",
             value=st.session_state["selected_ticker"],
             key="input_ticker_box",
-            placeholder="例如: NVDA, AAPL, MSFT, AMAT...",
+            placeholder="例如: NVDA, AAPL, JPM, XOM, TSM...",
             help="输入美股标的代码后按 Enter 键刷新数据"
         ).strip().upper()
 
@@ -220,7 +373,7 @@ def render_company_deep_dive_tab():
 
     with col_quick:
         st.markdown("<div style='font-size:0.85rem; color:#64748b; margin-bottom:4px; font-weight:600;'>快捷热门标的:</div>", unsafe_allow_html=True)
-        popular_tickers = ["NVDA", "AAPL", "MSFT", "AMAT", "TSM", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "ASML", "AMD"]
+        popular_tickers = ["NVDA", "AAPL", "MSFT", "AMAT", "TSM", "GOOGL", "AMZN", "META", "TSLA", "JPM", "XOM", "COST"]
         quick_cols = st.columns(len(popular_tickers))
         for idx, sym in enumerate(popular_tickers):
             if quick_cols[idx].button(sym, key=f"quick_btn_{sym}", use_container_width=True):
@@ -311,7 +464,7 @@ def render_company_deep_dive_tab():
         st.markdown(
             f"""
             - **结算币种**: `{currency}`
-            - **财年截止月份**: `{info.get('fiscalYearEnd', 'N/A')}`
+            - **所属行业**: `{industry}`
             - **历史毛利率水平**: `{format_percent(info.get('grossMargins'))}`
             - **净利润率水平**: `{format_percent(info.get('profitMargins'))}`
             - **股息收益率**: `{format_percent(info.get('dividendYield'))}`
@@ -321,69 +474,43 @@ def render_company_deep_dive_tab():
 
     st.markdown("---")
 
-    # 5. 最新季报财务拆解：收入与支出构成
+    # 5. 最新季报财务拆解：全行业自适应收入与支出构成
     st.markdown("### 📊 2. 最新季报财务拆解：收入与支出构成 (Financial Breakdown)")
 
-    if q_income is not None and not q_income.empty:
-        dates = [col for col in q_income.columns]
-        latest_date = dates[0]
-        latest_date_str = pd.to_datetime(latest_date).strftime("%Y-%m-%d") if hasattr(latest_date, 'strftime') else str(latest_date)[:10]
+    pnl_data = extract_universal_income_data(q_income)
 
-        st.info(f"📅 以下数据提取自 **{active_ticker}** 最新发布的季度利润表 (报告截止期: **{latest_date_str}**)")
-
-        def get_item(field_names):
-            if isinstance(field_names, str):
-                field_names = [field_names]
-            for fn in field_names:
-                if fn in q_income.index:
-                    val = q_income.loc[fn, latest_date]
-                    if pd.notna(val):
-                        return float(val)
-            return 0.0
-
-        # 提取关键财务科目
-        total_revenue = get_item(["Total Revenue", "Operating Revenue", "Revenue"])
-        cost_of_revenue = get_item(["Cost Of Revenue", "Reconciled Cost Of Revenue", "Cost of Goods Sold", "Cost of Revenue"])
-        gross_profit = get_item(["Gross Profit"]) or (total_revenue - cost_of_revenue)
-        rd_expense = get_item(["Research And Development", "Research & Development", "Research Development"])
-        sga_expense = get_item(["Selling General And Administration", "Selling General & Administrative", "Selling And Marketing Expense"])
-        operating_expense = get_item(["Operating Expense", "Total Operating Expenses"])
-        operating_income = get_item(["Operating Income", "Operating Profit"])
-        interest_expense = get_item(["Interest Expense", "Interest Expense Non Operating"])
-        tax_provision = get_item(["Tax Provision", "Provision For Income Tax", "Income Tax Expense"])
-        net_income = get_item(["Net Income", "Net Income Common Stockholders", "Net Income From Continuing Operation Net Minority Interest"])
-
-        other_opex = max(0.0, operating_expense - rd_expense - sga_expense) if operating_expense > 0 else max(0.0, (total_revenue - cost_of_revenue - operating_income - rd_expense - sga_expense))
+    if pnl_data and pnl_data.get("total_revenue", 0) > 0:
+        latest_date_str = pnl_data["latest_date_str"]
+        total_revenue = pnl_data["total_revenue"]
+        cost_of_revenue = pnl_data["cost_of_revenue"]
+        gross_profit = pnl_data["gross_profit"]
+        rd_expense = pnl_data["rd_expense"]
+        sga_expense = pnl_data["sga_expense"]
+        operating_income = pnl_data["operating_income"]
+        tax_provision = pnl_data["tax_provision"]
+        net_income = pnl_data["net_income"]
+        expense_dict = pnl_data["expense_dict"]
 
         rev_base = total_revenue if total_revenue > 0 else 1.0
 
-        # 关键费用率与利润率指标
+        st.info(f"📅 以下财务科目提取自 **{active_ticker}** 最新发布的季度利润表 (报告截止期: **{latest_date_str}**)")
+
+        # 核心比率 KPI 卡片
         c_kpi1, c_kpi2, c_kpi3, c_kpi4, c_kpi5 = st.columns(5)
         c_kpi1.metric("单季总营收 (Revenue)", format_large_number(total_revenue))
-        c_kpi2.metric("毛利率 (Gross Margin)", f"{(gross_profit / rev_base) * 100:.1f}%")
-        c_kpi3.metric("研发费用率 (R&D / Rev)", f"{(rd_expense / rev_base) * 100:.1f}%" if rd_expense > 0 else "N/A")
-        c_kpi4.metric("营业利润率 (Op Margin)", f"{(operating_income / rev_base) * 100:.1f}%")
-        c_kpi5.metric("净利润率 (Net Margin)", f"{(net_income / rev_base) * 100:.1f}%")
+        if gross_profit > 0:
+            c_kpi2.metric("毛利率 (Gross Margin)", f"{(gross_profit / rev_base) * 100:.1f}%")
+        else:
+            c_kpi2.metric("毛利率 (Gross Margin)", "不适用 (金融/服务)")
+        c_kpi3.metric("研发费用率 (R&D / Rev)", f"{(rd_expense / rev_base) * 100:.1f}%" if rd_expense > 0 else "无单独R&D")
+        c_kpi4.metric("营业利润率 (Op Margin)", f"{(operating_income / rev_base) * 100:.1f}%" if operating_income != 0 else "N/A")
+        c_kpi5.metric("净利润率 (Net Margin)", f"{(net_income / rev_base) * 100:.1f}%" if net_income != 0 else "N/A")
 
         col_charts_left, col_charts_right = st.columns([1, 1])
 
-        # 支出构成环形图
+        # 1. 支出构成环形图 (Expense Donut Chart)
         with col_charts_left:
             st.markdown("#### 💰 支出与成本构成 (Expense Breakdown)")
-            expense_dict = {}
-            if cost_of_revenue > 0:
-                expense_dict["营业成本 (COGS)"] = cost_of_revenue
-            if rd_expense > 0:
-                expense_dict["研发支出 (R&D)"] = rd_expense
-            if sga_expense > 0:
-                expense_dict["销售与行政 (SG&A)"] = sga_expense
-            if other_opex > 0:
-                expense_dict["其他营业费用 (Other OpEx)"] = other_opex
-            if tax_provision > 0:
-                expense_dict["所得税 (Tax)"] = tax_provision
-            if interest_expense > 0:
-                expense_dict["利息支出 (Interest)"] = interest_expense
-
             if expense_dict:
                 df_exp = pd.DataFrame(list(expense_dict.items()), columns=["支出科目", "金额 ($)"])
                 df_exp["占总营收比例"] = df_exp["金额 ($)"].apply(lambda x: f"{(x / rev_base) * 100:.1f}%")
@@ -398,68 +525,92 @@ def render_company_deep_dive_tab():
                         color_discrete_sequence=px.colors.qualitative.Pastel
                     )
                     fig_donut.update_traces(textposition='inside', textinfo='percent+label')
-                    fig_donut.update_layout(margin=dict(t=10, b=10, l=10, r=10), showlegend=False, height=320)
+                    fig_donut.update_layout(margin=dict(t=10, b=10, l=10, r=10), showlegend=False, height=340)
                     st.plotly_chart(fig_donut, use_container_width=True)
                 else:
                     st.bar_chart(df_exp.set_index("支出科目")["金额 ($)"])
 
                 st.dataframe(df_exp[["支出科目", "格式化金额", "占总营收比例"]], use_container_width=True, hide_index=True)
             else:
-                st.write("暂无细分支出项数据。")
+                st.info("该公司最新季报暂无详细的二级费用细分项（仅披露了总额或属于快报期）。")
 
-        # 利润流向瀑布图与科目表
+        # 2. 动态自适应利润流向瀑布图 (Dynamic P&L Waterfall Chart)
         with col_charts_right:
             st.markdown("#### 🌊 营收至净利润流向瀑布图 (P&L Waterfall)")
             if HAS_PLOTLY and total_revenue > 0:
-                waterfall_x = ["总营收", "营业成本", "研发费用", "销管费用", "营业利润", "税费/其他", "净利润"]
-                measure_types = ["relative", "relative", "relative", "relative", "total", "relative", "total"]
+                wf_x = ["总营收"]
+                wf_y = [total_revenue]
+                wf_types = ["relative"]
+                wf_text = [format_large_number(total_revenue)]
+
+                # 根据实际存在的支出项目动态构建流向节点
+                for k, v in expense_dict.items():
+                    if v > 0:
+                        short_k = k.split("(")[0].strip() if "(" in k else k[:8]
+                        wf_x.append(short_k)
+                        wf_y.append(-v)
+                        wf_types.append("relative")
+                        wf_text.append(f"-{format_large_number(v)}")
+
+                # 最终净利润终点
+                wf_x.append("净利润")
+                wf_y.append(0)
+                wf_types.append("total")
+                wf_text.append(format_large_number(net_income))
 
                 fig_wf = go.Figure(go.Waterfall(
                     name="P&L Flow",
                     orientation="v",
-                    measure=measure_types,
-                    x=waterfall_x,
+                    measure=wf_types,
+                    x=wf_x,
                     textposition="outside",
-                    text=[format_large_number(abs(v)) if v != 0 else "" for v in [total_revenue, cost_of_revenue, rd_expense, sga_expense, operating_income, (operating_income - net_income), net_income]],
-                    y=[total_revenue, -cost_of_revenue, -rd_expense, -sga_expense, operating_income, -(operating_income - net_income), net_income],
+                    text=wf_text,
+                    y=wf_y,
                     connector={"line": {"color": "rgb(63, 63, 63)"}},
                     decreasing={"marker": {"color": "#ef4444"}},
                     increasing={"marker": {"color": "#10b981"}},
                     totals={"marker": {"color": "#3b82f6"}}
                 ))
-                fig_wf.update_layout(height=320, margin=dict(t=20, b=10, l=10, r=10), showlegend=False)
+                fig_wf.update_layout(height=340, margin=dict(t=20, b=10, l=10, r=10), showlegend=False)
                 st.plotly_chart(fig_wf, use_container_width=True)
 
-            pnl_summary = [
-                {"科目": "1. 营业总收入 (Total Revenue)", "金额": format_large_number(total_revenue), "占营收比重": "100.0%"},
-                {"科目": "2. 营业成本 (Cost of Goods Sold)", "金额": f"-{format_large_number(cost_of_revenue)}", "占营收比重": format_percent(cost_of_revenue / rev_base)},
-                {"科目": "3. 毛利润 (Gross Profit)", "金额": format_large_number(gross_profit), "占营收比重": format_percent(gross_profit / rev_base)},
-                {"科目": "4. 研发费用 (R&D)", "金额": f"-{format_large_number(rd_expense)}", "占营收比重": format_percent(rd_expense / rev_base)},
-                {"科目": "5. 销售与行政费用 (SG&A)", "金额": f"-{format_large_number(sga_expense)}", "占营收比重": format_percent(sga_expense / rev_base)},
-                {"科目": "6. 营业利润 (Operating Income)", "金额": format_large_number(operating_income), "占营收比重": format_percent(operating_income / rev_base)},
-                {"科目": "7. 净利润 (Net Income)", "金额": format_large_number(net_income), "占营收比重": format_percent(net_income / rev_base)}
+            # 结构化利润表明细表
+            summary_table = [
+                {"科目": "1. 营业总收入 (Total Revenue)", "金额": format_large_number(total_revenue), "占营收比重": "100.0%"}
             ]
-            st.dataframe(pd.DataFrame(pnl_summary), use_container_width=True, hide_index=True)
+            for exp_name, exp_val in expense_dict.items():
+                summary_table.append({
+                    "科目": f"扣除: {exp_name}",
+                    "金额": f"-{format_large_number(exp_val)}",
+                    "占营收比重": format_percent(exp_val / rev_base)
+                })
+            summary_table.append({
+                "科目": "最终: 归母净利润 (Net Income)",
+                "金额": format_large_number(net_income),
+                "占营收比重": format_percent(net_income / rev_base)
+            })
+            st.dataframe(pd.DataFrame(summary_table), use_container_width=True, hide_index=True)
 
-        # 历史多季度趋势对比
-        with st.expander("📈 查看历史多季度营收与费用演变趋势 (Historical Quarters Trend)"):
+        # 3. 历史多季度趋势对比
+        with st.expander("📈 查看历史多季度营收与利润演变趋势 (Historical Quarters Trend)"):
+            dates = [col for col in q_income.columns]
             if len(dates) > 1:
                 hist_data = []
                 for d in dates[:6]:
                     d_str = pd.to_datetime(d).strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10]
-                    r = q_income.loc["Total Revenue", d] if "Total Revenue" in q_income.index else 0
-                    c = q_income.loc["Cost Of Revenue", d] if "Cost Of Revenue" in q_income.index else 0
+                    r = q_income.loc["Total Revenue", d] if "Total Revenue" in q_income.index else (q_income.loc["Operating Revenue", d] if "Operating Revenue" in q_income.index else 0)
                     op = q_income.loc["Operating Income", d] if "Operating Income" in q_income.index else 0
-                    ni = q_income.loc["Net Income", d] if "Net Income" in q_income.index else 0
+                    ni = q_income.loc["Net Income", d] if "Net Income" in q_income.index else (q_income.loc["Net Income Common Stockholders", d] if "Net Income Common Stockholders" in q_income.index else 0)
                     hist_data.append({
                         "季度截止日": d_str,
                         "总营收 ($)": float(r) if pd.notna(r) else 0,
-                        "营业成本 ($)": float(c) if pd.notna(c) else 0,
                         "营业利润 ($)": float(op) if pd.notna(op) else 0,
                         "净利润 ($)": float(ni) if pd.notna(ni) else 0,
                     })
                 df_hist = pd.DataFrame(hist_data).sort_values("季度截止日")
                 st.line_chart(df_hist.set_index("季度截止日"))
+            else:
+                st.write("历史季度数据较少，仅展示单季数据。")
     else:
         st.warning("暂未获取到该公司的详细季度利润表数据，请稍后刷新或检查标的代码。")
 
