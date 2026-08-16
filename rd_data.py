@@ -497,7 +497,7 @@ with tab_macro:
         st.subheader("1. 美国国债收益率曲线全景演变 (U.S. Treasury Curve)")
         treasury_file = "daily-treasury-rates.csv"
         if os.path.exists(treasury_file):
-            df_long, _ = load_and_transform_data(treasury_file)
+            df_long = load_and_transform_data(treasury_file)
             fig_treasury = create_treasury_chart(df_long)
             if fig_treasury:
                 st.plotly_chart(fig_treasury, use_container_width=True)

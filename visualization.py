@@ -549,7 +549,7 @@ def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="A
     fig.add_hline(
         y=75,
         line_dash="dash",
-        line_color="rgba(22, 163, 74, 0.8)",
+        line_color="rgba(220, 38, 38, 0.8)",
         annotation_text="75 (极度贪婪)",
         annotation_position="top left"
     )
@@ -785,7 +785,6 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
         colors = ['#94a3b8', '#60a5fa', '#3b82f6', '#f59e0b', '#ef4444']
         for mult, color in zip(pe_multiples, colors):
             band_price = df['Close'].copy()
-            # Construct a dynamic trailing EPS proxy or benchmark band
             fig.add_trace(
                 go.Scatter(
                     x=df['Date'],
