@@ -566,6 +566,42 @@ def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="A
     return fig
 
 # ------------------------------------------------------------------
+# 13. 国债收益率利差 (10Y-2Y & 10Y-3M)
+# ------------------------------------------------------------------
+def create_yield_spreads_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    if 'Spread_10Y2Y' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y2Y'], mode='lines', name='10Y-2Y 期限利差 (%)', line=dict(color='#2563eb', width=2)))
+    if 'Spread_10Y3M' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y3M'], mode='lines', name='10Y-3M 期限利差 (%)', line=dict(color='#dc2626', width=1.5, dash='dot')))
+
+    fig.add_hline(y=0.0, line_dash="solid", line_color="black", annotation_text="0 轴倒挂分界线")
+    fig.update_layout(
+        title=f"10Y-2Y & 10Y-3M 美债期限利差对比 - [{timeframe}]",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="利差 (%)",
+        uirevision=f"yield_spreads_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
 # 14. 个股量化与交互式 K 线 / 均线走势图
 # ------------------------------------------------------------------
 def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: str = "Candlestick", timeframe: str = "1Y"):
@@ -665,7 +701,6 @@ def create_relative_performance_chart(df_norm: pd.DataFrame, symbols: list, time
     if df.empty:
         return None
 
-    # Re-normalize to 100 at the start of the selected timeframe
     val_cols = [c for c in symbols if c in df.columns]
     if not val_cols:
         return None
@@ -695,7 +730,7 @@ def create_relative_performance_chart(df_norm: pd.DataFrame, symbols: list, time
 # ------------------------------------------------------------------
 # 16. 多期核心财务指标趋势走势图 (Revenue, Margin, FCF)
 # ------------------------------------------------------------------
-def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str, period_type: str = "季度"):
+def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", period_type: str = "季度"):
     if df_stmt is None or df_stmt.empty:
         return None
     df = df_stmt.copy()
@@ -710,13 +745,11 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str, period_typ
         )
     )
 
-    # 1. 营收 & 净利润
     if 'Revenue ($M)' in df.columns:
         fig.add_trace(go.Bar(x=df['Period'], y=df['Revenue ($M)'], name="总营收 ($M)", marker_color='#3b82f6'), row=1, col=1)
     if 'Net Income ($M)' in df.columns:
         fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Income ($M)'], name="净利润 ($M)", line=dict(color='#22c55e', width=2.5)), row=1, col=1)
 
-    # 2. 利润率趋势
     if 'Gross Margin (%)' in df.columns:
         fig.add_trace(go.Scatter(x=df['Period'], y=df['Gross Margin (%)'], name="毛利率 (%)", line=dict(color='#8b5cf6', width=2)), row=1, col=2)
     if 'Operating Margin (%)' in df.columns:
@@ -724,7 +757,6 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str, period_typ
     if 'Net Margin (%)' in df.columns:
         fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Margin (%)'], name="净利率 (%)", line=dict(color='#10b981', width=2)), row=1, col=2)
 
-    # 3. FCF & CapEx
     if 'Operating Cash Flow ($M)' in df.columns:
         fig.add_trace(go.Bar(x=df['Period'], y=df['Operating Cash Flow ($M)'], name="经营性现金流 ($M)", marker_color='#60a5fa'), row=2, col=1)
     if 'Free Cash Flow ($M)' in df.columns:
@@ -732,16 +764,16 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str, period_typ
     if 'CapEx ($M)' in df.columns:
         fig.add_trace(go.Bar(x=df['Period'], y=df['CapEx ($M)'], name="资本开支 ($M)", marker_color='#f87171'), row=2, col=1)
 
-    # 4. R&D
     if 'R&D Expenses ($M)' in df.columns:
         fig.add_trace(go.Bar(x=df['Period'], y=df['R&D Expenses ($M)'], name="研发支出 ($M)", marker_color='#a78bfa'), row=2, col=2)
     if 'R&D / Rev (%)' in df.columns:
         fig.add_trace(go.Scatter(x=df['Period'], y=df['R&D / Rev (%)'], name="研发费用率 (%)", line=dict(color='#ec4899', width=2)), row=2, col=2)
 
+    title_text = f"{symbol} 核心财务趋势走势图 ({period_type})" if symbol else f"核心财务趋势走势图 ({period_type})"
     fig.update_layout(
         template="plotly_white",
         height=650,
-        title_text=f"{symbol} 核心财务趋势走势图 ({period_type})",
+        title_text=title_text,
         hovermode="x unified",
         showlegend=True
     )
@@ -767,7 +799,6 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
 
     fig = go.Figure()
 
-    # 真实股价
     fig.add_trace(
         go.Scatter(
             x=df['Date'],
@@ -779,7 +810,6 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
         )
     )
 
-    # 动态 PE 通道
     if current_eps and current_eps > 0:
         pe_multiples = [20, 30, 45, 60, 80]
         colors = ['#94a3b8', '#60a5fa', '#3b82f6', '#f59e0b', '#ef4444']
@@ -821,21 +851,18 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
             df.rename(columns={'date': 'Date'}, inplace=True)
     df['Date'] = pd.to_datetime(df['Date'])
 
-    # 计算 RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / (loss + 1e-9)
     df['RSI'] = 100 - (100 / (1 + rs))
 
-    # 计算 MACD (12, 26, 9)
     exp12 = df['Close'].ewm(span=12, adjust=False).mean()
     exp26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp12 - exp26
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['Hist'] = df['MACD'] - df['Signal']
 
-    # 计算布林带 (20, 2)
     df['BB_Mid'] = df['Close'].rolling(window=20).mean()
     df['BB_Std'] = df['Close'].rolling(window=20).std()
     df['BB_Upper'] = df['BB_Mid'] + 2 * df['BB_Std']
@@ -853,19 +880,16 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
         subplot_titles=(f"{symbol} 股价与布林带 (Bollinger Bands)", "MACD (12, 26, 9)", "RSI (14) 超买超卖")
     )
 
-    # 1. 主图：收盘价与布林带
     fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Upper'], name="布林上轨", line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Lower'], name="布林下轨", fill='tonexty', fillcolor='rgba(241, 245, 249, 0.4)', line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Mid'], name="布林中轨 (20MA)", line=dict(color='#64748b', width=1.2)), row=1, col=1)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'], name=f"{symbol} 股价", line=dict(color='#2563eb', width=2)), row=1, col=1)
 
-    # 2. MACD
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MACD'], name="MACD", line=dict(color='#3b82f6', width=1.5)), row=2, col=1)
     fig.add_trace(go.Scatter(x=df['Date'], y=df['Signal'], name="Signal (信号线)", line=dict(color='#f97316', width=1.5)), row=2, col=1)
     hist_colors = ['#22c55e' if h >= 0 else '#ef4444' for h in df['Hist']]
     fig.add_trace(go.Bar(x=df['Date'], y=df['Hist'], name="MACD 柱状图", marker_color=hist_colors), row=2, col=1)
 
-    # 3. RSI
     fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], name="RSI (14)", line=dict(color='#8b5cf6', width=2)), row=3, col=1)
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
@@ -881,4 +905,259 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
     fig.update_yaxes(title_text="MACD", row=2, col=1)
     fig.update_yaxes(title_text="RSI", range=[0, 100], row=3, col=1)
 
+    return fig
+
+# ------------------------------------------------------------------
+# 19. 初请与续请失业金图表 (Jobless Claims)
+# ------------------------------------------------------------------
+def create_jobless_claims_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    if 'Initial_Claims' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Initial_Claims'], mode='lines', name='初请失业金 (周度)', line=dict(color='#2563eb', width=2)))
+    if 'Continued_Claims' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Continued_Claims'], mode='lines', name='续请失业金', yaxis='y2', line=dict(color='#f97316', width=1.5, dash='dot')))
+
+    fig.update_layout(
+        title=f"美国初请与续请失业金人数高频追踪 - [{timeframe}]",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        yaxis=dict(title="初请失业金 (人数)"),
+        yaxis2=dict(title="续请失业金 (人数)", overlaying="y", side="right"),
+        uirevision=f"jobless_claims_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 20. 美元指数图表 (DXY)
+# ------------------------------------------------------------------
+def create_dxy_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'DXY' if 'DXY' in df.columns else df.columns[1]
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title=f"Nominal Broad U.S. Dollar Index (美元指数) - [{timeframe}]",
+        labels={val_col: '美元指数', date_col: '日期'},
+        template="plotly_white"
+    )
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="美元指数点位",
+        uirevision=f"dxy_chart_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 21. 核心 CPI 与薪资增速图表
+# ------------------------------------------------------------------
+def create_inflation_wages_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    if 'Core_CPI_YoY' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CPI_YoY'], mode='lines', name='核心 CPI 同比 (%)', line=dict(color='#dc2626', width=2)))
+    if 'Wages_YoY' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Wages_YoY'], mode='lines', name='平均时薪同比 (%)', line=dict(color='#16a34a', width=2)))
+
+    fig.add_hline(y=2.0, line_dash="dash", line_color="gray", annotation_text="2% 通胀目标")
+    fig.update_layout(
+        title=f"核心 CPI 通胀 vs. 平均时薪增速同比 - [{timeframe}]",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="同比增速 (%)",
+        uirevision=f"inf_wages_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 22. 萨姆规则衰退指标图表 (Sahm Rule)
+# ------------------------------------------------------------------
+def create_sahm_rule_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'Sahm_Rule' if 'Sahm_Rule' in df.columns else df.columns[1]
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title=f"Sahm Rule Recession Indicator (萨姆规则衰退指标) - [{timeframe}]",
+        labels={val_col: '萨姆指标值', date_col: '日期'},
+        template="plotly_white"
+    )
+    fig.add_hline(y=0.50, line_dash="dash", line_color="red", annotation_text="0.50 衰退触发警戒线", annotation_position="top left")
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="指标点位",
+        uirevision=f"sahm_chart_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 23. 核心资本品新订单图表 (Core CapEx Orders)
+# ------------------------------------------------------------------
+def create_core_capex_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    if 'Core_CapEx' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CapEx'], mode='lines', name='核心资本品订单规模 ($M)', line=dict(color='#2563eb', width=2)))
+    if 'Core_CapEx_YoY' in df.columns:
+        fig.add_trace(go.Bar(x=df[date_col], y=df['Core_CapEx_YoY'], name='订单同比增速 (%)', yaxis='y2', marker_color='#93c5fd', opacity=0.6))
+
+    fig.update_layout(
+        title=f"核心资本品订单规模与同比增速 (前瞻资本开支) - [{timeframe}]",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        yaxis=dict(title="规模 ($M)"),
+        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right"),
+        uirevision=f"core_capex_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 24. 广义货币供应量 M2 图表
+# ------------------------------------------------------------------
+def create_m2_money_supply_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    if 'M2' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2'], mode='lines', name='M2 货币供应总量 ($B)', line=dict(color='#059669', width=2)))
+    if 'M2_YoY' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2_YoY'], mode='lines', name='M2 同比增速 (%)', yaxis='y2', line=dict(color='#f59e0b', width=1.5, dash='dot')))
+
+    fig.add_hline(y=0.0, line_dash="solid", line_color="black", yref="y2")
+    fig.update_layout(
+        title=f"M2 广义货币供应量总量与同比增速 - [{timeframe}]",
+        template="plotly_white",
+        height=450,
+        hovermode="x unified",
+        yaxis=dict(title="总量 ($B)"),
+        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right"),
+        uirevision=f"m2_chart_{timeframe}"
+    )
+    return fig
+
+# ------------------------------------------------------------------
+# 25. 银行贷款标准 SLOOS 图表
+# ------------------------------------------------------------------
+def create_sloos_credit_chart(df_data: pd.DataFrame, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+    df = df_data.copy()
+    if 'date' in df.columns:
+        date_col = 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    val_col = 'Tightening_Net_Pct' if 'Tightening_Net_Pct' in df.columns else df.columns[1]
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = px.line(
+        df,
+        x=date_col,
+        y=val_col,
+        title=f"美联储高级贷款官意见调查 (SLOOS 银行信贷净收紧比例) - [{timeframe}]",
+        labels={val_col: '净收紧比例 (%)', date_col: '日期'},
+        template="plotly_white"
+    )
+    fig.add_hline(y=0.0, line_dash="solid", line_color="black", annotation_text="0% (正值收紧 / 负值放宽)")
+    fig.update_layout(
+        hovermode="x unified",
+        height=450,
+        yaxis_title="净收紧银行占比 (%)",
+        uirevision=f"sloos_chart_{timeframe}"
+    )
     return fig
