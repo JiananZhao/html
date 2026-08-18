@@ -1,11 +1,9 @@
 import os
 import sys
 import datetime
-import json
-import urllib.request
 import importlib
-import pandas as pd
 import numpy as np
+import pandas as pd
 import streamlit as st
 from zoneinfo import ZoneInfo
 
@@ -16,8 +14,9 @@ from market_breadth_viz import render_market_breadth_ui
 # 模块导入与热重载安全机制 (防止 Streamlit Cloud 内存模块缓存导致 ImportError)
 # ------------------------------------------------------------------
 try:
-    import visualization
-    importlib.reload(visualization)
+    import market_breadth_viz
+    importlib.reload(market_breadth_viz)
+    from market_breadth_viz import render_market_breadth_ui
 except Exception:
     pass
 
@@ -56,41 +55,93 @@ from visualization import (
     create_sloos_credit_chart,
 )
 
+
 # ------------------------------------------------------------------
-# 1. 辅助函数：严格转换为美东时间 (US/Eastern - America/New_York, EDT)
+# 页面基础配置 (宽屏沉浸式布局)
 # ------------------------------------------------------------------
-def get_eastern_now():
+st.set_page_config(
+    page_title="Macro & Equity Quantitative Terminal",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 自定义 CSS 优化看板视觉层次
+st.markdown("""
+<style>
+    .reportview-container {
+        margin-top: -2em;
+    }
+    .metric-container {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background-color: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        white-space: pre-wrap;
+        background-color: #f1f5f9;
+        border-radius: 6px 6px 0px 0px;
+        gap: 6px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #e2e8f0;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ------------------------------------------------------------------
+# 辅助函数：严格转换为美东时间 (EDT)
+# ------------------------------------------------------------------
+def get_eastern_now_str():
     try:
-        return datetime.datetime.now(ZoneInfo("America/New_York"))
+        return datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M EDT")
     except Exception:
         tz_offset = datetime.timezone(datetime.timedelta(hours=-4))
-        return datetime.datetime.now(tz_offset)
+        return datetime.datetime.now(tz_offset).strftime("%Y-%m-%d %H:%M EDT")
 
-def get_file_updated_time_eastern(file_path):
-    if os.path.exists(file_path):
-        mtime = os.path.getmtime(file_path)
-        try:
-            dt = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).astimezone(ZoneInfo("America/New_York"))
-            return dt.strftime("%Y-%m-%d %H:%M EDT")
-        except Exception:
-            pass
-    return get_eastern_now().strftime("%Y-%m-%d %H:%M EDT")
+current_et_str = get_eastern_now_str()
 
-def get_current_time_str_eastern():
-    return get_eastern_now().strftime("%Y-%m-%d %H:%M EDT")
 
-def _get_fred_api_key():
+def get_file_updated_time_eastern(filepath: str):
+    """获取文件在美东时区的最后修改时间"""
+    if not os.path.exists(filepath):
+        return "N/A"
     try:
-        return st.secrets["FRED_API_KEY"]
+        mtime = os.path.getmtime(filepath)
+        dt = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).astimezone(ZoneInfo("America/New_York"))
+        return dt.strftime("%Y-%m-%d %H:%M EDT")
     except Exception:
-        return os.getenv("FRED_API_KEY", "")
+        return "近期"
+
 
 # ------------------------------------------------------------------
-# 2. FRED 核心宏观、微观流动性、情绪与持仓集中度函数
+# FRED 宏观经济数据自动抓取与解析引擎 (支持 API Key 与公共 CSV 双通道高可用)
 # ------------------------------------------------------------------
 @st.cache_data(ttl=60 * 60 * 6)
-def _fetch_fred_series_observations(series_id, value_col, observation_start="2000-01-01"):
-    fred_api_key = _get_fred_api_key()
+def _fetch_fred_series_observations(series_id: str, value_col: str, observation_start: str = "2000-01-01"):
+    """
+    通用 FRED 序列获取器：优先使用 Streamlit Secrets 中的 FRED API Key，若无则自动降级到公共 FRED CSV 接口
+    """
+    import urllib.request
+    
+    fred_api_key = None
+    try:
+        if hasattr(st, "secrets") and "FRED_API_KEY" in st.secrets:
+            fred_api_key = st.secrets["FRED_API_KEY"]
+    except Exception:
+        pass
+
     if fred_api_key:
         try:
             import requests
@@ -130,413 +181,393 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
                 return df.reset_index(drop=True)
     except Exception as e:
         print(f"Fallback CSV fetch error for {series_id}: {e}")
+
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_vix_data():
+    """获取 CBOE VIX 恐慌指数数据 (VIXCLS)"""
     return _fetch_fred_series_observations("VIXCLS", "VIX", "2000-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_cnn_fear_and_greed_data():
+    """获取 CNN 恐慌与贪婪指数 (CNN Fear & Greed Index) 实时与历史数据"""
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Referer": "https://www.cnn.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://www.cnn.com/markets/fear-and-greed"
     }
     try:
         import requests
-        resp = requests.get(url, headers=headers, timeout=15)
+        resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            score_data = data.get("fear_and_greed_historical", {}).get("data", [])
-            if score_data:
-                df = pd.DataFrame(score_data)
-                df["date"] = pd.to_datetime(df["x"], unit="ms")
-                df["Score"] = pd.to_numeric(df["y"], errors="coerce")
-                df["Rating"] = df.get("rating", "")
-                df = df.dropna(subset=["date", "Score"]).sort_values("date")
-                return df[["date", "Score", "Rating"]].reset_index(drop=True)
+            score = data.get("fear_and_greed", {}).get("score", 50.0)
+            rating = data.get("fear_and_greed", {}).get("rating", "Neutral")
+            hist = data.get("fear_and_greed_historical", {}).get("data", [])
+            df_hist = pd.DataFrame(hist)
+            if not df_hist.empty and "x" in df_hist.columns and "y" in df_hist.columns:
+                df_hist["date"] = pd.to_datetime(df_hist["x"], unit="ms")
+                df_hist["score"] = df_hist["y"]
+                return score, rating, df_hist[["date", "score"]]
+            return score, rating, pd.DataFrame()
     except Exception as e:
         print(f"CNN Fear & Greed fetch error: {e}")
+    return 50.0, "Neutral", pd.DataFrame()
 
-    dates = pd.date_range(end=pd.Timestamp.now(), periods=180, freq="D")
-    base_scores = np.sin(np.linspace(0, 10, len(dates))) * 25 + 50
-    return pd.DataFrame({
-        "date": dates,
-        "Score": np.clip(base_scores, 10, 90),
-        "Rating": ["Neutral"] * len(dates)
-    })
-
-@st.cache_data(ttl=60 * 60 * 6)
-def get_top10_concentration_data():
-    top10_data = [
-        {"Company": "Microsoft (MSFT)", "Weight_Pct": 7.15},
-        {"Company": "Apple (AAPL)", "Weight_Pct": 6.80},
-        {"Company": "NVIDIA (NVDA)", "Weight_Pct": 6.45},
-        {"Company": "Amazon (AMZN)", "Weight_Pct": 3.75},
-        {"Company": "Alphabet Cl A (GOOGL)", "Weight_Pct": 2.30},
-        {"Company": "Meta Platforms (META)", "Weight_Pct": 2.25},
-        {"Company": "Alphabet Cl C (GOOG)", "Weight_Pct": 1.95},
-        {"Company": "Berkshire Hathaway (BRK.B)", "Weight_Pct": 1.70},
-        {"Company": "Eli Lilly (LLY)", "Weight_Pct": 1.55},
-        {"Company": "Broadcom (AVGO)", "Weight_Pct": 1.50},
-        {"Company": "其余 493 家标普成分股", "Weight_Pct": 64.60}
-    ]
-    return pd.DataFrame(top10_data)
-
-@st.cache_data(ttl=60 * 60 * 6)
-def get_unemployment_data():
-    return _fetch_fred_series_observations("UNRATE", "Unemployment_Rate", "1970-01-01")
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_credit_spread_data():
-    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "1997-01-01")
+    """获取美联储 BAML 高收益债期权调整利差 (BAMLH0A0HYM2)"""
+    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Credit_Spread", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_unemployment_data():
+    """获取美国失业率数据 (UNRATE)"""
+    return _fetch_fred_series_observations("UNRATE", "Unemployment_Rate", "1990-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_fed_balance_sheet_data():
-    df = _fetch_fred_series_observations("WALCL", "balance_sheet_mil", "2003-01-01")
-    if not df.empty:
-        df["balance_sheet_tn"] = df["balance_sheet_mil"] / 1_000_000.0
-        return df[["date", "balance_sheet_tn"]]
-    return pd.DataFrame()
+    """获取美联储资产负债表总规模 (WALCL)"""
+    return _fetch_fred_series_observations("WALCL", "Total_Assets", "2002-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_gold_oil_ratio_data():
-    gold = _fetch_fred_series_observations("ID7108", "gold", "1980-01-01")
-    oil = _fetch_fred_series_observations("DCOILWTICO", "oil", "1980-01-01")
-    if not gold.empty and not oil.empty:
-        merged = pd.merge_asof(gold.sort_values("date"), oil.sort_values("date"), on="date", direction="nearest")
-        merged = merged[(merged["gold"] > 0) & (merged["oil"] > 0)].copy()
-        merged["gold_oil_ratio"] = merged["gold"] / merged["oil"]
-        return merged[["date", "gold_oil_ratio"]].dropna()
+    """计算金油比走势：伦敦金定盘价 (GOLDAMGBD228NLBM) / WTI 原油期货结算价 (DCOILWTICO)"""
+    df_gold = _fetch_fred_series_observations("GOLDAMGBD228NLBM", "Gold", "2000-01-01")
+    df_oil = _fetch_fred_series_observations("DCOILWTICO", "Oil", "2000-01-01")
+    if not df_gold.empty and not df_oil.empty:
+        df_merged = pd.merge(df_gold, df_oil, on="date", how="inner").dropna()
+        df_merged = df_merged[df_merged["Oil"] > 0].copy()
+        df_merged["Ratio"] = df_merged["Gold"] / df_merged["Oil"]
+        return df_merged[["date", "Ratio"]]
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_real_yield_and_breakeven_data():
-    real_yield = _fetch_fred_series_observations("DFII10", "10Y_Real_Yield", "2003-01-01")
-    breakeven = _fetch_fred_series_observations("T10YIE", "10Y_Breakeven_Inflation", "2003-01-01")
-    if not real_yield.empty and not breakeven.empty:
-        merged = pd.merge_asof(real_yield.sort_values("date"), breakeven.sort_values("date"), on="date", direction="nearest")
-        return merged.dropna()
+    """获取 10Y TIPS 实际利率 (DFII10) 与 10Y 平衡通胀率 (T10YIE)"""
+    df_dfii10 = _fetch_fred_series_observations("DFII10", "DFII10", "2003-01-01")
+    df_t10yie = _fetch_fred_series_observations("T10YIE", "T10YIE", "2003-01-01")
+    if not df_dfii10.empty and not df_t10yie.empty:
+        return pd.merge(df_dfii10, df_t10yie, on="date", how="outer").sort_values("date").dropna(how="all", subset=["DFII10", "T10YIE"])
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_nfci_data():
-    return _fetch_fred_series_observations("NFCI", "NFCI", "1980-01-01")
+    """获取芝加哥联储全国金融状况指数 (NFCI)"""
+    return _fetch_fred_series_observations("NFCI", "NFCI", "1990-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
-def get_net_liquidity_data():
-    walcl = _fetch_fred_series_observations("WALCL", "WALCL", "2015-01-01")
-    tga = _fetch_fred_series_observations("WTREGEN", "TGA", "2015-01-01")
-    rrp = _fetch_fred_series_observations("RRPONTSYD", "RRP", "2015-01-01")
-    reserves = _fetch_fred_series_observations("WRBWFRBL", "Reserves", "2015-01-01")
-    if not walcl.empty and not tga.empty and not rrp.empty:
-        merged = pd.merge_asof(walcl.sort_values("date"), tga.sort_values("date"), on="date", direction="nearest")
-        merged = pd.merge_asof(merged, rrp.sort_values("date"), on="date", direction="nearest")
-        if not reserves.empty:
-            merged = pd.merge_asof(merged, reserves.sort_values("date"), on="date", direction="nearest")
-        else:
-            merged["Reserves"] = np.nan
-        merged["WALCL"] = merged["WALCL"] / 1_000_000.0
-        merged["TGA"] = merged["TGA"] / 1_000_000.0
-        merged["RRP"] = merged["RRP"] / 1_000.0
-        merged["Bank_Reserves_Tn"] = merged["Reserves"] / 1_000_000.0
-        merged["Fed_Net_Liquidity_Tn"] = merged["WALCL"] - merged["TGA"] - merged["RRP"]
-        return merged[["date", "Fed_Net_Liquidity_Tn", "Bank_Reserves_Tn"]].dropna(subset=["date", "Fed_Net_Liquidity_Tn"])
+def get_fed_net_liquidity_data():
+    """
+    计算美联储宏观真实净流动性：
+    Net Liquidity = WALCL (美联储总资产) - WTREGEN (财政部一般账户 TGA) - RRPONTSYD (隔夜逆回购 RRP)
+    """
+    df_walcl = _fetch_fred_series_observations("WALCL", "WALCL", "2015-01-01")
+    df_tga = _fetch_fred_series_observations("WTREGEN", "TGA", "2015-01-01")
+    df_rrp = _fetch_fred_series_observations("RRPONTSYD", "RRP", "2015-01-01")
+
+    if not df_walcl.empty and not df_tga.empty and not df_rrp.empty:
+        df_merged = pd.merge(df_walcl, df_tga, on="date", how="outer")
+        df_merged = pd.merge(df_merged, df_rrp, on="date", how="outer").sort_values("date")
+        df_merged = df_merged.ffill().dropna()
+        df_merged["Fed_Net_Liquidity_Tn"] = (df_merged["WALCL"] - df_merged["TGA"] - df_merged["RRP"]) / 1e6
+        return df_merged[["date", "Fed_Net_Liquidity_Tn"]]
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_sofr_iorb_data():
-    sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
-    iorb = _fetch_fred_series_observations("IORB", "IORB", "2018-01-01")
-    if not sofr.empty and not iorb.empty:
-        merged = pd.merge_asof(sofr.sort_values("date"), iorb.sort_values("date"), on="date", direction="nearest")
-        merged = merged.dropna(subset=["SOFR", "IORB"]).copy()
-        merged["Spread_bps"] = (merged["SOFR"] - merged["IORB"]) * 100.0
-        return merged[["date", "SOFR", "IORB", "Spread_bps"]]
+    """计算 SOFR 与准备金利率 (IORB) 资金面摩擦利差"""
+    df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
+    df_iorb = _fetch_fred_series_observations("IORB", "IORB", "2018-01-01")
+    if not df_sofr.empty and not df_iorb.empty:
+        df_merged = pd.merge(df_sofr, df_iorb, on="date", how="inner").dropna()
+        df_merged["Spread_bps"] = (df_merged["SOFR"] - df_merged["IORB"]) * 100
+        return df_merged[["date", "Spread_bps"]]
     return pd.DataFrame()
 
-@st.cache_data(ttl=60 * 60 * 6)
-def get_yield_spreads_data():
-    df_10y2y = _fetch_fred_series_observations("T10Y2Y", "Spread_10Y2Y", "1990-01-01")
-    df_10y3m = _fetch_fred_series_observations("T10Y3M", "Spread_10Y3M", "1990-01-01")
-    if not df_10y2y.empty and not df_10y3m.empty:
-        merged = pd.merge_asof(df_10y2y.sort_values("date"), df_10y3m.sort_values("date"), on="date", direction="nearest")
-        return merged.dropna()
-    return pd.DataFrame()
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_jobless_claims_data():
-    icsa = _fetch_fred_series_observations("ICSA", "Initial_Claims", "2000-01-01")
-    ccsa = _fetch_fred_series_observations("CCSA", "Continued_Claims", "2000-01-01")
-    if not icsa.empty and not ccsa.empty:
-        merged = pd.merge_asof(icsa.sort_values("date"), ccsa.sort_values("date"), on="date", direction="nearest")
-        return merged.dropna()
-    return pd.DataFrame()
+    """获取美国周度初请失业金 4周移动均线 (IC4WSA)"""
+    return _fetch_fred_series_observations("IC4WSA", "Claims_4W", "2000-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_dxy_data():
+    """获取美元指数 (DTWEXBGS)"""
     return _fetch_fred_series_observations("DTWEXBGS", "DXY", "2006-01-01")
 
+
 @st.cache_data(ttl=60 * 60 * 6)
-def get_inflation_wages_data():
-    cpi = _fetch_fred_series_observations("CPILFESL", "Core_CPI", "2000-01-01")
-    wages = _fetch_fred_series_observations("CES0500000003", "Hourly_Earnings", "2000-01-01")
-    if not cpi.empty and not wages.empty:
-        cpi["Core_CPI_YoY"] = cpi["Core_CPI"].pct_change(12) * 100.0
-        wages["Wages_YoY"] = wages["Hourly_Earnings"].pct_change(12) * 100.0
-        merged = pd.merge_asof(cpi.dropna().sort_values("date"), wages.dropna().sort_values("date"), on="date", direction="nearest")
-        return merged[["date", "Core_CPI_YoY", "Wages_YoY"]].dropna()
+def get_inflation_and_wages_data():
+    """获取核心 PCE 同比增速 (PCEPILFE) 与非农平均时薪同比增速 (CES0500000003)"""
+    df_pce = _fetch_fred_series_observations("PCEPILFE", "PCE_Index", "2010-01-01")
+    df_wages = _fetch_fred_series_observations("CES0500000003", "Wage_Rate", "2010-01-01")
+    
+    if not df_pce.empty and not df_wages.empty:
+        df_pce["PCE"] = df_pce["PCE_Index"].pct_change(12) * 100
+        df_wages["Wages"] = df_wages["Wage_Rate"].pct_change(12) * 100
+        df_merged = pd.merge(df_pce[["date", "PCE"]], df_wages[["date", "Wages"]], on="date", how="outer").sort_values("date").dropna(how="all", subset=["PCE", "Wages"])
+        return df_merged
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_sahm_rule_data():
-    return _fetch_fred_series_observations("SAHMREALTIME", "Sahm_Rule", "1970-01-01")
+    """获取萨姆法则实时经济衰退预警指标 (SAHMREALTIME)"""
+    return _fetch_fred_series_observations("SAHMREALTIME", "SAHM", "1970-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_core_capex_data():
-    df = _fetch_fred_series_observations("NEWORDER", "Core_CapEx", "1992-01-01")
-    if not df.empty:
-        df["Core_CapEx_YoY"] = df["Core_CapEx"].pct_change(12) * 100.0
-        return df.dropna()
-    return pd.DataFrame()
+    """获取非国防不含飞机核心资本品新订单数据 (NEWORDER)"""
+    return _fetch_fred_series_observations("NEWORDER", "Orders", "2000-01-01")
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_m2_money_supply_data():
-    df = _fetch_fred_series_observations("M2SL", "M2", "1980-01-01")
-    if not df.empty:
-        df["M2_YoY"] = df["M2"].pct_change(12) * 100.0
-        return df.dropna()
+    """获取美联储广义货币供应量 M2 同比走势 (M2SL)"""
+    df_m2 = _fetch_fred_series_observations("M2SL", "M2", "1990-01-01")
+    if not df_m2.empty:
+        df_m2["M2_YoY"] = df_m2["M2"].pct_change(12) * 100
+        return df_m2[["date", "M2_YoY"]].dropna()
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_sloos_credit_data():
-    return _fetch_fred_series_observations("DRTSCIS", "Tightening_Net_Pct", "1990-01-01")
+    """获取美联储高级信贷官调查 (SLOOS) 银行大中型企业贷款标准净收紧比例 (DRTSCILM)"""
+    return _fetch_fred_series_observations("DRTSCILM", "Tightening_Pct", "1990-01-01")
 
-# ------------------------------------------------------------------
-# 3. 个股量化、财务报表、反向 DCF 与半导体产业链数据获取函数
-# ------------------------------------------------------------------
-@st.cache_data(ttl=60 * 60 * 4)
-def get_stock_historical_data(symbol: str, period="5y"):
-    try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period)
-        if not df.empty:
-            df = df.reset_index()
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
-            return df
-    except Exception as e:
-        print(f"yfinance fetch error for {symbol}: {e}")
-    return pd.DataFrame()
 
 @st.cache_data(ttl=60 * 60 * 6)
-def get_stock_fundamentals(symbol: str):
+def get_yield_spreads_data():
+    """获取美债期限利差数据 (10Y-2Y & 10Y-3M)"""
+    df_t10 = _fetch_fred_series_observations("DGS10", "DGS10", "2000-01-01")
+    df_t2 = _fetch_fred_series_observations("DGS2", "DGS2", "2000-01-01")
+    df_t3m = _fetch_fred_series_observations("DGS3MO", "DGS3MO", "2000-01-01")
+    
+    if not df_t10.empty and not df_t2.empty:
+        df_merged = pd.merge(df_t10, df_t2, on="date", how="inner")
+        df_merged["10Y_2Y_Spread"] = df_merged["DGS10"] - df_merged["DGS2"]
+        if not df_t3m.empty:
+            df_merged = pd.merge(df_merged, df_t3m, on="date", how="left")
+            df_merged["10Y_3M_Spread"] = df_merged["DGS10"] - df_merged["DGS3MO"]
+        return df_merged
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_highyield_data():
+    """获取高收益债信用利差数据 (BAMLH0A0HYM2)"""
+    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_sp500_top10_concentration_data():
+    """获取标普 500 前十大权重股集中度数据"""
+    return pd.DataFrame({
+        'Symbol': ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'GOOG', 'BRK-B', 'AVGO', 'LLY', '其余 490+ 标的'],
+        'Name': ['英伟达', '苹果', '微软', '亚马逊', 'Meta', '谷歌 A', '谷歌 C', '伯克希尔', '博通', '礼来', '其余成分股合计'],
+        'Weight': [7.12, 6.85, 6.48, 3.75, 2.42, 2.18, 1.85, 1.72, 1.54, 1.38, 64.71]
+    })
+
+
+@st.cache_data(ttl=60 * 60 * 4)
+def get_stock_historical_data(symbol: str, period: str = "5y"):
+    """通过 yfinance 获取个股与 ETF 历史量价数据"""
+    clean_sym = symbol.strip().upper()
     try:
         import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        return info
+        ticker = yf.Ticker(clean_sym)
+        df_hist = ticker.history(period=period, auto_adjust=True)
+        if df_hist is not None and not df_hist.empty:
+            df_hist = df_hist.reset_index()
+            date_col = 'Date' if 'Date' in df_hist.columns else df_hist.columns[0]
+            df_hist['Date'] = pd.to_datetime(df_hist[date_col]).dt.tz_localize(None)
+            return df_hist
     except Exception as e:
-        print(f"yfinance info fetch error for {symbol}: {e}")
+        print(f"Error fetching historical data for {clean_sym}: {e}")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 4)
+def get_stock_fundamentals(symbol: str):
+    """通过 yfinance 获取个股基本面、估值倍数与财务质量指标"""
+    clean_sym = symbol.strip().upper()
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(clean_sym)
+        info = ticker.info
+        if info and isinstance(info, dict) and len(info) > 5:
+            return info
+    except Exception as e:
+        print(f"Error fetching info for {clean_sym}: {e}")
+    return {}
+
+
+@st.cache_data(ttl=60 * 60)
+def get_stock_financial_statements(symbol: str):
+    """通过 yfinance 获取个股的季度与年度三大财务报表核心数据"""
+    clean_sym = symbol.strip().upper()
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(clean_sym)
+        
+        q_inc = getattr(ticker, 'quarterly_income_stmt', None)
+        if q_inc is None or q_inc.empty:
+            q_inc = getattr(ticker, 'quarterly_financials', None)
+            
+        a_inc = getattr(ticker, 'income_stmt', None)
+        if a_inc is None or a_inc.empty:
+            a_inc = getattr(ticker, 'financials', None)
+
+        q_bs = getattr(ticker, 'quarterly_balance_sheet', None)
+        a_bs = getattr(ticker, 'balance_sheet', None)
+
+        q_cf = getattr(ticker, 'quarterly_cashflow', None)
+        if q_cf is None or q_cf.empty:
+            q_cf = getattr(ticker, 'quarterly_cash_flow', None)
+            
+        a_cf = getattr(ticker, 'cashflow', None)
+        if a_cf is None or a_cf.empty:
+            a_cf = getattr(ticker, 'cash_flow', None)
+
+        return {
+            "quarterly_income": q_inc,
+            "annual_income": a_inc,
+            "quarterly_balance": q_bs,
+            "annual_balance": a_bs,
+            "quarterly_cashflow": q_cf,
+            "annual_cashflow": a_cf
+        }
+    except Exception as e:
+        print(f"Error fetching financial statements for {clean_sym}: {e}")
         return {}
 
-@st.cache_data(ttl=60 * 60 * 12)
-def get_stock_financial_statements(symbol: str):
-    try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        inc_q = ticker.quarterly_income_stmt
-        bal_q = ticker.quarterly_balance_sheet
-        cf_q = ticker.quarterly_cashflow
-        inc_a = ticker.income_stmt
-        bal_a = ticker.balance_sheet
-        cf_a = ticker.cashflow
 
-        def _process_statements(inc, bal, cf):
-            if inc is None or inc.empty:
-                return pd.DataFrame()
-            cols = [c for c in inc.columns]
-            dates = [pd.to_datetime(c).strftime('%Y-%m-%d') if hasattr(c, 'strftime') else str(c)[:10] for c in cols]
-            
-            def _get_val(df_stmt, idx_names, col):
-                if df_stmt is None or df_stmt.empty:
-                    return np.nan
-                for name in idx_names:
-                    if name in df_stmt.index:
-                        val = df_stmt.loc[name, col]
-                        if isinstance(val, pd.Series):
-                            val = val.iloc[0]
-                        if pd.notna(val):
-                            return float(val)
-                return np.nan
+def calculate_reverse_dcf(
+    current_price: float,
+    shares_out: float,
+    base_fcf: float,
+    wacc: float = 0.09,
+    g: float = 0.025,
+    years: int = 5,
+    total_cash: float = 0.0,
+    total_debt: float = 0.0
+):
+    """反向 DCF 核心引擎：根据当前股价与市值反推市场当前所隐含的未来复合自由现金流增速 (Implied CAGR)"""
+    if current_price <= 0 or shares_out <= 0 or base_fcf <= 0 or wacc <= g:
+        return None
 
-            rows = []
-            for original_col, date_str in zip(cols, dates):
-                rev = _get_val(inc, ['Total Revenue', 'Operating Revenue', 'Revenue'], original_col)
-                gp = _get_val(inc, ['Gross Profit'], original_col)
-                op_inc = _get_val(inc, ['Operating Income', 'Operating Profit'], original_col)
-                net_inc = _get_val(inc, ['Net Income', 'Net Income Common Stockholders'], original_col)
-                ebitda = _get_val(inc, ['EBITDA', 'Normalized EBITDA'], original_col)
-                ebit = _get_val(inc, ['EBIT'], original_col)
-                rd = _get_val(inc, ['Research And Development', 'Research and Development'], original_col)
-                
-                tot_assets = _get_val(bal, ['Total Assets'], original_col)
-                tot_liab = _get_val(bal, ['Total Liabilities Net Minority Interest', 'Total Liabilities'], original_col)
-                equity = _get_val(bal, ['Stockholders Equity', 'Total Stockholder Equity', 'Common Stock Equity'], original_col)
-                cash = _get_val(bal, ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments'], original_col)
-                debt = _get_val(bal, ['Total Debt', 'Long Term Debt And Capital Lease Obligation'], original_col)
-                
-                cfo = _get_val(cf, ['Operating Cash Flow', 'Cash Flow From Continuing Operating Activities', 'Total Cash From Operating Activities'], original_col)
-                capex = _get_val(cf, ['Capital Expenditure', 'Capital Expenditures'], original_col)
-                fcf = _get_val(cf, ['Free Cash Flow'], original_col)
-                if pd.isna(fcf) and pd.notna(cfo) and pd.notna(capex):
-                    fcf = cfo - abs(capex)
+    market_cap = current_price * shares_out
+    target_ev = market_cap + total_debt - total_cash
 
-                gm = (gp / rev * 100) if (pd.notna(gp) and pd.notna(rev) and rev != 0) else np.nan
-                opm = (op_inc / rev * 100) if (pd.notna(op_inc) and pd.notna(rev) and rev != 0) else np.nan
-                npm = (net_inc / rev * 100) if (pd.notna(net_inc) and pd.notna(rev) and rev != 0) else np.nan
-                fcf_m = (fcf / rev * 100) if (pd.notna(fcf) and pd.notna(rev) and rev != 0) else np.nan
-                rd_m = (rd / rev * 100) if (pd.notna(rd) and pd.notna(rev) and rev != 0) else np.nan
+    def pv_diff(cagr):
+        pv_fcf = 0.0
+        projected_fcf = base_fcf
+        for t in range(1, years + 1):
+            projected_fcf *= (1.0 + cagr)
+            pv_fcf += projected_fcf / ((1.0 + wacc) ** t)
+        
+        terminal_val = (projected_fcf * (1.0 + g)) / (wacc - g)
+        pv_terminal = terminal_val / ((1.0 + wacc) ** years)
+        return (pv_fcf + pv_terminal) - target_ev
 
-                rows.append({
-                    "Period": date_str,
-                    "Revenue ($M)": rev / 1e6 if pd.notna(rev) else np.nan,
-                    "Gross Profit ($M)": gp / 1e6 if pd.notna(gp) else np.nan,
-                    "Gross Margin (%)": gm,
-                    "Operating Income ($M)": op_inc / 1e6 if pd.notna(op_inc) else np.nan,
-                    "Operating Margin (%)": opm,
-                    "Net Income ($M)": net_inc / 1e6 if pd.notna(net_inc) else np.nan,
-                    "Net Margin (%)": npm,
-                    "EBITDA ($M)": ebitda / 1e6 if pd.notna(ebitda) else np.nan,
-                    "Operating Cash Flow ($M)": cfo / 1e6 if pd.notna(cfo) else np.nan,
-                    "CapEx ($M)": capex / 1e6 if pd.notna(capex) else np.nan,
-                    "Free Cash Flow ($M)": fcf / 1e6 if pd.notna(fcf) else np.nan,
-                    "FCF Margin (%)": fcf_m,
-                    "R&D Expenses ($M)": rd / 1e6 if pd.notna(rd) else np.nan,
-                    "R&D / Rev (%)": rd_m,
-                    "Cash & Equivalents ($M)": cash / 1e6 if pd.notna(cash) else np.nan,
-                    "Total Debt ($M)": debt / 1e6 if pd.notna(debt) else np.nan,
-                    "Total Stockholders Equity ($M)": equity / 1e6 if pd.notna(equity) else np.nan,
-                    "Total Assets ($M)": tot_assets / 1e6 if pd.notna(tot_assets) else np.nan,
-                })
-            df_out = pd.DataFrame(rows).sort_values("Period").reset_index(drop=True)
-            return df_out
-
-        df_q = _process_statements(inc_q, bal_q, cf_q)
-        df_a = _process_statements(inc_a, bal_a, cf_a)
-        return {"quarterly": df_q, "annual": df_a}
-    except Exception as e:
-        print(f"Error processing financial statements for {symbol}: {e}")
-        return {"quarterly": pd.DataFrame(), "annual": pd.DataFrame()}
-
-def calculate_reverse_dcf(current_price: float, ttm_fcf_per_share: float, wacc: float = 0.09, terminal_growth: float = 0.03, forecast_years: int = 10):
-    if ttm_fcf_per_share <= 0 or current_price <= 0:
-        return np.nan
-    low_g, high_g = -0.50, 1.00
+    low, high = -0.50, 2.00
+    implied_cagr = np.nan
     for _ in range(100):
-        mid_g = (low_g + high_g) / 2.0
-        pv = 0.0
-        cf = ttm_fcf_per_share
-        for t in range(1, forecast_years + 1):
-            cf *= (1 + mid_g)
-            pv += cf / ((1 + wacc) ** t)
-        terminal_val = (cf * (1 + terminal_growth)) / (wacc - terminal_growth)
-        pv += terminal_val / ((1 + wacc) ** forecast_years)
-        if abs(pv - current_price) < 0.01:
-            return mid_g * 100.0
-        if pv > current_price:
-            high_g = mid_g
+        mid = (low + high) / 2.0
+        diff = pv_diff(mid)
+        if abs(diff) < 1e-2:
+            implied_cagr = mid
+            break
+        if diff < 0:
+            low = mid
         else:
-            low_g = mid_g
-    return mid_g * 100.0
+            high = mid
+    else:
+        implied_cagr = mid
 
-@st.cache_data(ttl=60 * 60 * 4)
-def get_semiconductor_comparative_prices(symbols: list, period="1y"):
-    try:
-        import yfinance as yf
-        data = yf.download(symbols, period=period, progress=False)["Close"]
-        if not data.empty:
-            data = data.ffill().dropna()
-            norm_df = (data / data.iloc[0]) * 100.0
-            return norm_df.reset_index()
-    except Exception as e:
-        print(f"Semi comparative prices fetch error: {e}")
-    return pd.DataFrame()
+    wacc_range = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02]
+    cagr_range = [implied_cagr - 0.05, implied_cagr - 0.02, implied_cagr, implied_cagr + 0.02, implied_cagr + 0.05]
+    
+    sens_matrix = []
+    for r in wacc_range:
+        row = {"WACC 折现率": f"{r*100:.1f}%"}
+        for gr in cagr_range:
+            if gr < -0.9 or r <= g:
+                row[f"CAGR {gr*100:+.1f}%"] = "N/A"
+                continue
+            pv = 0.0
+            cur_f = base_fcf
+            for t in range(1, years + 1):
+                cur_f *= (1.0 + gr)
+                pv += cur_f / ((1.0 + r) ** t)
+            tv = (cur_f * (1.0 + g)) / (r - g)
+            pv_tv = tv / ((1.0 + r) ** years)
+            fair_ev = pv + pv_tv
+            fair_eq = fair_ev + total_cash - total_debt
+            fair_p = fair_eq / shares_out
+            row[f"CAGR {gr*100:+.1f}%"] = f"${fair_p:,.2f}" if fair_p > 0 else "$0.00"
+        sens_matrix.append(row)
 
-@st.cache_data(ttl=60 * 60 * 6)
-def get_semiconductor_matrix_data(symbols: list):
-    import yfinance as yf
-    matrix = []
-    for s in symbols:
-        try:
-            t = yf.Ticker(s)
-            inf = t.info
-            cp = inf.get("currentPrice", inf.get("regularMarketPrice", np.nan))
-            f_pe = inf.get("forwardPE", np.nan)
-            t_pe = inf.get("trailingPE", np.nan)
-            ps = inf.get("priceToSalesTrailing12Months", np.nan)
-            rev_growth = inf.get("revenueGrowth", np.nan)
-            if pd.notna(rev_growth):
-                rev_growth *= 100.0
-            op_margin = inf.get("operatingMargins", np.nan)
-            if pd.notna(op_margin):
-                op_margin *= 100.0
-            gross_margin = inf.get("grossMargins", np.nan)
-            if pd.notna(gross_margin):
-                gross_margin *= 100.0
-            fcf = inf.get("freeCashflow", np.nan)
-            mc = inf.get("marketCap", np.nan)
-            fcf_yield = (fcf / mc * 100.0) if (pd.notna(fcf) and pd.notna(mc) and mc > 0) else np.nan
-            
-            matrix.append({
-                "Symbol": s,
-                "Name": inf.get("shortName", s),
-                "Price ($)": cp,
-                "Trailing PE": t_pe,
-                "Forward PE": f_pe,
-                "P/S (TTM)": ps,
-                "YoY Rev Growth (%)": rev_growth,
-                "Gross Margin (%)": gross_margin,
-                "Operating Margin (%)": op_margin,
-                "FCF Yield (%)": fcf_yield,
-                "Market Cap ($B)": (mc / 1e9) if pd.notna(mc) else np.nan
-            })
-        except Exception as e:
-            print(f"Error fetching matrix data for {s}: {e}")
-    return pd.DataFrame(matrix)
+    sens_df = pd.DataFrame(sens_matrix)
 
-# ------------------------------------------------------------------
-# 4. Streamlit 主页面设置与整体布局渲染
-# ------------------------------------------------------------------
-st.set_page_config(
-    page_title="Macro & Equity Research Terminal",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+    return {
+        "target_ev": target_ev,
+        "market_cap": market_cap,
+        "implied_cagr": implied_cagr,
+        "sensitivity_matrix": sens_df
+    }
 
-st.title("Macro Liquidity & Equity Research Terminal")
-st.markdown("### 宏观流动性监控、半导体产业追踪与个股量化估值投研平台")
 
-st.sidebar.markdown(f"**数据更新基准 (美东时间 EDT):** `{get_current_time_str_eastern()}`")
-st.sidebar.markdown("---")
+SEMI_BASKET = [
+    {"symbol": "SOXX", "name": "费城半导体 ETF (SOXX)", "role": "行业市值基准 ETF"},
+    {"symbol": "NVDA", "name": "英伟达 (NVIDIA)", "role": "AI 算力 GPU / 数据中心龙头"},
+    {"symbol": "TSM", "name": "台积电 (TSMC)", "role": "先进制程晶圆代工垄断"},
+    {"symbol": "ASML", "name": "阿斯麦 (ASML)", "role": "EUV / High-NA 极紫外光刻机绝对霸主"},
+    {"symbol": "AVGO", "name": "博通 (Broadcom)", "role": "网络交换芯片 / 自定义 ASIC 龙头"},
+    {"symbol": "AMD", "name": "超威半导体 (AMD)", "role": "x86 CPU / GPU 第二极"},
+    {"symbol": "QCOM", "name": "高通 (Qualcomm)", "role": "移动通信 SoC / 边缘端 AI 龙头"},
+    {"symbol": "MU", "name": "美光科技 (Micron)", "role": "HBM3e / 存储芯片超级周期核心"},
+    {"symbol": "AMAT", "name": "应用材料 (Applied Materials)", "role": "前道综合设备龙头"},
+    {"symbol": "LRCX", "name": "泛林半导体 (Lam Research)", "role": "刻蚀与薄膜沉积设备供应商"},
+    {"symbol": "KLAC", "name": "科磊 (KLA Corp)", "role": "过程控制与量检测设备垄断"},
+    {"symbol": "MRVL", "name": "迈威尔科技 (Marvell)", "role": "定制化 AI 算力与光互联芯片"},
+    {"symbol": "ARM", "name": "安谋 (Arm Holdings)", "role": "能效算力架构 IP 垄断"}
+]
 
+
+# ==================================================================
+# 顶栏主标题与全局状态监控
+# ==================================================================
+st.title("🏛️ 美股与宏观经济深度量化决策终端")
+st.caption(f"🚀 系统构建状态: **实时连通** | 数据最后刷新: **{current_et_str}** | 引擎支持: **FRED 宏观高频数据库** & **yfinance 全息实时流**")
+
+# 核心 Tab 顶层容器
 tab_macro, tab_stock, tab_semi, tab_company = st.tabs([
-    "🌐 宏观流动性与经济全景指标",
-    "📈 个股全景追踪 & 估值与技术面",
-    "⚡ 芯片半导体全产业链追踪",
-    "🏢 财报深度拆解与公司基本面剖析 (Tab 4)"
+    "🌐 宏观与市场总览 (Macro & Breadth)",
+    "🔍 个股量化与估值追踪 (Stock Tracker)",
+    "⚡ 芯片半导体产业链 (Semiconductor Tracker)",
+    "🏢 公司概览与财报全景 (Company Profile & Financials)"
 ])
 
+
 # ==================================================================
-# TAB 1: 宏观全景与市场流动性
+# TAB 1: 宏观与市场总览 (Macro & Market Breadth)
 # ==================================================================
 with tab_macro:
-    st.markdown("#### 美联储货币政策、流动性水库、利差与宏观情绪仪表盘")
-    render_market_breadth_ui()
-    
     st.sidebar.header("⚙️ 宏观图表动态 Y 轴自动缩放控制")
     macro_tf = st.sidebar.radio(
         "选择宏观图表时间范围 (自动精细缩放 Y 轴):",
@@ -575,763 +606,759 @@ with tab_macro:
         st.sidebar.markdown(f"最新日期: **{latest_date}**")
         st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
     else:
-        st.warning("暂无 daily-treasury-rates.csv 数据。")
+        st.error("未能加载国债收益率数据。")
 
+    # --- 2. S&P 500 市场宽度广度 ---
     st.markdown("---")
+    render_market_breadth_ui()
 
-    # --- 2. 市场情绪量化指标 ---
+    # --- 3. 市场情绪量化指标：CBOE VIX 恐慌指数 & CNN 恐慌与贪婪指数 ---
+    st.markdown("---")
     st.header("📊 市场情绪量化指标 (VIX & CNN Fear/Greed Index)")
-    col1, col2 = st.columns(2)
 
-    with col1:
+    e_col1, e_col2 = st.columns(2)
+
+    with e_col1:
         st.subheader("CBOE VIX 恐慌指数")
-        with st.spinner("正在从 FRED 加载 VIX 恐慌指数..."):
-            df_vix = get_vix_data()
+        df_vix = get_vix_data()
         if not df_vix.empty:
-            latest_vix = df_vix["VIX"].dropna().iloc[-1]
-            latest_vix_date = df_vix.dropna(subset=["VIX"])["date"].iloc[-1].strftime("%Y-%m-%d")
-            st.metric(
-                label=f"最新 VIX 指数 ({latest_vix_date})",
-                value=f"{latest_vix:.2f}",
-                delta="极度恐慌 (>30)" if latest_vix > 30 else ("情绪警惕 (20-30)" if latest_vix > 20 else "市场平稳 (<20)"),
-                delta_color="inverse" if latest_vix > 20 else "normal"
-            )
-            fig_vix = create_vix_chart(df_vix, timeframe=macro_tf)
+            latest_vix_date = pd.to_datetime(df_vix['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_vix_val = df_vix['VIX'].iloc[-1]
+            
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_vix_date}**")
+            
+            vc1, vc2 = st.columns(2)
+            vc1.metric("最新 VIX 指数", f"{latest_vix_val:.2f}", delta="情绪分界: 20.0", delta_color="inverse" if latest_vix_val > 20.0 else "normal")
+            vc2.metric("高恐慌警戒线", "30.00")
+
+            vix_y_range = None
+            if st.checkbox("手动自定义 VIX Y 轴范围", key="vix_manual_y"):
+                val_vix = df_vix['VIX']
+                v_min = float(val_vix.dropna().min())
+                v_max = float(val_vix.dropna().max())
+                vix_y_range = st.slider("VIX Y 轴范围", round(max(0.0, v_min - 5.0), 1), round(v_max + 10.0, 1), (round(v_min, 1), round(v_max, 1)), 0.5, key="vix_y_slider")
+
+            fig_vix = create_vix_chart(df_vix, y_range=vix_y_range, timeframe=macro_tf)
             if fig_vix:
                 st.plotly_chart(fig_vix, use_container_width=True)
                 with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
                     st.markdown("""
-                    * **< 15 (极度自满/低波动)**：市场处于平静期或牛市主升段，但衍生品防范尾部风险的对冲成本极低。
-                    * **15 - 20 (中性平稳)**：美股历史常态波动区间。
-                    * **20 - 30 (风险警惕/情绪承压)**：市场开始消化加息、地缘政治或财报不确定性，抛压逐渐释放。
-                    * **> 30 (高恐慌预警/流动性踩踏)**：波动率脉冲式飙升，通常对应恐慌性抛售或历史级左侧买点。
+                    * **指标含义**：芝加哥期权交易所 (CBOE) 波动率指数 (VIX)，反映市场对未来 30 天 S&P 500 年化波动率的预判。
+                    * **情绪分界 (20.0)**：
+                      * **VIX $< 15$**：低波动、高风险偏好阶段。
+                      * **$15 \\le \\text{VIX} < 20$**：常态合理波动区间。
+                      * **$\\text{VIX} \\ge 20$**：情绪焦虑升温，避险需求增加。
+                      * **$\\text{VIX} \\ge 30$**：高恐慌预警，对应急跌抛售或阶段性恐慌底探明。
                     """)
-        else:
-            st.info("正在加载或暂无 VIX 数据...")
 
-    with col2:
-        st.subheader("CNN 恐慌与贪婪指数 (Fear & Greed)")
-        with st.spinner("正在获取 CNN 恐慌与贪婪指数..."):
-            df_fgi = get_cnn_fear_and_greed_data()
-        if not df_fgi.empty:
-            latest_row = df_fgi.dropna(subset=["Score"]).iloc[-1]
-            score_val = latest_row["Score"]
-            rating_val = latest_row["Rating"]
-            date_str = latest_row["date"].strftime("%Y-%m-%d")
-            st.metric(
-                label=f"最新情绪得分 ({date_str})",
-                value=f"{score_val:.1f} / 100",
-                delta=f"评级: {rating_val}",
-                delta_color="normal" if score_val > 50 else "inverse"
-            )
-            fig_fgi = create_cnn_fear_greed_chart(df_fgi, timeframe=macro_tf)
-            if fig_fgi:
-                st.plotly_chart(fig_fgi, use_container_width=True)
-                with st.expander("💡 CNN 恐慌与贪婪指数解读指南", expanded=False):
-                    st.markdown("""
-                    * **0 - 25 (Extreme Fear, 极度恐慌)**：投资者极度悲观，往往预示市场严重超卖，提供逆向价值买入机会。
-                    * **25 - 45 (Fear, 恐慌)**：避险情绪主导，资金流向国债等防御性资产。
-                    * **45 - 55 (Neutral, 中性)**：市场多空处于博弈均衡状态。
-                    * **55 - 75 (Greed, 贪婪)**：风险偏好回暖，股市动能与广度扩张。
-                    * **75 - 100 (Extreme Greed, 极度贪婪)**：FOMO (错失恐惧) 情绪蔓延，杠杆与估值泡沫积聚，需警惕回调风险。
-                    """)
-        else:
-            st.info("正在加载或暂无 CNN 恐慌与贪婪指数数据...")
+    with e_col2:
+        st.subheader("CNN 恐惧与贪婪指数")
+        fg_score, fg_rating, df_fg_hist = get_cnn_fear_and_greed_data()
+        
+        st.caption(f"🕒 实时情绪评分: **{fg_score:.1f} / 100** | 状态: **{fg_rating}**")
+        
+        fg_c1, fg_c2 = st.columns(2)
+        fg_c1.metric("当前情绪评级", f"{fg_rating}", delta=f"Score: {fg_score:.1f}")
+        fg_c2.metric("极度贪婪 / 极度恐惧", "75.0 / 25.0")
 
+        fig_fg = create_cnn_fear_greed_chart(current_score=fg_score, df_history=df_fg_hist, timeframe=macro_tf)
+        if fig_fg:
+            st.plotly_chart(fig_fg, use_container_width=True)
+            with st.expander("💡 CNN 恐惧与贪婪指数解读指南", expanded=False):
+                st.markdown("""
+                * **合成维度**：综合市场动量、股价强弱、股价广度、看跌看涨期权比率、垃圾债需求、市场波动率及避险资产需求 7 大维度。
+                * **区间划分**：
+                  * **$0 - 25$ (Extreme Fear)**：极度恐惧，市场处于恐慌性抛售，往往孕育中长期买点。
+                  * **$25 - 45$ (Fear)**：偏向悲观。
+                  * **$45 - 55$ (Neutral)**：中性震荡。
+                  * **$55 - 75$ (Greed)**：偏向乐观。
+                  * **$75 - 100$ (Extreme Greed)**：极度贪婪，市场情绪过热，警惕获利回吐与回调风险。
+                """)
+
+    # --- 4. 信用利差与宏观流动性监控 ---
     st.markdown("---")
+    st.header("🌊 信用利差与宏观流动性监控 (Credit Spreads & Liquidity)")
 
-    # --- 3. 资金面体温计 & 指数结构集中度 ---
-    st.header("📊 资金面体温计 & 指数结构集中度")
-    col_sofr, col_top10 = st.columns(2)
+    l_col1, l_col2 = st.columns(2)
 
-    with col_sofr:
-        st.subheader("SOFR - IORB 资金面体温计")
-        with st.spinner("正在计算 SOFR - IORB 利差数据..."):
-            df_sofr = get_sofr_iorb_data()
-        if not df_sofr.empty:
-            latest_sofr = df_sofr.dropna(subset=["Spread_bps"]).iloc[-1]
-            spread_val = latest_sofr["Spread_bps"]
-            sofr_rate = latest_sofr["SOFR"]
-            iorb_rate = latest_sofr["IORB"]
-            sofr_date = latest_sofr["date"].strftime("%Y-%m-%d")
-            st.metric(
-                label=f"SOFR - IORB 利差 ({sofr_date})",
-                value=f"{spread_val:+.1f} bps",
-                delta=f"SOFR: {sofr_rate:.2f}% | IORB: {iorb_rate:.2f}%",
-                delta_color="inverse" if spread_val > 0 else "normal"
-            )
-            fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
-            if fig_sofr:
-                st.plotly_chart(fig_sofr, use_container_width=True)
-                with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+    with l_col1:
+        st.subheader("高收益债信用利差 (BAML OAS)")
+        df_credit = get_credit_spread_data()
+        if not df_credit.empty:
+            latest_cs_date = pd.to_datetime(df_credit['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_cs_val = df_credit['Credit_Spread'].iloc[-1]
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_cs_date}**")
+            
+            cs1, cs2 = st.columns(2)
+            cs1.metric("当前利差 (OAS)", f"{latest_cs_val:.2f}%", delta="预警红线: 5.00%", delta_color="inverse" if latest_cs_val > 5.0 else "normal")
+            cs2.metric("违约扩张红线", "5.00%")
+
+            cs_y_range = None
+            if st.checkbox("手动自定义信用利差 Y 轴范围", key="cs_manual_y"):
+                val_cs = df_credit['Credit_Spread']
+                c_min = float(val_cs.dropna().min())
+                c_max = float(val_cs.dropna().max())
+                cs_y_range = st.slider("信用利差 Y 轴范围", round(max(0.0, c_min - 1.0), 1), round(c_max + 2.0, 1), (round(c_min, 1), round(c_max, 1)), 0.1, key="cs_y_slider")
+
+            fig_credit = create_credit_spread_chart(df_credit, y_range=cs_y_range, timeframe=macro_tf)
+            if fig_credit:
+                st.plotly_chart(fig_credit, use_container_width=True)
+                with st.expander("💡 高收益债信用利差解读指南", expanded=False):
                     st.markdown("""
-                    * **指标定位**：**SOFR**（有担保隔夜融资利率，代表市场借钱成本）减去 **IORB**（准备金余额利率，美联储付给银行的无风险利率）。
-                    * **< 0 bps (常态充裕)**：银行宁可把多余钱存回美联储拿 IORB，市场流动性极为宽松。
-                    * **0 ~ +5 bps (轻度偏紧/临界点)**：银行间市场资金开始出现结构性摩擦，短期借贷成本抬升。
-                    * **> +10 bps (钱荒/流动性危机警报)**：类似 2019 年 9 月隔夜回购利率飙升危机，表明银行超额准备金已接近甚至跌破最低舒适水平 (LCLoR)，美联储可能被迫提前终止量化紧缩 (QT) 或开启流动性注入。
+                    * **经济意义**：高收益债券收益率与同期限无风险美债之间的利差。反映企业借贷违约风险溢价与信贷市场健康度。
+                    * **分界阈值**：
+                      * **利差 $< 3.5\%$**：信贷环境极度宽松，违约风险定价低，利好权益资产。
+                      * **$3.5\% - 5.0\%$**：常态健康区间。
+                      * **利差 $> 5.0\%$**：信用收缩预警，中小企业再融资压力剧增，通常伴随股市深幅回调。
                     """)
-        else:
-            st.info("正在加载或暂无 SOFR / IORB 数据...")
 
-    with col_top10:
-        st.subheader("S&P 500 前十大持仓集中度")
-        with st.spinner("正在加载标普500前十大持仓集中度..."):
-            df_top10 = get_top10_concentration_data()
-        if not df_top10.empty:
-            fig_top10 = create_top10_concentration_chart(df_top10)
-            if fig_top10:
-                st.plotly_chart(fig_top10, use_container_width=True)
-                with st.expander("💡 S&P 500 前十大持仓集中度解读指南", expanded=False):
+    with l_col2:
+        st.subheader("美联储资产负债表规模 (WALCL)")
+        df_fed = get_fed_balance_sheet_data()
+        if not df_fed.empty:
+            latest_fed_date = pd.to_datetime(df_fed['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_fed_val = df_fed['Total_Assets'].iloc[-1] / 1e6
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_fed_date}**")
+            
+            f1, f2 = st.columns(2)
+            f1.metric("美联储总资产规模", f"${latest_fed_val:,.2f} T", delta="QT 量化紧缩中" if latest_fed_val < 8.0 else "QE 扩张中")
+            f2.metric("疫情峰值参考", "$8.96 T")
+
+            fed_y_range = None
+            if st.checkbox("手动自定义美联储资产 Y 轴范围", key="fed_manual_y"):
+                val_fed = df_fed['Total_Assets'] / 1e6
+                f_min = float(val_fed.dropna().min())
+                f_max = float(val_fed.dropna().max())
+                fed_y_range = st.slider("美联储总资产 Y 轴范围 ($T)", round(max(0.0, f_min - 0.5), 1), round(f_max + 1.0, 1), (round(f_min, 1), round(f_max, 1)), 0.1, key="fed_y_slider")
+
+            fig_fed = create_fed_balance_sheet_chart(df_fed, y_range=fed_y_range, timeframe=macro_tf)
+            if fig_fed:
+                st.plotly_chart(fig_fed, use_container_width=True)
+                with st.expander("💡 美联储资产负债表规模解读指南", expanded=False):
                     st.markdown("""
-                    * **集中度含义**：前 10 大超级权重巨头（Mega-Caps，如 MSFT, AAPL, NVDA, GOOGL, AMZN, META）占指数整体市值的比重已接近 **35% - 40%**，创下近 50 年历史极值。
-                    * **市场脆弱性**：当集中度过高时，大盘指数（SPY/QQQ）的涨跌实质上被极少数几家科技巨头绑架。即使底层 490 只股票普遍下跌，只要巨头拉升指数即可掩盖市场疲弱；一旦巨头补跌，大盘将面临剧烈共振回撤。
+                    * **基础逻辑**：美联储通过扩表 (QE) 注入基础货币，通过缩表 (QT) 回收银行体系流动性。
+                    * **与风险资产联动**：美联储资产负债表规模拐点通常领先美股估值倍数与科技股牛熊周期 2–3 个季度。
                     """)
-        else:
-            st.info("正在加载或暂无前十大持仓集中度数据...")
 
+    # --- 5. 宏观先行指标与流动性追踪 ---
     st.markdown("---")
-
-    # --- 4. 宏观指标与流动性追踪 ---
     st.header("📊 宏观指标与流动性追踪")
 
-    # 第一组：实际利率 & 净流动性
-    col3, col4 = st.columns(2)
-    with col3:
-        st.subheader("10Y TIPS 实际利率 & 通胀预期")
-        with st.spinner("正在从 FRED 加载 10Y TIPS 实际利率与通胀预期..."):
-            df_ry = get_real_yield_and_breakeven_data()
+    m_col1, m_col2 = st.columns(2)
+
+    with m_col1:
+        df_ry = get_real_yield_and_breakeven_data()
         if not df_ry.empty:
-            fig_ry = create_real_yield_breakeven_chart(df_ry, timeframe=macro_tf)
+            latest_ry_date = pd.to_datetime(df_ry['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("10Y TIPS 实际利率 & 通胀预期")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_ry_date}**")
+
+            ry_y_range = None
+            if st.checkbox("手动自定义实际利率 Y 轴范围", key="ry_manual_y"):
+                val_ry = df_ry['10Y_Real_Yield'] if '10Y_Real_Yield' in df_ry.columns else df_ry.iloc[:, 1]
+                r_min = float(val_ry.dropna().min())
+                r_max = float(val_ry.dropna().max())
+                ry_y_range = st.slider("实际利率 Y 轴范围 (%)", round(r_min - 1.0, 1), round(r_max + 1.0, 1), (round(r_min, 1), round(r_max, 1)), 0.1, key="ry_slider")
+
+            fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range, timeframe=macro_tf)
             if fig_ry:
                 st.plotly_chart(fig_ry, use_container_width=True)
                 with st.expander("💡 10Y TIPS 实际利率 & 通胀预期解读指南", expanded=False):
                     st.markdown("""
-                    * **10Y TIPS 实际利率 (DFII10)**：全球无风险资产的**真实资本回报率**，亦是全球风险资产（尤其高估值成长股）估值折现率的核心分母。实际利率走高往往导致成长股 PE 承压。
-                    * **10Y 盈亏平衡通胀预期 (T10YIE)**：名义美债利率与 TIPS 利率之差，代表债券市场定价的未来 10 年平均年化通胀率。维持在 2.0% - 2.5% 表明美联储抗通胀信誉良好。
+                    * **费雪拆解**：$\\text{10Y 名义收益率} = \\text{10Y TIPS 实际利率} + \\text{10Y 盈亏平衡通胀率}$。
+                    * **10Y TIPS 实际利率 (Real Yield)**：
+                      * 代表全社会真实无风险资本成本（资产定价之锚）。
+                      * **估值挤压**：当 10Y 实际利率 $> 2.0\\%$ 或快速上行时，无风险真实折现率升高，压制科技股等高估值资产。
+                    * **通胀预期 (Breakeven Inflation)**：
+                      * 反映市场交易出的未来 10 年平均通胀中枢。若实际利率升而通胀预期降，说明货币紧缩在真实压制通胀。
                     """)
         else:
-            st.info("正在加载或暂无实际利率与通胀预期数据...")
+            st.info("实际利率与通胀预期数据加载中或不可用。")
 
-    with col4:
-        st.subheader("美联储净流动性 & 银行准备金")
-        with st.spinner("正在从 FRED 计算美联储净流动性与准备金余额..."):
-            df_liq = get_net_liquidity_data()
-        if not df_liq.empty:
-            fig_liq = create_net_liquidity_chart(df_liq, timeframe=macro_tf)
+    with m_col2:
+        df_net_liq = get_fed_net_liquidity_data()
+        if not df_net_liq.empty:
+            latest_liq_date = pd.to_datetime(df_net_liq['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("美联储净流动性 & 银行准备金")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_liq_date}**")
+
+            liq_y_range = None
+            if st.checkbox("手动自定义净流动性 Y 轴范围", key="liq_manual_y"):
+                val_liq = df_net_liq['Fed_Net_Liquidity_Tn']
+                l_min = float(val_liq.dropna().min())
+                l_max = float(val_liq.dropna().max())
+                liq_y_range = st.slider("净流动性 Y 轴范围 (万亿 USD)", round(l_min - 0.5, 2), round(l_max + 0.5, 2), (round(l_min, 2), round(l_max, 2)), 0.05, key="liq_slider")
+
+            fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range, timeframe=macro_tf)
             if fig_liq:
                 st.plotly_chart(fig_liq, use_container_width=True)
-                with st.expander("💡 美联储净流动性 & 银行准备金解读指南", expanded=False):
+                with st.expander("💡 美联储净流动性解读指南", expanded=False):
                     st.markdown("""
-                    * **净流动性公式**：`Net Liquidity = 美联储总资产 (WALCL) - 财政部现金账户 (TGA) - 隔夜逆回购 (RRP)`。
-                    * **与美股高度正相关**：净流动性是驱动风险资产水位的核心流动性水龙头。当 TGA 充水或联储缩表时流动性被吸干；当 RRP 资金释放或 TGA 泄洪时注入流动性，通常领先美股 1-2 周走势。
-                    * **银行准备金 (Bank Reserves)**：金融系统的底层真正结算血液。准备金充裕保障信用扩张，跌破阈值易触发金融管道流动性摩擦。
+                    * **指标公式**：$\\text{净流动性} = \\text{美联储总资产 (WALCL)} - \\text{财政部现金存款 (TGA)} - \\text{隔夜逆回购 (RRP)}$。
+                    * **先行信号**：净流动性是美股标普 500 指数中短期水位的最强先行指标（领先 2–4 周）。
                     """)
         else:
-            st.info("正在加载或暂无净流动性数据...")
+            st.info("美联储净流动性数据加载中或不可用。")
 
-    st.markdown("---")
+    # --- 6. 金融条件与微观流动性 ---
+    m_col3, m_col4 = st.columns(2)
 
-    # 第二组：金融条件 (NFCI) & 高收益债信用利差
-    col5, col6 = st.columns(2)
-    with col5:
-        st.subheader("芝加哥联储全国金融条件指数 (NFCI)")
-        with st.spinner("正在从 FRED 加载芝加哥联储 NFCI 指数..."):
-            df_nfci = get_nfci_data()
+    with m_col3:
+        df_nfci = get_nfci_data()
         if not df_nfci.empty:
-            fig_nfci = create_nfci_chart(df_nfci, timeframe=macro_tf)
+            latest_nfci_date = pd.to_datetime(df_nfci['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_nfci.columns else "最新"
+            st.subheader("芝加哥联储全国金融条件指数 (NFCI)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_nfci_date}**")
+
+            nfci_y_range = None
+            if st.checkbox("手动自定义 NFCI Y 轴范围", key="nfci_manual_y"):
+                val_nfci = df_nfci['NFCI'] if 'NFCI' in df_nfci.columns else df_nfci.iloc[:, 1]
+                n_min = float(val_nfci.dropna().min())
+                n_max = float(val_nfci.dropna().max())
+                nfci_y_range = st.slider("NFCI Y 轴范围", round(n_min - 0.5, 1), round(n_max + 0.5, 1), (round(n_min, 1), round(n_max, 1)), 0.1, key="nfci_slider")
+
+            fig_nfci = create_nfci_chart(df_nfci, y_range=nfci_y_range, timeframe=macro_tf)
             if fig_nfci:
                 st.plotly_chart(fig_nfci, use_container_width=True)
                 with st.expander("💡 芝加哥联储全国金融条件指数 (NFCI) 解读指南", expanded=False):
                     st.markdown("""
-                    * **指标含义**：综合涵盖货币市场、债券市场、股票市场及影子银行系统的 105 项高频金融指标。
-                    * **0 轴为历史常态基准**：
-                      * **< 0 (宽松 Financial Conditions Loose)**：信贷容易获取，资产价格受到支撑。
-                      * **> 0 (紧缩 Financial Conditions Tight)**：融资环境严苛，违约风险与信贷利差扩大，压制宏观经济扩张。
+                    * **指标含义**：综合了货币市场、股权市场、债权市场以及传统/影子银行体系的 100+ 个微观金融指标。
+                    * **零轴分界**：
+                      * **NFCI $< 0$**：全美金融条件比历史平均水平更宽松。
+                      * **NFCI $> 0$**：金融条件处于紧缩状态，陡峭上行提示信用紧缩与市场波动率上升。
                     """)
         else:
-            st.info("正在加载或暂无 NFCI 数据...")
+            st.info("NFCI 数据加载中或不可用。")
 
-    with col6:
-        st.subheader("高收益债信用利差 (US High Yield Spread)")
-        with st.spinner("正在从 FRED 加载高收益债信用利差..."):
-            df_oas = get_credit_spread_data()
-        if not df_oas.empty:
-            fig_oas = create_credit_spread_chart(df_oas, timeframe=macro_tf)
-            if fig_oas:
-                st.plotly_chart(fig_oas, use_container_width=True)
-                with st.expander("💡 高收益债信用利差 (US High Yield Spread) 解读指南", expanded=False):
+    with m_col4:
+        df_highyield = get_highyield_data()
+        if not df_highyield.empty:
+            latest_hy_date = pd.to_datetime(df_highyield['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_highyield.columns else "最新"
+            st.subheader("高收益债信用利差 (US High Yield Spread)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_hy_date}**")
+
+            credit_y_range = None
+            if st.checkbox("手动自定义信用利差 Y 轴范围", key="credit_manual_y"):
+                val_hy = df_highyield['Value'] if 'Value' in df_highyield.columns else df_highyield.iloc[:, 1]
+                hy_min = float(val_hy.dropna().min())
+                hy_max = float(val_hy.dropna().max())
+                credit_y_range = st.slider("信用利差 Y 轴范围 (%)", round(max(0.0, hy_min - 1.0), 1), round(hy_max + 2.0, 1), (round(hy_min, 1), round(hy_max, 1)), 0.1, key="credit_y_slider")
+
+            fig_hy = create_credit_spread_chart(df_highyield, y_range=credit_y_range, timeframe=macro_tf)
+            if fig_hy:
+                st.plotly_chart(fig_hy, use_container_width=True)
+                with st.expander("💡 高收益债信用利差 (High Yield Spread) 解读指南", expanded=False):
                     st.markdown("""
-                    * **指标定义 (BAML Option-Adjusted Spread)**：垃圾债收益率与无风险国债收益率的利差。
-                    * **信用风险晴雨表**：
-                      * **< 3.5% (极度健康/无违约担忧)**：企业偿债能力强，信贷充裕。
-                      * **3.5% ~ 5.0% (中性承压)**：宏观增速放缓，需甄选优质资产。
-                      * **> 5.5% (信用风暴预警)**：违约率攀升，企业债务展期受阻，往往预示经济衰退或流动性危机来临。
+                    * **违约风险体温计**：高收益债与同期限美债利差，当利差快速走阔突破 $5.0\\%$ 警戒线时，标志着企业端再融资风险开始向实体经济扩散。
                     """)
         else:
-            st.info("正在加载或暂无信用利差数据...")
+            st.info("高收益债信用利差数据加载中或不可用。")
 
+    # --- 7. 期限利差与衰退预警模型 ---
     st.markdown("---")
+    st.header("📊 期限利差与衰退预警模型 (Yield Spreads & Recession Warning)")
 
-    # 第三组：失业率 & 美联储资产负债表
-    col7, col8 = st.columns(2)
-    with col7:
-        st.subheader("美国失业率 (UNRATE)")
-        with st.spinner("正在从 FRED 加载失业率数据..."):
-            df_unrate = get_unemployment_data()
-        if not df_unrate.empty:
-            fig_unrate = create_unemployment_chart(df_unrate, timeframe=macro_tf)
-            if fig_unrate:
-                st.plotly_chart(fig_unrate, use_container_width=True)
-                with st.expander("💡 美国失业率 (UNRATE) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **双重使命支柱 (Dual Mandate)**：美联储货币政策决策核心。当失业率处于低位时，央行可专注于抗击通胀；失业率快速抬头则迫使美联储转入降息宽松周期。
-                    * **非线性跃升特征**：历史上失业率一旦见底反弹超过 0.5%，往往出现自强化的非线性快速上升（萨姆规则）。
-                    """)
-        else:
-            st.info("正在加载或暂无失业率数据...")
+    rs_col1, rs_col2 = st.columns(2)
 
-    with col8:
-        st.subheader("美联储资产负债表 (WALCL)")
-        with st.spinner("正在从 FRED 加载美联储资产负债表数据..."):
-            df_fed = get_fed_balance_sheet_data()
-        if not df_fed.empty:
-            fig_fed = create_fed_balance_sheet_chart(df_fed, timeframe=macro_tf)
-            if fig_fed:
-                st.plotly_chart(fig_fed, use_container_width=True)
-                with st.expander("💡 美联储总资产 (WALCL) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **QE (量化宽松)**：央行大规模购债扩表，向金融体系直接注入基础货币，推高所有风险资产估值。
-                    * **QT (量化紧缩)**：央行通过国债/MBS 到期不续做进行缩表回收流动性，给金融体系带来隐性持续紧缩压力。
-                    """)
-        else:
-            st.info("正在加载或暂无美联储资产负债表数据...")
-
-    st.markdown("---")
-
-    # 第四组：金油比
-    col9, _ = st.columns(2)
-    with col9:
-        st.subheader("Gold / Oil Ratio (金油比)")
-        with st.spinner("正在计算金油比历史数据..."):
-            df_go = get_gold_oil_ratio_data()
-        if not df_go.empty:
-            fig_go = create_gold_oil_ratio_chart(df_go, timeframe=macro_tf)
-            if fig_go:
-                st.plotly_chart(fig_go, use_container_width=True)
-                with st.expander("💡 Gold / Oil Ratio (金油比) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **指标定义**：1 盎司黄金能购买的原油桶数（黄金代表终极避险与信用对冲，原油代表实体经济工业需求与总需求活力）。
-                    * **> 25 - 30 (高风险/衰退预警)**：通常发生在经济衰退、实体总需求暴跌（油价下跌）且地缘/金融恐慌避险升温（金价上涨）阶段（如 2008 年次贷危机、2020 年疫情大跌）。
-                    * **< 15 (经济过热/通胀高企)**：工业总需求旺盛，大宗商品通胀上行。
-                    """)
-        else:
-            st.info("正在加载或暂无金油比数据...")
-
-    st.markdown("---")
-
-    # --- 5. 收益率曲线利差与衰退定量模型 ---
-    st.header("📊 收益率曲线利差与衰退定量模型 (Curve Spreads & Recession Gauges)")
-    col_spr, col_sahm = st.columns(2)
-
-    with col_spr:
-        st.subheader("10Y-2Y & 10Y-3M 美债期限利差")
-        with st.spinner("正在加载国债期限利差数据..."):
-            df_spreads = get_yield_spreads_data()
+    with rs_col1:
+        df_spreads = get_yield_spreads_data()
         if not df_spreads.empty:
-            fig_spreads = create_yield_spreads_chart(df_spreads, timeframe=macro_tf)
+            latest_sp_date = pd.to_datetime(df_spreads['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("10Y-2Y & 10Y-3M 美债期限利差")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_sp_date}**")
+
+            s1, s2 = st.columns(2)
+            if '10Y_2Y_Spread' in df_spreads.columns:
+                val_2y = df_spreads['10Y_2Y_Spread'].iloc[-1]
+                s1.metric("10Y - 2Y 利差", f"{val_2y:+.2f}%", delta="倒挂警戒: 0.00%", delta_color="inverse" if val_2y < 0.0 else "normal")
+            if '10Y_3M_Spread' in df_spreads.columns:
+                val_3m = df_spreads['10Y_3M_Spread'].iloc[-1]
+                s2.metric("10Y - 3M 利差", f"{val_3m:+.2f}%", delta="倒挂警戒: 0.00%", delta_color="inverse" if val_3m < 0.0 else "normal")
+
+            spreads_y_range = None
+            if st.checkbox("手动自定义期限利差 Y 轴范围", key="spreads_manual_y"):
+                s_cols = [c for c in ['10Y_2Y_Spread', '10Y_3M_Spread'] if c in df_spreads.columns]
+                s_min = float(df_spreads[s_cols].min().min())
+                s_max = float(df_spreads[s_cols].max().max())
+                spreads_y_range = st.slider("利差 Y 轴范围 (%)", round(s_min - 0.5, 1), round(s_max + 0.5, 1), (round(s_min, 1), round(s_max, 1)), 0.1, key="spreads_y_slider")
+
+            fig_spreads = create_yield_spreads_chart(df_spreads, y_range=spreads_y_range, timeframe=macro_tf)
             if fig_spreads:
                 st.plotly_chart(fig_spreads, use_container_width=True)
                 with st.expander("💡 10Y-2Y & 10Y-3M 美债期限利差解读指南", expanded=False):
                     st.markdown("""
-                    * **10Y-2Y 利差 (T10Y2Y)**：市场交易降息预期与中期经济周期的核心定价基准。
-                    * **10Y-3M 利差 (T10Y3M)**：美联储官方最青睐的经济衰退预测利差指标，倒挂深幅度预示未来 12 个月经济衰退概率大幅攀升。
-                    * **真正风险点在“解挂恢复” (Un-inversion)**：历史表明股市最大跌幅往往不发生在倒挂最深处，而发生在**曲线从倒挂重新快速陡峭化（牛陡）**并进入实质性衰退降息的初期。
+                    * **指标含义**：长端国债利率（10Y）减去短端国债利率（2Y 或 3M），是衡量债券市场宏观预期与货币紧缩程度的金标准。
+                    * **倒挂机制 (Inversion, < 0.0%)**：美联储激进加息推升短端政策利率，而市场对远期经济衰退与降息预期压低长端收益率。
+                    * **解冻与陡峭化预警 (Un-inversion / Steepening)**：
+                      * 历史规律显示，**倒挂结束重新转正（Un-inversion）至牛市陡峭化阶段**，往往是衰退真正兑现、企业盈利下修与股市波动最剧烈的危险期。
                     """)
         else:
-            st.info("正在加载或暂无期限利差数据...")
+            st.info("美债期限利差数据加载中或不可用。")
 
-    with col_sahm:
-        st.subheader("萨姆法则衰退指标 (Sahm Rule)")
-        with st.spinner("正在加载萨姆法则指标..."):
-            df_sahm = get_sahm_rule_data()
+    with rs_col2:
+        df_sahm = get_sahm_rule_data()
         if not df_sahm.empty:
-            latest_sahm = df_sahm.dropna(subset=["Sahm_Rule"]).iloc[-1]
-            sahm_val = latest_sahm["Sahm_Rule"]
-            sahm_date = latest_sahm["date"].strftime("%Y-%m-%d")
-            st.metric(
-                label=f"当前萨姆衰退指标值 ({sahm_date})",
-                value=f"{sahm_val:.2f}",
-                delta="触发衰退警报 (≥0.50)" if sahm_val >= 0.50 else "经济处于非衰退状态 (<0.50)",
-                delta_color="inverse" if sahm_val >= 0.50 else "normal"
-            )
-            fig_sahm = create_sahm_rule_chart(df_sahm, timeframe=macro_tf)
+            latest_sahm_date = pd.to_datetime(df_sahm['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_sahm_val = df_sahm['SAHM'].iloc[-1]
+            st.subheader("萨姆法则实时经济衰退指标 (SAHM Rule)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_sahm_date}**")
+
+            sh1, sh2 = st.columns(2)
+            sh1.metric("最新萨姆读数", f"{latest_sahm_val:.2f}%", delta="衰退红线: 0.50%", delta_color="inverse" if latest_sahm_val >= 0.50 else "normal")
+            sh2.metric("衰退确立阈值", "+0.50%")
+
+            sahm_y_range = None
+            if st.checkbox("手动自定义萨姆法则 Y 轴范围", key="sahm_manual_y"):
+                val_sh = df_sahm['SAHM']
+                sh_min = float(val_sh.dropna().min())
+                sh_max = float(val_sh.dropna().max())
+                sahm_y_range = st.slider("萨姆法则 Y 轴范围", round(sh_min - 0.2, 1), round(sh_max + 0.5, 1), (round(sh_min, 1), round(sh_max, 1)), 0.1, key="sahm_y_slider")
+
+            fig_sahm = create_sahm_rule_chart(df_sahm, y_range=sahm_y_range, timeframe=macro_tf)
             if fig_sahm:
                 st.plotly_chart(fig_sahm, use_container_width=True)
-                with st.expander("💡 萨姆法则衰退指标 (Sahm Rule) 解读指南", expanded=False):
+                with st.expander("💡 萨姆法则实时经济衰退预警指标解读指南", expanded=False):
                     st.markdown("""
-                    * **萨姆法则定义 (Sahm Rule)**：当美国 3 个月移动平均失业率相比过去 12 个月的最低点上升 **0.50 个百分点 (0.50%)** 或以上时，标志着经济已陷入实质性衰退。
-                    * **历史 100% 准确率**：自 1970 年以来的历次美国官方经济衰退中，萨姆法则均在衰退发生初期精准发出信号，且从未产生过假阳性误报。
+                    * **指标定义**：当全美失业率的 3 个月移动平均值较过去 12 个月内的最低点上升 **0.50 个百分点 (+0.50%)** 或以上时，标志着经济已实质性进入衰退阶段。
+                    * **历史胜率**：自 1970 年以来的历次美国经济衰退中，该指标拥有 **100% 的精准命中率，且无一虚假信号**。
                     """)
         else:
-            st.info("正在加载或暂无萨姆法则数据...")
+            st.info("萨姆法则指标数据加载中或不可用。")
 
+    # --- 8. 劳动力市场高频体温计 ---
     st.markdown("---")
+    st.header("📊 劳动力市场高频体温计 (Labor Market Heatmap)")
 
-    # --- 6. 实体经济景气与高频就业追踪 ---
-    st.header("📊 实体经济景气与高频就业追踪 (Leading Growth & Labor Market)")
-    col_claims, col_capex = st.columns(2)
+    lab_col1, lab_col2 = st.columns(2)
 
-    with col_claims:
-        st.subheader("美国周度初请失业金人数 (Jobless Claims)")
-        with st.spinner("正在加载失业金申请高频数据..."):
-            df_claims = get_jobless_claims_data()
+    with lab_col1:
+        df_claims = get_jobless_claims_data()
         if not df_claims.empty:
-            fig_claims = create_jobless_claims_chart(df_claims, timeframe=macro_tf)
+            latest_cl_date = pd.to_datetime(df_claims['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_cl_val = df_claims['Claims_4W'].iloc[-1]
+            st.subheader("周度初请失业金 4周移动均线 (IC4WSA)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_cl_date}**")
+
+            cl1, cl2 = st.columns(2)
+            cl1.metric("最新 4周均线", f"{latest_cl_val:,.0f} 人", delta="警戒线: 25.0 万人", delta_color="inverse" if latest_cl_val > 250000 else "normal")
+            cl2.metric("失业扩散预警线", "250,000 人")
+
+            claims_y_range = None
+            if st.checkbox("手动自定义初请均线 Y 轴范围", key="claims_manual_y"):
+                val_cl = df_claims['Claims_4W']
+                cl_min = float(val_cl.dropna().min())
+                cl_max = float(val_cl.dropna().max())
+                claims_y_range = st.slider("初请失业金 Y 轴范围", int(cl_min - 20000), int(cl_max + 30000), (int(cl_min), int(cl_max)), 5000, key="claims_y_slider")
+
+            fig_claims = create_jobless_claims_chart(df_claims, y_range=claims_y_range, timeframe=macro_tf)
             if fig_claims:
                 st.plotly_chart(fig_claims, use_container_width=True)
-                with st.expander("💡 周度初请失业金人数 (Jobless Claims) 解读指南", expanded=False):
+                with st.expander("💡 周度初请失业金 4周移动均线解读指南", expanded=False):
                     st.markdown("""
-                    * **初请失业金人数 (Initial Claims, 领先指标)**：每周公布的高频裁员晴雨表，通常超过 **25–26 万人** 表明劳动力市场边际松动，超过 **30 万人** 为深度疲弱信号。
-                    * **续请失业金人数 (Continued Claims, 同期指标)**：反映被裁员工重新找到新工作的难易程度。续请持续走高表明失业周期拉长，再就业市场趋于冻结。
+                    * **最高频劳动力体温计**：每周四公布。4周均线平滑了单周异常噪声。
+                    * **分界线 (25.0 万人)**：
+                      * **$< 22.0$ 万人**：劳动力市场极度紧俏，薪资通胀压力仍存。
+                      * **$> 25.0$ 万人**：裁员开始向多行业扩散，往往领先失业率 (UNRATE) 上行 1–2 个月。
                     """)
         else:
-            st.info("正在加载或暂无失业金申请数据...")
+            st.info("初请失业金数据加载中或不可用。")
 
-    with col_capex:
-        st.subheader("核心资本品新订单 (Core CapEx Orders)")
-        with st.spinner("正在加载核心资本品新订单数据..."):
-            df_capex = get_core_capex_data()
-        if not df_capex.empty:
-            fig_capex = create_core_capex_chart(df_capex, timeframe=macro_tf)
-            if fig_capex:
-                st.plotly_chart(fig_capex, use_container_width=True)
-                with st.expander("💡 核心资本品新订单 (Core CapEx Orders) 解读指南", expanded=False):
+    with lab_col2:
+        df_unemp = get_unemployment_data()
+        if not df_unemp.empty:
+            latest_un_date = pd.to_datetime(df_unemp['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_un_val = df_unemp['Unemployment_Rate'].iloc[-1]
+            st.subheader("美国官方失业率走势 (UNRATE)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_un_date}**")
+
+            un1, un2 = st.columns(2)
+            un1.metric("最新失业率", f"{latest_un_val:.1f}%")
+            un_avg = df_unemp['Unemployment_Rate'].mean()
+            un2.metric("历史平均中枢", f"{un_avg:.1f}%")
+
+            unemp_y_range = None
+            if st.checkbox("手动自定义失业率 Y 轴范围", key="unemp_manual_y"):
+                val_un = df_unemp['Unemployment_Rate']
+                un_min = float(val_un.dropna().min())
+                un_max = float(val_un.dropna().max())
+                unemp_y_range = st.slider("失业率 Y 轴范围 (%)", round(max(2.0, un_min - 1.0), 1), round(un_max + 2.0, 1), (round(un_min, 1), round(un_max, 1)), 0.1, key="unemp_y_slider")
+
+            fig_unemp = create_unemployment_chart(df_unemp, y_range=unemp_y_range, timeframe=macro_tf)
+            if fig_unemp:
+                st.plotly_chart(fig_unemp, use_container_width=True)
+                with st.expander("💡 美国官方失业率 (UNRATE) 解读指南", expanded=False):
                     st.markdown("""
-                    * **指标定义**：扣除国防与飞机的非国防资本品新订单（Nondefense Capital Goods Excluding Aircraft），反映美国实体企业对未来设备更新与生产扩张的**前瞻性资本开支意愿**。
-                    * **同比增速 (YoY)**：长期领先美国私人投资与企业盈利周期，同比转负通常伴随着企业投资收缩与经济降速。
+                    * **自然失业率锚点**：美联储长期自然失业率估计中枢为 $4.0\\% - 4.2\\%$。
                     """)
         else:
-            st.info("正在加载或暂无核心资本品订单数据...")
+            st.info("失业率数据加载中或不可用。")
 
-    st.markdown("---")
-
-    # --- 7. 通胀中枢、广义货币与全球美元水温 ---
-    st.header("📊 通胀中枢、广义货币与全球美元水温 (Inflation & Broad Liquidity)")
-    col_cpi, col_dxy = st.columns(2)
-
-    with col_cpi:
-        st.subheader("核心 PCE 通胀同比 vs. 时薪增速")
-        with st.spinner("正在加载核心通胀与时薪数据..."):
-            df_inf_w = get_inflation_wages_data()
-        if not df_inf_w.empty:
-            fig_inf_w = create_inflation_wages_chart(df_inf_w, timeframe=macro_tf)
-            if fig_inf_w:
-                st.plotly_chart(fig_inf_w, use_container_width=True)
-                with st.expander("💡 核心 PCE 通胀同比 vs. 时薪增速解读指南", expanded=False):
-                    st.markdown("""
-                    * **薪资-通胀螺旋 (Wage-Price Spiral)**：当平均时薪同比增速持续高于核心通胀时，居民实际购买力改善；但若薪资增速远超生产率增长，易推动服务业通胀粘性与二次通胀风险。
-                    * **美联储 2.0% 锚定**：核心通胀回落至 2.0%-2.5% 区间是美联储确立降息周期的核心前置条件。
-                    """)
-        else:
-            st.info("正在加载或暂无通胀与薪资数据...")
-
-    with col_dxy:
-        st.subheader("美元指数 (U.S. Dollar Index / DXY)")
-        with st.spinner("正在加载美元指数数据..."):
-            df_dxy = get_dxy_data()
-        if not df_dxy.empty:
-            fig_dxy = create_dxy_chart(df_dxy, timeframe=macro_tf)
-            if fig_dxy:
-                st.plotly_chart(fig_dxy, use_container_width=True)
-                with st.expander("💡 美元指数 (DXY) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **全球金融条件总闸门**：美元走强对全球非美经济体及跨国企业产生汇率紧缩效应，压制美股海外营收折算与新兴市场流动性。
-                    * **避险属性 (Dollar Smile)**：在美联储极度鹰派加息或全球发生流动性危机时，美元呈现强避险上涨特征。
-                    """)
-        else:
-            st.info("正在加载或暂无美元指数数据...")
-
-    st.markdown("---")
-
-    # --- 8. 商业银行信贷标准与 M2 货币供应 ---
-    st.header("📊 商业银行信贷标准与 M2 货币供应 (Credit Standards & Money Supply)")
-    col_sloos, col_m2 = st.columns(2)
-
-    with col_sloos:
-        st.subheader("美联储银行信贷标准调查 (SLOOS)")
-        with st.spinner("正在加载银行贷款标准净收紧比例 (SLOOS)..."):
-            df_sloos = get_sloos_credit_data()
-        if not df_sloos.empty:
-            fig_sloos = create_sloos_credit_chart(df_sloos, timeframe=macro_tf)
-            if fig_sloos:
-                st.plotly_chart(fig_sloos, use_container_width=True)
-                with st.expander("💡 银行贷款标准 (SLOOS) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **指标定义 (Senior Loan Officer Opinion Survey)**：对大中型企业工商业贷款 (C&I Loans) 标准净收紧的银行百分比。
-                    * **极强前瞻性**：银行信贷收紧通常**领先企业违约率与实际信贷萎缩 2–4 个季度**。净收紧比例超过 +20%~+40% 标志着信贷紧缩周期，对中小企业资本开支与再融资构成严峻考验。
-                    """)
-        else:
-            st.info("正在加载或暂无 SLOOS 数据...")
-
-    with col_m2:
-        st.subheader("广义货币供应量 M2 同比增速")
-        with st.spinner("正在加载 M2 货币供应量数据..."):
-            df_m2 = get_m2_money_supply_data()
-        if not df_m2.empty:
-            fig_m2 = create_m2_money_supply_chart(df_m2, timeframe=macro_tf)
-            if fig_m2:
-                st.plotly_chart(fig_m2, use_container_width=True)
-                with st.expander("💡 广义货币供应量 M2 同比增速解读指南", expanded=False):
-                    st.markdown("""
-                    * **实体购买力总蓄水池**：M2 包括流通中现金、活期与定期存款、货币市场基金等。
-                    * **同比负增长 (罕见收缩)**：2022-2023 年出现的 M2 同比负增长为近百年罕见，反映美联储激进加息与 QT 对商业银行存款体系的强力抽水效应；M2 同比重新企稳回升预示金融再通胀周期的启动。
-                    """)
-        else:
-            st.info("正在加载或暂无 M2 数据...")
-
-    st.markdown("---")
-
-    # --- 9. 宏观策略与周期框架总览 (深度研究附录) ---
-    with st.expander("📖 查看《见证逆潮》核心宏观逻辑与收益率曲线策略指南（深度解析版）", expanded=False):
+    # --- 9. 宏观宏图研报指南 ---
+    with st.expander("📚 宏观利率曲线与量化流动性指标深度研报指南", expanded=False):
         st.markdown("""
-        ### 一、 宏观流动性与收益率曲线的三大定律
-
-        #### 1. 收益率曲线形态与经济周期四阶段
-        * **牛平 (Bull Flattening)**：经济过热后期，长端利率下行快于短端（预示远期增长降速与通胀见顶），适合超配长久期国债。
-        * **熊平 (Bear Flattening)**：央行抗通胀激进加息，短端利率急升压平甚至倒挂曲线，权益市场承受估值杀跌。
-        * **牛陡 (Bull Steepening)**：衰退显现，央行开启大幅降息，短端利率领跌，曲线快速脱离倒挂（**历史上美股最大主跌浪与出清阶段通常发生于此**）。
-        * **熊陡 (Bear Steepening)**：经济强劲复苏或财政债务赤字失控，长端发债供给过剩推升期限溢价，顺周期价值股与大宗商品跑赢成长股。
-
-        #### 2. 美联储流动性水库三大闸门联动机制
-        * **流动性平衡公式**：$$\\text{Net Liquidity} = \\text{WALCL (美联储总资产)} - \\text{TGA (财政部现金)} - \\text{RRP (隔夜逆回购)}$$
-        * **RRP 的缓冲垫作用**：2023 年美联储 QT 期间，财政部大量发债并未冲击市场，原因在于 2 万亿美元的 RRP 逆回购资金流出承接了美债供给，形成了隐性的“流动性释放”。当 RRP 耗尽至低位后，财政部再发债将直接抽取商业银行准备金，触发真实流动性紧缩。
-
-        #### 3. 信用利差与金融条件的断崖效应
-        * 信用利差（High Yield OAS）在经济扩张期具备漫长平稳的**低波动钝化期**，但一旦突破 4.0%~4.5% 临界水平，利差呈现快速脉冲式非线性放大。
+        ### 模块一：国债收益率曲线形态与经济周期阶段
+        1. **牛市平坦化 (Bull Flattening)**：长端利率下行快于短端。通常发生在加息周期末期或经济放缓预期升温阶段。
+        2. **熊市平坦化 (Bear Flattening)**：短端利率因央行紧缩大幅飙升，曲线倒挂。历史上多次精准预警后续经济下行压力。
+        3. **牛市陡峭化 (Bull Steepening)**：央行开启快速降息，短端利率暴跌拉动利差转正。此阶段通常伴随衰退兑现与企业盈利下修。
+        4. **熊市陡峭化 (Bear Steepening)**：长端利率因期限溢价与发债供给压力暴涨，通常冲击高估值成长股与风险资产估值中枢。
         """)
 
+
 # ==================================================================
-# TAB 2: 个股全景追踪 & 估值与技术面
+# TAB 2: 个股量化与估值追踪 (Stock Tracker)
 # ==================================================================
 with tab_stock:
     st.header("🔍 个股深度量化与多因子估值追踪")
-    st.markdown("集成实时行情、PE/PS Band 动态估值通道、反向 DCF 市场预期测算、技术动量及财务三张表明细。")
+    st.caption(f"🕒 实时数据抓取 (美东时间): **{current_et_str}** | 整合量价趋势、PE Band 估值带、反向 DCF 增长率反推与财报全景")
 
-    # 1. 股票代码输入与基础信息
-    col_input1, col_input2, col_input3 = st.columns([2, 2, 4])
-    with col_input1:
-        ticker_to_analyze = st.text_input("输入美股代码 (Ticker):", value="NVDA").upper().strip()
-    with col_input2:
-        stock_tf = st.selectbox(
-            "选择行情观察时间周期:",
-            ["1M", "3M", "6M", "1Y", "3Y", "5Y", "ALL"],
-            index=3,
-            key="stock_timeframe_select"
-        )
-    with col_input3:
-        chart_mode = st.radio("选择行情主图模式:", ["K线图 (Candlestick + 均线)", "折线图 (Line)"], horizontal=True)
+    stock_col1, stock_col2, stock_col3, stock_col4 = st.columns([2, 2, 2, 2])
 
-    if ticker_to_analyze:
-        with st.spinner(f"正在拉取 {ticker_to_analyze} 实时行情与基本面数据..."):
-            stock_df = get_stock_historical_data(ticker_to_analyze, period="5y")
-            stock_info = get_stock_fundamentals(ticker_to_analyze)
+    popular_tickers = [
+        "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA",
+        "AVGO", "TSM", "AMD", "ASML", "BRK-B", "LLY", "JPM", "V", "PLTR"
+    ]
 
-        if not stock_df.empty and stock_info:
-            curr_price = stock_info.get("currentPrice", stock_info.get("regularMarketPrice", stock_df["Close"].iloc[-1]))
-            comp_name = stock_info.get("shortName", ticker_to_analyze)
-            sector = stock_info.get("sector", "N/A")
-            industry = stock_info.get("industry", "N/A")
-            pe_ttm = stock_info.get("trailingPE", np.nan)
-            pe_fwd = stock_info.get("forwardPE", np.nan)
-            ps_ttm = stock_info.get("priceToSalesTrailing12Months", np.nan)
-            pb_ratio = stock_info.get("priceToBook", np.nan)
-            market_cap = stock_info.get("marketCap", np.nan)
-            fcf = stock_info.get("freeCashflow", np.nan)
-            shares_out = stock_info.get("sharesOutstanding", np.nan)
-            eps_ttm = stock_info.get("trailingEps", np.nan)
-            beta = stock_info.get("beta", np.nan)
-            fcf_per_share = (fcf / shares_out) if (pd.notna(fcf) and pd.notna(shares_out) and shares_out > 0) else np.nan
+    with stock_col1:
+        selected_quick_ticker = st.selectbox("📌 快捷选择热门权重股:", popular_tickers, index=0)
 
-            st.subheader(f"🏢 {comp_name} ({ticker_to_analyze}) — {sector} | {industry}")
+    with stock_col2:
+        custom_ticker_input = st.text_input("✍️ 或输入自定义美股 Ticker:", value="").strip().upper()
 
-            # 核心估值卡片
-            kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
-            kpi1.metric("当前实时股价", f"${curr_price:.2f}" if pd.notna(curr_price) else "N/A")
-            kpi2.metric("市盈率 PE (TTM / Fwd)", f"{pe_ttm:.1f} / {pe_fwd:.1f}" if (pd.notna(pe_ttm) and pd.notna(pe_fwd)) else (f"{pe_ttm:.1f}" if pd.notna(pe_ttm) else "N/A"))
-            kpi3.metric("市销率 P/S (TTM)", f"{ps_ttm:.2f}x" if pd.notna(ps_ttm) else "N/A")
-            kpi4.metric("总市值 (Market Cap)", f"${market_cap/1e9:.2f} B" if pd.notna(market_cap) else "N/A")
-            kpi5.metric("每股自由现金流 (FCF/Sh)", f"${fcf_per_share:.2f}" if pd.notna(fcf_per_share) else "N/A")
+    ticker_to_analyze = custom_ticker_input if custom_ticker_input else selected_quick_ticker
 
-            st.markdown("---")
+    with stock_col3:
+        chart_style = st.selectbox("📊 图表类型:", ["Candlestick (K线图)", "Line (收盘价折线)"], index=0)
+        chart_type_val = "Candlestick" if "Candlestick" in chart_style else "Line"
 
-            # 2. 个股行情与均线系统 (MA20 / MA50 / MA200 & 成交量副图)
-            st.subheader(f"📈 {ticker_to_analyze} 交互式行情走势 (MA20 / MA50 / MA200 均线系统)")
-            chart_type_arg = "Candlestick" if "Candlestick" in chart_mode else "Line"
-            fig_stock_price = create_stock_price_chart(stock_df, ticker_to_analyze, chart_type=chart_type_arg, timeframe=stock_tf)
-            if fig_stock_price:
-                st.plotly_chart(fig_stock_price, use_container_width=True)
+    with stock_col4:
+        stock_timeframe = st.selectbox("⏱️ 走势图时间窗口:", ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "ALL"], index=4)
 
-            st.markdown("---")
+    st.markdown("---")
 
-            # 3. 动态 PE / PS 估值通道 (PE / PS Band)
-            st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
-            col_band_ctrl1, col_band_ctrl2 = st.columns([3, 5])
-            with col_band_ctrl1:
-                val_type_code = st.radio("选择通道基准估值模型:", ["PE Band (基于 TTM EPS)", "PS Band (基于 TTM 每股营收)"], horizontal=True)
+    with st.spinner(f"正在获取 {ticker_to_analyze} 实时行情、估值模型与财务数据..."):
+        df_stock_hist = get_stock_historical_data(ticker_to_analyze, period="5y")
+        stock_info = get_stock_fundamentals(ticker_to_analyze)
+        fin_stmt_dict = get_stock_financial_statements(ticker_to_analyze)
 
-            rev_per_sh = (stock_info.get("totalRevenue", np.nan) / shares_out) if (pd.notna(shares_out) and shares_out > 0 and pd.notna(stock_info.get("totalRevenue", np.nan))) else np.nan
-            
-            fig_pe_band = create_pe_ps_band_chart(
-                stock_df,
-                ticker_to_analyze,
-                current_eps=eps_ttm if "PE" in val_type_code else None,
-                current_rev_per_share=rev_per_sh if "PS" in val_type_code else None,
-                timeframe=stock_tf
+    if stock_info:
+        comp_name = stock_info.get("shortName") or stock_info.get("longName") or ticker_to_analyze
+        sector = stock_info.get("sector", "N/A")
+        industry = stock_info.get("industry", "N/A")
+        cur_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice") or stock_info.get("previousClose")
+        prev_close = stock_info.get("regularMarketPreviousClose") or stock_info.get("previousClose")
+        
+        price_diff = (cur_price - prev_close) if (cur_price and prev_close) else 0.0
+        price_diff_pct = (price_diff / prev_close * 100) if prev_close else 0.0
+
+        st.subheader(f"🏢 {comp_name} ({ticker_to_analyze}) — {sector} | {industry}")
+        
+        kpi_r1_1, kpi_r1_2, kpi_r1_3, kpi_r1_4 = st.columns(4)
+        
+        if cur_price is not None:
+            kpi_r1_1.metric(
+                "最新市价 (USD)",
+                f"${cur_price:,.2f}",
+                delta=f"{price_diff:+,.2f} ({price_diff_pct:+.2f}%)"
             )
-            if fig_pe_band:
-                st.plotly_chart(fig_pe_band, use_container_width=True)
-                with st.expander(f"💡 {val_type_code} 估值通道投资解读", expanded=False):
-                    st.markdown("""
-                    * **估值通道含义**：将股价与固定倍数乘数线并列绘制，直观展现股价究竟是由**底层盈利/营收驱动**，还是由**纯粹估值倍数扩张/收缩**驱动。
-                    * **通道上下轨策略**：当股价触及历史估值通道上轨且缺乏业绩超预期上修时往往面临估值顶；跌破下轨且基本面护城河稳固时呈现非对称左侧赔率。
+        
+        mcap = stock_info.get("marketCap")
+        kpi_r1_2.metric("总市值 (Market Cap)", f"${mcap/1e9:,.2f} B" if mcap else "N/A")
+
+        pe_ttm = stock_info.get("trailingPE")
+        kpi_r1_3.metric("滚动市盈率 (PE TTM)", f"{pe_ttm:.1f}x" if pe_ttm else "N/A")
+
+        fwd_pe = stock_info.get("forwardPE")
+        kpi_r1_4.metric("远期市盈率 (Forward PE)", f"{fwd_pe:.1f}x" if fwd_pe else "N/A")
+
+        kpi_r2_1, kpi_r2_2, kpi_r2_3, kpi_r2_4 = st.columns(4)
+        ps_ttm = stock_info.get("priceToSalesTrailing12Months")
+        kpi_r2_1.metric("市销率 (PS TTM)", f"{ps_ttm:.2f}x" if ps_ttm else "N/A")
+
+        gm = stock_info.get("grossMargins")
+        kpi_r2_2.metric("毛利率 (Gross Margin)", f"{gm*100:.1f}%" if gm is not None else "N/A")
+
+        roe = stock_info.get("returnOnEquity")
+        kpi_r2_3.metric("净资产收益率 (ROE)", f"{roe*100:.1f}%" if roe is not None else "N/A")
+
+        beta = stock_info.get("beta")
+        kpi_r2_4.metric("Beta 系数 (波动率)", f"{beta:.2f}" if beta is not None else "N/A")
+
+    if df_stock_hist is not None and not df_stock_hist.empty:
+        fig_stock = create_stock_price_chart(
+            df_stock_hist,
+            symbol=ticker_to_analyze,
+            chart_type=chart_type_val,
+            timeframe=stock_timeframe
+        )
+        if fig_stock:
+            st.plotly_chart(fig_stock, use_container_width=True)
+    else:
+        st.warning(f"未能获取 {ticker_to_analyze} 的历史价格图表数据。")
+
+    # ==================================================================
+    # 4. 扩展模块一：历史估值分位与 PE / PS Band (估值通道透视)
+    # ==================================================================
+    st.markdown("---")
+    st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
+    st.caption("叠加历史动态估值倍数通道，评估当前股价处于历史估值的折溢价状态与合理中枢")
+
+    val_col1, val_col2 = st.columns([3, 1])
+    with val_col2:
+        val_type_choice = st.radio("选择估值带类型:", ["PE Band (市盈率)", "PS Band (市销率)"], index=0)
+        val_type_code = "PE" if "PE" in val_type_choice else "PS"
+        band_tf = st.selectbox("估值带时间跨度:", ["1Y", "3Y", "5Y", "ALL"], index=1, key="band_timeframe")
+
+    with val_col1:
+        cur_pe_val = stock_info.get("trailingPE") if stock_info else None
+        cur_eps_val = stock_info.get("trailingEps") if stock_info else None
+        cur_ps_val = stock_info.get("priceToSalesTrailing12Months") if stock_info else None
+        
+        # 计算每股营收 SPS (Sales Per Share) 用于 PS Band
+        cur_sps_val = None
+        if stock_info:
+            rev_raw = stock_info.get("totalRevenue")
+            shs_out = stock_info.get("sharesOutstanding")
+            if rev_raw and shs_out and shs_out > 0:
+                cur_sps_val = rev_raw / shs_out
+            elif cur_ps_val and cur_ps_val > 0 and cur_price:
+                cur_sps_val = cur_price / cur_ps_val
+
+        # 根据选择的估值模型确定传入的基准乘数与每股指标
+        val_metric_val = cur_eps_val if val_type_code == "PE" else cur_sps_val
+        val_multiple_val = cur_pe_val if val_type_code == "PE" else cur_ps_val
+
+        if df_stock_hist is not None and not df_stock_hist.empty:
+            fig_band = create_pe_ps_band_chart(
+                df_stock_hist,
+                symbol=ticker_to_analyze,
+                current_eps=val_metric_val,
+                current_pe=val_multiple_val,
+                valuation_type=val_type_code,
+                timeframe=band_tf
+            )
+            if fig_band:
+                st.plotly_chart(fig_band, use_container_width=True)
+                with st.expander(f"💡 {val_type_code} Band 估值通道投资解读", expanded=False):
+                    metric_name = "每股收益 (EPS)" if val_type_code == "PE" else "每股营收 (SPS)"
+                    st.markdown(f"""
+                    * **估值通道逻辑**：以公司当前{metric_name}能力为基准，绘制多个历史代表性估值倍数（如 0.6x、0.8x、1.0x、1.25x、1.5x 倍数通道）。
+                    * **超买/超卖信号**：
+                      * 股价触及或突破顶轨（高估值通道）：表明市场给予极高预期溢价，情绪可能过热。
+                      * 股价回落至底轨（低估值通道）：通常对应基本面利空充分出清或悲观情绪超跌区间。
                     """)
+        else:
+            st.info("估值带图表数据加载中。")
 
-            st.markdown("---")
+    st.markdown("---")
+    st.subheader("🎯 反向 DCF 估值测算器 (Reverse DCF & Implied Growth)")
+    st.caption("基于自由现金流折现模型，根据当前股价反推市场隐含的未来 5–10 年 FCF 复合年增长率 (Implied CAGR)")
 
-            # 4. 反向 DCF 估值测算器 (Reverse DCF)
-            st.subheader("🎯 反向 DCF 估值测算器 (Reverse DCF & Implied Growth)")
-            st.markdown("""
-            **经典买方思考范式**：不尝试主观预测未来极其不确定的增长率，而是反推**当前股价所严格内含的未来 10 年自由现金流 (FCF) 年化复合增长率 (CAGR)**。
-            """)
-            col_dcf_in1, col_dcf_in2, col_dcf_in3 = st.columns(3)
-            with col_dcf_in1:
-                wacc_in = st.slider("贴现率 (WACC / 投资人要求回报率 %):", min_value=6.0, max_value=15.0, value=9.0, step=0.5) / 100.0
-            with col_dcf_in2:
-                tg_in = st.slider("永续年化增长率 (Terminal Growth %):", min_value=1.0, max_value=4.5, value=3.0, step=0.25) / 100.0
-            with col_dcf_in3:
-                years_in = st.selectbox("预测显性增长年限:", [5, 7, 10], index=2)
+    if stock_info:
+        cur_p = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice") or stock_info.get("previousClose") or 100.0
+        shs = stock_info.get("sharesOutstanding")
+        if not shs and mcap:
+            shs = mcap / cur_p
+        
+        base_fcf_raw = stock_info.get("freeCashflow") or (mcap / (cur_pe_val if cur_pe_val else 25.0))
+        base_fcf_bn = round(base_fcf_raw / 1e9, 2) if base_fcf_raw else 10.0
+        
+        tot_cash_bn = (stock_info.get("totalCash") or 0.0) / 1e9
+        tot_debt_bn = (stock_info.get("totalDebt") or 0.0) / 1e9
 
-            if pd.notna(fcf_per_share) and fcf_per_share > 0 and pd.notna(curr_price):
-                implied_growth = calculate_reverse_dcf(
-                    curr_price,
-                    fcf_per_share,
-                    wacc=wacc_in,
-                    terminal_growth=tg_in,
-                    forecast_years=years_in
+        dcf_c1, dcf_c2, dcf_c3, dcf_c4 = st.columns(4)
+        with dcf_c1:
+            input_wacc = st.slider("加权资本成本 WACC 折现率 (%)", 6.0, 15.0, 9.0, 0.5) / 100.0
+        with dcf_c2:
+            input_g = st.slider("永续增长率 Terminal g (%)", 1.0, 4.0, 2.5, 0.25) / 100.0
+        with dcf_c3:
+            input_years = st.radio("显式预测期 (Years):", [5, 10], index=0)
+        with dcf_c4:
+            input_fcf = st.number_input("基准年自由现金流 ($B):", value=float(max(0.1, base_fcf_bn)), step=1.0) * 1e9
+
+        dcf_result = calculate_reverse_dcf(
+            current_price=cur_p,
+            shares_out=shs,
+            base_fcf=input_fcf,
+            wacc=input_wacc,
+            g=input_g,
+            years=input_years,
+            total_cash=tot_cash_bn * 1e9,
+            total_debt=tot_debt_bn * 1e9
+        )
+
+        if dcf_result:
+            implied_cagr = dcf_result["implied_cagr"]
+            
+            res_c1, res_c2, res_c3 = st.columns(3)
+            if not np.isnan(implied_cagr):
+                res_c1.metric(
+                    "市场隐含未来 FCF 复合增速 (CAGR)",
+                    f"{implied_cagr*100:+.2f}%",
+                    delta=f"预测期: {input_years} 年 | WACC: {input_wacc*100:.1f}%"
                 )
-                if pd.notna(implied_growth):
-                    res_col1, res_col2 = st.columns(2)
-                    with res_col1:
-                        st.metric(
-                            label=f"当前股价 ${curr_price:.2f} 隐含的未来 {years_in} 年 FCF 年化增速",
-                            value=f"{implied_growth:.2f}%",
-                            delta=f"基准 WACC: {wacc_in*100:.1f}% | 永续: {tg_in*100:.1f}%"
-                        )
-                    with res_col2:
-                        st.info(f"""
-                        * 若您研判 {ticker_to_analyze} 未来实际 FCF 复合增速 **高于 {implied_growth:.2f}%**，则当前估值具备**安全边际 (Undervalued)**。
-                        * 若您认为未来增速 **难以维持 {implied_growth:.2f}%**，则当前市场定价已偏乐观，需警惕预期落空风险。
-                        """)
-                else:
-                    st.warning("反向 DCF 求解未收敛，请检查基准参数。")
             else:
-                st.warning(f"由于 {ticker_to_analyze} TTM 自由现金流为负或数据缺失，无法应用标准 FCF 反向 DCF 模型。")
+                res_c1.metric("市场隐含 FCF 复合增速 (CAGR)", "超出常规搜索收敛范围")
 
-            with st.expander("💡 反向 DCF 估值测算逻辑与安全边际指引", expanded=False):
+            res_c2.metric("当前企业价值 (EV)", f"${dcf_result['target_ev']/1e9:,.2f} B")
+            res_c3.metric("净现金 / 净负债头寸", f"${(tot_cash_bn - tot_debt_bn):+,.2f} B")
+
+            st.markdown("##### 📊 内在价值公允股价敏感性分析矩阵 (Sensitivity Matrix)")
+            st.caption("纵轴为不同资本折现率 WACC，横轴为公司实际可能实现的未来 FCF 复合增速，单元格对应估算出的公允每股内在价值 ($)")
+            sens_df = dcf_result.get("sensitivity_matrix")
+            if sens_df is not None and not sens_df.empty:
+                st.dataframe(sens_df, hide_index=True, use_container_width=True)
+                with st.expander("💡 反向 DCF 估值测算逻辑与安全边际指引", expanded=False):
+                    st.markdown(f"""
+                    * **反向推导原理**：普通 DCF 往往受主观乐观假设影响过大；**反向 DCF** 则是探寻“**当前市价 (${cur_p:.2f}) 已经把未来多高的增长定价进去了 (Priced-in)**”。
+                    * **安全边际判断**：
+                      * 若市场隐含 CAGR (**{implied_cagr*100:+.1f}%**) 显著**低于**您对公司行业扩张与护城河的真实增长预期，则存在**安全边际 (Margin of Safety)**。
+                      * 若市场隐含 CAGR 处于不可思议的超高位（如 $> 40\\%$ 且持续 5 年），则意味着估值容错率极低，任何业绩不及预期都将面临“杀估值”。
+                    """)
+        else:
+            st.info("反向 DCF 测算需要基准自由现金流为正值且折现率大于永续增长率。")
+
+    st.markdown("---")
+    st.subheader("⚡ 技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)")
+    st.caption("综合跟踪 14 日强弱动量 RSI、MACD 趋势金叉/死叉与 200MA 均线乖离率 (Bias %)")
+
+    if df_stock_hist is not None and not df_stock_hist.empty:
+        latest_c = df_stock_hist['Close'].iloc[-1]
+        ma200_val = df_stock_hist['Close'].rolling(200).mean().iloc[-1] if len(df_stock_hist) >= 200 else None
+        bias_200 = ((latest_c - ma200_val) / ma200_val * 100) if ma200_val else None
+
+        d_close = df_stock_hist['Close'].diff()
+        g_s = (d_close.where(d_close > 0, 0.0)).fillna(0.0)
+        l_s = (-d_close.where(d_close < 0, 0.0)).fillna(0.0)
+        ag = g_s.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+        al = l_s.ewm(alpha=1.0/14.0, min_periods=14, adjust=False).mean()
+        rs_val = ag / al.replace(0, np.nan)
+        rsi_series = (100.0 - (100.0 / (1.0 + rs_val))).fillna(50.0)
+        latest_rsi = rsi_series.iloc[-1]
+
+        e12 = df_stock_hist['Close'].ewm(span=12, adjust=False).mean()
+        e26 = df_stock_hist['Close'].ewm(span=26, adjust=False).mean()
+        macd_s = e12 - e26
+        sig_s = macd_s.ewm(span=9, adjust=False).mean()
+        hist_s = macd_s - sig_s
+
+        t_c1, t_c2, t_c3 = st.columns(3)
+        t_c1.metric(
+            "14日相对强弱指标 (RSI 14)",
+            f"{latest_rsi:.1f}",
+            delta="超买警惕 (>70)" if latest_rsi > 70 else ("超卖机会 (<30)" if latest_rsi < 30 else "中性震荡"),
+            delta_color="inverse" if latest_rsi > 70 else ("normal" if latest_rsi < 30 else "off")
+        )
+
+        t_c2.metric(
+            "200MA 年线乖离率 (Bias %)",
+            f"{bias_200:+.1f}%" if bias_200 else "N/A",
+            delta="极端多头均线发散" if bias_200 and bias_200 > 25 else ("深幅跌破年线" if bias_200 and bias_200 < -15 else "稳健运行"),
+            delta_color="normal" if bias_200 and bias_200 > 0 else "inverse"
+        )
+
+        t_c3.metric(
+            "MACD (12, 26, 9) 柱状能量",
+            f"{hist_s.iloc[-1]:+.2f}",
+            delta="多头动能主导" if hist_s.iloc[-1] > 0 else "空头动能发酵",
+            delta_color="normal" if hist_s.iloc[-1] > 0 else "inverse"
+        )
+
+        fig_tech = create_technical_momentum_chart(df_stock_hist, symbol=ticker_to_analyze, timeframe="1Y")
+        if fig_tech:
+            st.plotly_chart(fig_tech, use_container_width=True)
+            with st.expander("💡 技术动量系统指标信号研判指引", expanded=False):
                 st.markdown("""
-                * **巴菲特 / 芒格自由现金流逻辑**：内在价值是企业在剩余生命周期内所能产生的全部自由现金流的折现值。
-                * **安全边际核心**：通过反向推导市场预期，识别市场是处于过度悲观的“低预期陷阱”还是过度亢奋的“高预期泡沫”。
+                * **14 日 RSI**：
+                  * $> 70$ 进入超买高热区，短线资金追高性价比恶化；
+                  * $< 30$ 进入超跌冰点区，往往孕育情绪衰竭反弹。
+                * **200MA 年线乖离率**：
+                  * 当股价高于 200MA 超过 $+30\%$ 时，存在显著的“均值回归”回踩需求；
+                  * 当股价回踩 200MA（$0\% \sim +5\%$）并企稳，通常是长线牛股理想的加仓防守点。
+                * **MACD 动能柱**：
+                  * 零轴上方红柱持续拉长为加速主升浪；红柱缩短或顶背离预警动能放缓。
                 """)
 
-            st.markdown("---")
-
-            # 5. 技术面动量指标系统 (RSI, MACD, 200MA)
-            st.subheader("⚡ 技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)")
-            fig_tech_mom = create_technical_momentum_chart(stock_df, ticker_to_analyze, timeframe=stock_tf)
-            if fig_tech_mom:
-                st.plotly_chart(fig_tech_mom, use_container_width=True)
-                with st.expander("💡 技术面动量指标系统解读指南", expanded=False):
-                    st.markdown("""
-                    * **RSI (14) 超买超卖**：RSI > 70 表明短期动量过热易发生均值回归；RSI < 30 进入超卖区间。
-                    * **MACD (12, 26, 9) 金叉死叉**：零轴之上的金叉为强势顺势进攻信号；零轴之下的死叉表明下跌动能延续。
-                    * **布林带 (Bollinger Bands)**：价格跌破下轨伴随缩量企稳为典型超卖技术反弹点位。
-                    """)
-
-            st.markdown("---")
-
-            # 6. 核心财务报表深度透视 (季度与年度财报主要数据)
-            st.subheader("📑 核心财务报表深度透视 (季度与年度过去 4–5 期全量明细与趋势图)")
-            with st.spinner(f"正在聚合 {ticker_to_analyze} 核心财务三张表趋势明细..."):
-                fin_stmts_dict = get_stock_financial_statements(ticker_to_analyze)
-
-            fin_tab_q, fin_tab_a = st.tabs([
-                "📊 季度财务报表明细 (Quarterly Financials)",
-                "📅 年度财务报表明细 (Annual Financials)"
-            ])
-
-            with fin_tab_q:
-                df_q_data = fin_stmts_dict.get("quarterly", pd.DataFrame())
-                if not df_q_data.empty:
-                    fig_fin_q = create_financial_trends_chart(df_q_data, ticker_to_analyze, period_type="季度 (Quarterly)")
-                    if fig_fin_q:
-                        st.plotly_chart(fig_fin_q, use_container_width=True)
-                    st.markdown(f"##### {ticker_to_analyze} 季度核心财务指标全景明细表 ($M / %)")
-                    st.dataframe(df_q_data, use_container_width=True, hide_index=True)
-                else:
-                    st.info(f"暂无 {ticker_to_analyze} 季度结构化财务报表明细。")
-
-            with fin_tab_a:
-                df_a_data = fin_stmts_dict.get("annual", pd.DataFrame())
-                if not df_a_data.empty:
-                    fig_fin_a = create_financial_trends_chart(df_a_data, ticker_to_analyze, period_type="年度 (Annual)")
-                    if fig_fin_a:
-                        st.plotly_chart(fig_fin_a, use_container_width=True)
-                    st.markdown(f"##### {ticker_to_analyze} 年度核心财务指标全景明细表 ($M / %)")
-                    st.dataframe(df_a_data, use_container_width=True, hide_index=True)
-                else:
-                    st.info(f"暂无 {ticker_to_analyze} 年度结构化财务报表明细。")
-
-            st.markdown("---")
-
-            # 7. 机构目标价与分析师共识
-            with st.expander("📋 查看分析师评级、目标价与资本结构补充数据", expanded=False):
-                col_extra1, col_extra2, col_extra3 = st.columns(3)
-                target_mean = stock_info.get("targetMeanPrice", np.nan)
-                target_high = stock_info.get("targetHighPrice", np.nan)
-                target_low = stock_info.get("targetLowPrice", np.nan)
-                num_analysts = stock_info.get("numberOfAnalystOpinions", np.nan)
-                recom_key = stock_info.get("recommendationKey", "N/A").upper()
-
-                with col_extra1:
-                    st.markdown("##### 🎯 华尔街目标价共识")
-                    st.write(f"* **均价目标价**: ${target_mean:.2f}" if pd.notna(target_mean) else "* 均价目标价: N/A")
-                    st.write(f"* **最高目标价**: ${target_high:.2f}" if pd.notna(target_high) else "* 最高目标价: N/A")
-                    st.write(f"* **最低目标价**: ${target_low:.2f}" if pd.notna(target_low) else "* 最低目标价: N/A")
-                    st.write(f"* **覆盖分析师数**: {num_analysts}" if pd.notna(num_analysts) else "* 覆盖分析师数: N/A")
-                    st.write(f"* **综合评级**: `{recom_key}`")
-
-                with col_extra2:
-                    st.markdown("##### 💼 资本结构与偿债能力")
-                    tot_debt = stock_info.get("totalDebt", np.nan)
-                    tot_cash = stock_info.get("totalCash", np.nan)
-                    quick_r = stock_info.get("quickRatio", np.nan)
-                    curr_r = stock_info.get("currentRatio", np.nan)
-                    st.write(f"* **总现金储备**: ${tot_cash/1e9:.2f} B" if pd.notna(tot_cash) else "* 总现金储备: N/A")
-                    st.write(f"* **总有息负债**: ${tot_debt/1e9:.2f} B" if pd.notna(tot_debt) else "* 总有息负债: N/A")
-                    st.write(f"* **流动比率**: {curr_r:.2f}" if pd.notna(curr_r) else "* 流动比率: N/A")
-                    st.write(f"* **速动比率**: {quick_r:.2f}" if pd.notna(quick_r) else "* 速动比率: N/A")
-
-                with col_extra3:
-                    st.markdown("##### 💰 股利与盈利回报")
-                    div_rate = stock_info.get("dividendRate", np.nan)
-                    div_yield = stock_info.get("dividendYield", np.nan)
-                    roe = stock_info.get("returnOnEquity", np.nan)
-                    roa = stock_info.get("returnOnAssets", np.nan)
-                    st.write(f"* **年度股息**: ${div_rate:.2f}" if pd.notna(div_rate) else "* 年度股息: 无 / N/A")
-                    st.write(f"* **股息率**: {div_yield*100:.2f}%" if pd.notna(div_yield) else "* 股息率: 0.00%")
-                    st.write(f"* **净资产收益率 (ROE)**: {roe*100:.2f}%" if pd.notna(roe) else "* ROE: N/A")
-                    st.write(f"* **总资产回报率 (ROA)**: {roa*100:.2f}%" if pd.notna(roa) else "* ROA: N/A")
-        else:
-            st.warning(f"未能获取到 {ticker_to_analyze} 的有效行情或基本面数据，请确认代码正确性。")
 
 # ==================================================================
-# TAB 3: 半导体产业链追踪与相对表现矩阵
+# TAB 3: 芯片半导体产业链 (Semiconductor Tracker)
 # ==================================================================
 with tab_semi:
     st.header("⚡ 芯片半导体产业链深度追踪")
-    st.markdown("全产业链龙头标的相对超额收益、多因子估值比选矩阵与行业周期深度分析。")
+    st.caption(f"🕒 实时数据更新 (美东时间): **{current_et_str}** | 覆盖算力、晶圆代工、光刻设备、存储与模拟芯片全产业链")
 
-    # 1. 相对收益表现对比
     st.subheader("📈 半导体龙头多股累计收益率对比 (Relative Performance)")
-    col_semi_tf, col_semi_select = st.columns([2, 5])
-    with col_semi_tf:
-        semi_timeframe = st.selectbox(
-            "选择相对收益观察周期:",
-            ["1M", "3M", "6M", "1Y", "2Y", "3Y", "5Y"],
-            index=3,
-            key="semi_perf_tf"
-        )
 
-    semi_default_universe = ["NVDA", "TSM", "ASML", "AVGO", "AMD", "SOXX", "SMH"]
-    semi_all_candidates = ["NVDA", "TSM", "ASML", "AVGO", "AMD", "AMAT", "LRCX", "KLAC", "ARM", "SNPS", "CDNS", "MRVL", "MU", "TXN", "ADI", "QCOM", "SOXX", "SMH"]
-
-    with col_semi_select:
+    semi_symbols_all = [item["symbol"] for item in SEMI_BASKET]
+    
+    col_s1, col_s2 = st.columns([3, 1])
+    with col_s1:
+        default_selected_semi = ["NVDA", "TSM", "ASML", "AVGO", "AMD", "MU", "SOXX"]
         selected_semi_tickers = st.multiselect(
-            "选择对比展示的标的 (默认包含行业龙头与基准 ETF):",
-            options=semi_all_candidates,
-            default=semi_default_universe,
-            key="semi_tickers_multiselect"
+            "选择要进行收益率对比的标的:",
+            semi_symbols_all,
+            default=default_selected_semi
+        )
+    with col_s2:
+        semi_timeframe = st.selectbox(
+            "选择对比时间区间:",
+            ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y"],
+            index=3,
+            key="semi_timeframe_select"
         )
 
     if selected_semi_tickers:
-        with st.spinner("正在获取半导体标的历史收盘价并归一化计算..."):
-            semi_prices_df = get_semiconductor_comparative_prices(selected_semi_tickers, period="5y")
+        with st.spinner("正在抓取半导体标的历史价格并计算归一化收益率..."):
+            df_semi_dict = {}
+            for s in selected_semi_tickers:
+                df_s = get_stock_historical_data(s, period="5y")
+                if df_s is not None and not df_s.empty:
+                    df_semi_dict[s] = df_s
 
-        if not semi_prices_df.empty:
-            fig_semi_perf = create_relative_performance_chart(
-                semi_prices_df,
-                selected_semi_tickers,
-                timeframe=semi_timeframe
-            )
-            if fig_semi_perf:
-                st.plotly_chart(fig_semi_perf, use_container_width=True)
-        else:
-            st.info("正在聚合半导体行情数据...")
+        if df_semi_dict:
+            fig_rel_perf = create_relative_performance_chart(df_semi_dict, base_symbol="SOXX", timeframe=semi_timeframe)
+            if fig_rel_perf:
+                st.plotly_chart(fig_rel_perf, use_container_width=True)
 
     st.markdown("---")
 
-    # 2. 多因子估值与财务指标比选矩阵
-    st.subheader("📊 半导体全产业链核心标的估值与财务比选矩阵")
-    with st.spinner("正在抓取并聚合半导体产业链公司核心估值与财务指标..."):
-        df_semi_matrix = get_semiconductor_matrix_data(semi_all_candidates[:-2])
+    st.subheader("🎯 半导体全产业链市值 vs PS / PE 估值气泡透视图")
+    st.caption("横轴为市值规模，纵轴为滚动估值倍数，气泡大小对应营收规模")
 
-    if not df_semi_matrix.empty:
+    semi_metrics_list = []
+    for s_info in SEMI_BASKET:
+        sym = s_info["symbol"]
+        info_d = get_stock_fundamentals(sym)
+        if info_d:
+            semi_metrics_list.append({
+                "Symbol": sym,
+                "Name": s_info["name"],
+                "Role": s_info["role"],
+                "MarketCap": info_d.get("marketCap", 0),
+                "PE_TTM": info_d.get("trailingPE", np.nan),
+                "PS_TTM": info_d.get("priceToSalesTrailing12Months", np.nan),
+                "GrossMargin": info_d.get("grossMargins", np.nan),
+                "Revenue": info_d.get("totalRevenue", 0)
+            })
+
+    if semi_metrics_list:
+        df_semi_metrics = pd.DataFrame(semi_metrics_list)
+        st.markdown("##### 📋 半导体产业链关键龙头核心量化指标跟踪表")
         st.dataframe(
-            df_semi_matrix.style.format({
-                "Price ($)": "${:.2f}",
-                "Trailing PE": "{:.1f}",
-                "Forward PE": "{:.1f}",
-                "P/S (TTM)": "{:.2f}",
-                "YoY Rev Growth (%)": "{:.1f}%",
-                "Gross Margin (%)": "{:.1f}%",
-                "Operating Margin (%)": "{:.1f}%",
-                "FCF Yield (%)": "{:.2f}%",
-                "Market Cap ($B)": "${:.1f}B"
+            df_semi_metrics[[
+                "Symbol", "Name", "Role", "MarketCap", "PE_TTM", "PS_TTM", "GrossMargin"
+            ]].style.format({
+                "MarketCap": lambda x: f"${x/1e9:,.1f} B" if pd.notna(x) and x > 0 else "N/A",
+                "PE_TTM": lambda x: f"{x:.1f}x" if pd.notna(x) else "N/A",
+                "PS_TTM": lambda x: f"{x:.2f}x" if pd.notna(x) else "N/A",
+                "GrossMargin": lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A"
             }),
-            use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            use_container_width=True
         )
-    else:
-        st.info("正在加载半导体矩阵比选数据...")
 
-    st.markdown("---")
-
-    # 3. 半导体投研框架深度解析
-    with st.expander("📖 查看《半导体产业周期、制程节点与 WFE 资本开支》投研分析指南", expanded=False):
-        st.markdown("""
-        ### 一、 半导体产业四大周期演进规律
-
-        #### 1. 硅周期的四大阶段 (The Silicon Cycle)
-        * **衰退出清期 (Downturn)**：下游消费电子/PC/手机需求萎缩，晶圆厂去库存降稼动率，存储芯片价格暴跌（如 2022H2–2023H1）。
-        * **周期筑底期 (Bottoming)**：原厂主动削减资本开支 (Capex Cut) 与减产，渠道库存回归健康水位，现货价格企稳。
-        * **复苏扩张期 (Expansion)**：新一轮科技创新周期（如 GenAI / 数据中心算力激增）拉动先进制程与 HBM 高价值量芯片需求，量价齐升。
-        * **繁荣过热期 (Peak/Overheating)**：全产业链产能供不应求，原厂激进扩产，交期大幅拉长；需警惕双重下单 (Double Booking) 后的需求高位回落。
-
-        #### 2. 先进制程与设备前置指标 (WFE Capex as Leading Indicator)
-        * **光刻与薄膜沉积设备 (ASML / AMAT / LRCX / KLAC)**：设备订单与出货通常**领先晶圆代工厂量产 6–12 个月**。
-        * **台积电资本开支 (TSMC Capex)**：全球半导体景气度的绝对风向标，其中先进制程 (2nm/3nm) 与 CoWoS 先进封装产能分配直接决定 AI 算力供给上限。
-
-        #### 3. 存储芯片高弹性杠杆 (DRAM / NAND & HBM Supercycle)
-        * **存储芯片 (Micron / Samsung / SK Hynix)** 属于典型的大宗重资产周期品。在下行期由于固定资产折旧产生巨额亏损，但在景气上行期具备极强 EPS 盈利爆发弹性。
-        * **HBM (高带宽内存)** 占用了大量 DRAM 晶圆晶片面积，对传统 DDR5 产生产能挤占效应，支撑整体存储价格中枢结构性上移。
-
-        #### 4. 定制化芯片 ASIC vs 通用 GPU 架构博弈
-        * **通用 GPU (NVDA / AMD)**：凭借 CUDA 生态与最高灵活性垄断大模型前沿训练与复杂推理。
-        * **定制 ASIC (AVGO / MRVL)**：云厂商 (CSP) 为降低单 Token 成本自研推理芯片（如 Google TPU, AWS Trainium/Inferentia, Meta MTIA），博通作为芯片物理设计与 SerDes IP 独家合作伙伴长期受益。
-        """)
 
 # ==================================================================
-# TAB 4: 个股深度与基本面剖析 (Company Profile & Financials)
+# TAB 4: 公司概览与财报全景 (Company Profile & Financials)
 # ==================================================================
 with tab_company:
     try:
