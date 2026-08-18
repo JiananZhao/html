@@ -782,9 +782,19 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", perio
 # ------------------------------------------------------------------
 # 17. PE / PS Band 动态估值通道图表
 # ------------------------------------------------------------------
-def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: float = None, current_rev_per_share: float = None, timeframe: str = "3Y"):
+def create_pe_ps_band_chart(
+    df_stock: pd.DataFrame, 
+    symbol: str, 
+    current_eps: float = None, 
+    current_rev_per_share: float = None, 
+    timeframe: str = "3Y"
+):
+    """
+    绘制个股历史股价与动态 PE / PS 估值带叠加走势图
+    """
     if df_stock is None or df_stock.empty or 'Close' not in df_stock.columns:
         return None
+
     df = df_stock.copy()
     if 'Date' not in df.columns:
         if isinstance(df.index, pd.DatetimeIndex):
@@ -792,13 +802,43 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
             df.rename(columns={'index': 'Date'}, inplace=True)
         elif 'date' in df.columns:
             df.rename(columns={'date': 'Date'}, inplace=True)
+
     df['Date'] = pd.to_datetime(df['Date'])
     df = filter_by_timeframe(df, 'Date', timeframe)
     if df.empty:
         return None
 
+    # 判断当前是 PS 模式还是 PE 模式
+    is_ps_mode = (current_rev_per_share is not None and current_rev_per_share > 0)
+    is_pe_mode = (current_eps is not None and current_eps > 0)
+
+    if not is_pe_mode and not is_ps_mode:
+        return None
+
+    val_type = "PS" if is_ps_mode else "PE"
+    base_metric = current_rev_per_share if is_ps_mode else current_eps
+    
+    # 估值通道倍数梯队：PS 模式使用 (4x, 8x, 12x, 16x, 22x)，PE 模式使用 (20x, 30x, 45x, 60x, 80x)
+    multiples = [4, 8, 12, 16, 22] if is_ps_mode else [20, 30, 45, 60, 80]
+    colors = ['#94a3b8', '#60a5fa', '#3b82f6', '#f59e0b', '#ef4444']
+
     fig = go.Figure()
 
+    # 1. 绘制 5 条动态估值通道虚线
+    for mult, color in zip(multiples, colors):
+        band_price = base_metric * mult
+        fig.add_trace(
+            go.Scatter(
+                x=df['Date'],
+                y=[band_price] * len(df),
+                mode='lines',
+                name=f"{val_type} {mult}x (${band_price:.1f})",
+                line=dict(color=color, dash='dash', width=1.2),
+                hoverinfo='skip'
+            )
+        )
+
+    # 2. 绘制真实股价
     fig.add_trace(
         go.Scatter(
             x=df['Date'],
@@ -810,29 +850,14 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
         )
     )
 
-    if current_eps and current_eps > 0:
-        pe_multiples = [20, 30, 45, 60, 80]
-        colors = ['#94a3b8', '#60a5fa', '#3b82f6', '#f59e0b', '#ef4444']
-        for mult, color in zip(pe_multiples, colors):
-            band_price = df['Close'].copy()
-            fig.add_trace(
-                go.Scatter(
-                    x=df['Date'],
-                    y=[current_eps * mult] * len(df),
-                    mode='lines',
-                    name=f"PE {mult}x (${current_eps * mult:.1f})",
-                    line=dict(color=color, dash='dash', width=1.2),
-                    hoverinfo='skip'
-                )
-            )
-
+    # 3. 动态更新图表标题与布局
     fig.update_layout(
-        title=f"{symbol} PE 动态估值通道 (PE Band) - [{timeframe}]",
+        title=f"{symbol} {val_type} 动态估值通道 ({val_type} Band) - [{timeframe}]",
         template="plotly_white",
         height=500,
         hovermode="x unified",
         yaxis_title="价格 ($ USD)",
-        uirevision=f"pe_band_{symbol}_{timeframe}"
+        uirevision=f"{val_type.lower()}_band_{symbol}_{timeframe}"
     )
     return fig
 
