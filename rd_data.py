@@ -1116,9 +1116,8 @@ with tab_stock:
                         fig_band = create_pe_ps_band_chart(
                             stock_df,
                             symbol=ticker_to_analyze,
-                            current_eps=val_metric_val,
-                            current_pe=val_multiple_val,
-                            valuation_type=val_type_code,
+                            current_eps=val_metric_val if is_pe_mode else None,
+                            current_rev_per_share=val_metric_val if not is_pe_mode else None,
                             timeframe=band_tf
                         )
                         if fig_band:
