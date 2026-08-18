@@ -1,9 +1,7 @@
 import os
 import sys
 import datetime
-import json
-import urllib.request
-import re
+import importlib
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -54,9 +52,8 @@ from visualization import (
     create_sahm_rule_chart,
     create_core_capex_chart,
     create_m2_money_supply_chart,
-    create_sloos_credit_chart
+    create_sloos_credit_chart,
 )
-
 
 # ------------------------------------------------------------------
 # 页面基础配置 (宽屏沉浸式布局)
@@ -67,40 +64,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# 自定义 CSS 优化看板视觉层次
-st.markdown("""
-<style>
-    .reportview-container {
-        margin-top: -2em;
-    }
-    .metric-container {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px;
-        background-color: #f8fafc;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        white-space: pre-wrap;
-        background-color: #f1f5f9;
-        border-radius: 6px 6px 0px 0px;
-        gap: 6px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #e2e8f0;
-        font-weight: 600;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 
 # ------------------------------------------------------------------
 # 辅助函数：严格转换为美东时间 (EDT)
@@ -128,39 +91,235 @@ def get_file_updated_time_eastern(filepath: str):
 
 
 # ------------------------------------------------------------------
-# 缓存数据加载层 (FRED 宏观指标与全量 CSV 数据)
+# FRED 宏观经济数据自动抓取与解析引擎 (支持 API Key 与公共 CSV 双通道高可用)
 # ------------------------------------------------------------------
-@st.cache_data(ttl=60 * 60 * 2)
-def load_all_macro_datasets():
+@st.cache_data(ttl=60 * 60 * 6)
+def _fetch_fred_series_observations(series_id: str, value_col: str, observation_start: str = "2000-01-01"):
     """
-    加载由 GitHub Actions 每日自动抓取更新的宏观经济高频与领先指标数据集
+    通用 FRED 序列获取器：优先使用 Streamlit Secrets 中的 FRED API Key，若无则自动降级到公共 FRED CSV 接口
     """
-    datasets = {}
-    csv_files = {
-        "treasury": "daily-treasury-rates.csv",
-        "market_breadth": "market_breadth.csv"
+    import urllib.request
+    
+    fred_api_key = None
+    try:
+        if hasattr(st, "secrets") and "FRED_API_KEY" in st.secrets:
+            fred_api_key = st.secrets["FRED_API_KEY"]
+    except Exception:
+        pass
+
+    # 1. 尝试使用 FRED API
+    if fred_api_key:
+        try:
+            import requests
+            url = "https://api.stlouisfed.org/fred/series/observations"
+            params = {
+                "series_id": series_id,
+                "api_key": fred_api_key,
+                "file_type": "json",
+                "observation_start": observation_start,
+                "sort_order": "asc",
+            }
+            response = requests.get(url, params=params, timeout=15)
+            if response.status_code == 200:
+                data = response.json().get("observations", [])
+                if data:
+                    df = pd.DataFrame(data)
+                    df = df[df["value"] != "."].copy()
+                    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                    df[value_col] = pd.to_numeric(df["value"], errors="coerce")
+                    df = df.dropna(subset=["date", value_col])
+                    return df[["date", value_col]].reset_index(drop=True)
+        except Exception as e:
+            print(f"FRED API fetch error for {series_id}: {e}")
+
+    # 2. 降级到公共 FRED CSV 接口
+    try:
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            df = pd.read_csv(resp)
+            if not df.empty and len(df.columns) >= 2:
+                df.columns = ["date", value_col]
+                df["date"] = pd.to_datetime(df["date"], errors="coerce")
+                df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
+                df = df.dropna(subset=["date", value_col])
+                if observation_start:
+                    df = df[df["date"] >= pd.to_datetime(observation_start)]
+                return df.reset_index(drop=True)
+    except Exception as e:
+        print(f"Fallback CSV fetch error for {series_id}: {e}")
+
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_vix_data():
+    """获取 CBOE VIX 恐慌指数数据 (VIXCLS)"""
+    return _fetch_fred_series_observations("VIXCLS", "VIX", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_cnn_fear_and_greed_data():
+    """获取 CNN 恐慌与贪婪指数 (CNN Fear & Greed Index) 实时与历史数据"""
+    url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://www.cnn.com/markets/fear-and-greed"
     }
+    try:
+        import requests
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            score = data.get("fear_and_greed", {}).get("score", 50.0)
+            rating = data.get("fear_and_greed", {}).get("rating", "Neutral")
+            hist = data.get("fear_and_greed_historical", {}).get("data", [])
+            df_hist = pd.DataFrame(hist)
+            if not df_hist.empty and "x" in df_hist.columns and "y" in df_hist.columns:
+                df_hist["date"] = pd.to_datetime(df_hist["x"], unit="ms")
+                df_hist["score"] = df_hist["y"]
+                return score, rating, df_hist[["date", "score"]]
+            return score, rating, pd.DataFrame()
+    except Exception as e:
+        print(f"CNN Fear & Greed fetch error: {e}")
+    return 50.0, "Neutral", pd.DataFrame()
 
-    for key, fname in csv_files.items():
-        if os.path.exists(fname):
-            try:
-                df = pd.read_csv(fname)
-                if not df.empty:
-                    # 标准化日期列
-                    date_col = 'Date' if 'Date' in df.columns else ('date' if 'date' in df.columns else df.columns[0])
-                    df['Date'] = pd.to_datetime(df[date_col])
-                    datasets[key] = df
-            except Exception as e:
-                print(f"Error loading {fname}: {e}")
 
-    return datasets
+@st.cache_data(ttl=60 * 60 * 6)
+def get_credit_spread_data():
+    """获取美联储 BAML 高收益债期权调整利差 (BAMLH0A0HYM2)"""
+    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Credit_Spread", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_unemployment_data():
+    """获取美国失业率数据 (UNRATE)"""
+    return _fetch_fred_series_observations("UNRATE", "Unemployment_Rate", "1990-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_fed_balance_sheet_data():
+    """获取美联储资产负债表总规模 (WALCL)"""
+    return _fetch_fred_series_observations("WALCL", "Total_Assets", "2002-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_gold_oil_ratio_data():
+    """计算金油比走势：伦敦金定盘价 (GOLDAMGBD228NLBM) / WTI 原油期货结算价 (DCOILWTICO)"""
+    df_gold = _fetch_fred_series_observations("GOLDAMGBD228NLBM", "Gold", "2000-01-01")
+    df_oil = _fetch_fred_series_observations("DCOILWTICO", "Oil", "2000-01-01")
+    if not df_gold.empty and not df_oil.empty:
+        df_merged = pd.merge(df_gold, df_oil, on="date", how="inner").dropna()
+        df_merged = df_merged[df_merged["Oil"] > 0].copy()
+        df_merged["Ratio"] = df_merged["Gold"] / df_merged["Oil"]
+        return df_merged[["date", "Ratio"]]
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_real_yield_and_breakeven_data():
+    """获取 10Y TIPS 实际利率 (DFII10) 与 10Y 平衡通胀率 (T10YIE)"""
+    df_dfii10 = _fetch_fred_series_observations("DFII10", "DFII10", "2003-01-01")
+    df_t10yie = _fetch_fred_series_observations("T10YIE", "T10YIE", "2003-01-01")
+    if not df_dfii10.empty and not df_t10yie.empty:
+        return pd.merge(df_dfii10, df_t10yie, on="date", how="outer").sort_values("date").dropna(how="all", subset=["DFII10", "T10YIE"])
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_nfci_data():
+    """获取芝加哥联储全国金融状况指数 (NFCI)"""
+    return _fetch_fred_series_observations("NFCI", "NFCI", "1990-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_net_liquidity_data():
+    """
+    计算美联储宏观真实净流动性：
+    Net Liquidity = WALCL (美联储总资产) - WTREGEN (财政部一般账户 TGA) - RRPONTSYD (隔夜逆回购 RRP)
+    """
+    df_walcl = _fetch_fred_series_observations("WALCL", "WALCL", "2015-01-01")
+    df_tga = _fetch_fred_series_observations("WTREGEN", "TGA", "2015-01-01")
+    df_rrp = _fetch_fred_series_observations("RRPONTSYD", "RRP", "2015-01-01")
+
+    if not df_walcl.empty and not df_tga.empty and not df_rrp.empty:
+        df_merged = pd.merge(df_walcl, df_tga, on="date", how="outer")
+        df_merged = pd.merge(df_merged, df_rrp, on="date", how="outer").sort_values("date")
+        df_merged = df_merged.ffill().dropna()
+        df_merged["Net_Liquidity"] = df_merged["WALCL"] - df_merged["TGA"] - df_merged["RRP"]
+        return df_merged[["date", "Net_Liquidity"]]
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_sofr_iorb_data():
+    """计算 SOFR 与准备金利率 (IORB) 资金面摩擦利差"""
+    df_sofr = _fetch_fred_series_observations("SOFR", "SOFR", "2018-01-01")
+    df_iorb = _fetch_fred_series_observations("IORB", "IORB", "2018-01-01")
+    if not df_sofr.empty and not df_iorb.empty:
+        df_merged = pd.merge(df_sofr, df_iorb, on="date", how="inner").dropna()
+        df_merged["Spread_bps"] = (df_merged["SOFR"] - df_merged["IORB"]) * 100
+        return df_merged[["date", "Spread_bps"]]
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_jobless_claims_data():
+    """获取美国周度初请失业金 4周移动均线 (IC4WSA)"""
+    return _fetch_fred_series_observations("IC4WSA", "Claims_4W", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_dxy_data():
+    """获取美元指数 (DTWEXBGS)"""
+    return _fetch_fred_series_observations("DTWEXBGS", "DXY", "2006-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_inflation_and_wages_data():
+    """获取核心 PCE 同比增速 (PCEPILFE) 与非农平均时薪同比增速 (CES0500000003)"""
+    df_pce = _fetch_fred_series_observations("PCEPILFE", "PCE_Index", "2010-01-01")
+    df_wages = _fetch_fred_series_observations("CES0500000003", "Wage_Rate", "2010-01-01")
+    
+    if not df_pce.empty and not df_wages.empty:
+        df_pce["PCE"] = df_pce["PCE_Index"].pct_change(12) * 100
+        df_wages["Wages"] = df_wages["Wage_Rate"].pct_change(12) * 100
+        df_merged = pd.merge(df_pce[["date", "PCE"]], df_wages[["date", "Wages"]], on="date", how="outer").sort_values("date").dropna(how="all", subset=["PCE", "Wages"])
+        return df_merged
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_sahm_rule_data():
+    """获取萨姆法则实时经济衰退预警指标 (SAHMREALTIME)"""
+    return _fetch_fred_series_observations("SAHMREALTIME", "SAHM", "1970-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_core_capex_data():
+    """获取非国防不含飞机核心资本品新订单数据 (NEWORDER)"""
+    return _fetch_fred_series_observations("NEWORDER", "Orders", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_m2_money_supply_data():
+    """获取美联储广义货币供应量 M2 同比走势 (M2SL)"""
+    df_m2 = _fetch_fred_series_observations("M2SL", "M2", "1990-01-01")
+    if not df_m2.empty:
+        df_m2["M2_YoY"] = df_m2["M2"].pct_change(12) * 100
+        return df_m2[["date", "M2_YoY"]].dropna()
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_sloos_credit_data():
+    """获取美联储高级信贷官调查 (SLOOS) 银行大中型企业贷款标准净收紧比例 (DRTSCILM)"""
+    return _fetch_fred_series_observations("DRTSCILM", "Tightening_Pct", "1990-01-01")
 
 
 @st.cache_data(ttl=60 * 60 * 4)
 def get_stock_historical_data(symbol: str, period: str = "5y"):
-    """
-    通过 yfinance 获取个股与 ETF 历史量价数据
-    """
+    """通过 yfinance 获取个股与 ETF 历史量价数据"""
     clean_sym = symbol.strip().upper()
     try:
         import yfinance as yf
@@ -173,15 +332,12 @@ def get_stock_historical_data(symbol: str, period: str = "5y"):
             return df_hist
     except Exception as e:
         print(f"Error fetching historical data for {clean_sym}: {e}")
-
     return pd.DataFrame()
 
 
 @st.cache_data(ttl=60 * 60 * 4)
 def get_stock_fundamentals(symbol: str):
-    """
-    通过 yfinance 获取个股基本面、估值倍数与财务质量指标
-    """
+    """通过 yfinance 获取个股基本面、估值倍数与财务质量指标"""
     clean_sym = symbol.strip().upper()
     try:
         import yfinance as yf
@@ -191,15 +347,12 @@ def get_stock_fundamentals(symbol: str):
             return info
     except Exception as e:
         print(f"Error fetching info for {clean_sym}: {e}")
-
     return {}
 
 
 @st.cache_data(ttl=60 * 60)
 def get_stock_financial_statements(symbol: str):
-    """
-    通过 yfinance 获取个股的季度与年度三大财务报表核心数据
-    """
+    """通过 yfinance 获取个股的季度与年度三大财务报表核心数据"""
     clean_sym = symbol.strip().upper()
     try:
         import yfinance as yf
@@ -237,9 +390,6 @@ def get_stock_financial_statements(symbol: str):
         return {}
 
 
-# ------------------------------------------------------------------
-# DCF 反向估值计算核心算法 (Reverse DCF Model)
-# ------------------------------------------------------------------
 def calculate_reverse_dcf(
     current_price: float,
     shares_out: float,
@@ -250,16 +400,13 @@ def calculate_reverse_dcf(
     total_cash: float = 0.0,
     total_debt: float = 0.0
 ):
-    """
-    反向 DCF 核心引擎：根据当前股价与市值反推市场当前所隐含的未来复合自由现金流增速 (Implied CAGR)
-    """
+    """反向 DCF 核心引擎：根据当前股价与市值反推市场当前所隐含的未来复合自由现金流增速 (Implied CAGR)"""
     if current_price <= 0 or shares_out <= 0 or base_fcf <= 0 or wacc <= g:
         return None
 
     market_cap = current_price * shares_out
     target_ev = market_cap + total_debt - total_cash
 
-    # 目标函数：寻找折现净现值与当前 EV 相等的复合增速 cagr
     def pv_diff(cagr):
         pv_fcf = 0.0
         projected_fcf = base_fcf
@@ -271,7 +418,6 @@ def calculate_reverse_dcf(
         pv_terminal = terminal_val / ((1.0 + wacc) ** years)
         return (pv_fcf + pv_terminal) - target_ev
 
-    # 二分法数值求解
     low, high = -0.50, 2.00
     implied_cagr = np.nan
     for _ in range(100):
@@ -287,7 +433,6 @@ def calculate_reverse_dcf(
     else:
         implied_cagr = mid
 
-    # 生成敏感性分析矩阵 (Sensitivity Matrix: WACC vs CAGR 对公允股价的影响)
     wacc_range = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02]
     cagr_range = [implied_cagr - 0.05, implied_cagr - 0.02, implied_cagr, implied_cagr + 0.02, implied_cagr + 0.05]
     
@@ -321,9 +466,6 @@ def calculate_reverse_dcf(
     }
 
 
-# ------------------------------------------------------------------
-# 半导体核心资产池与代表性配置
-# ------------------------------------------------------------------
 SEMI_BASKET = [
     {"symbol": "SOXX", "name": "费城半导体 ETF (SOXX)", "role": "行业市值基准 ETF"},
     {"symbol": "NVDA", "name": "英伟达 (NVIDIA)", "role": "AI 算力 GPU / 数据中心龙头"},
@@ -453,7 +595,6 @@ with tab_stock:
     st.header("🔍 个股深度量化与多因子估值追踪")
     st.caption(f"🕒 实时数据抓取 (美东时间): **{current_et_str}** | 整合量价趋势、PE Band 估值带、反向 DCF 增长率反推与财报全景")
 
-    # 标的选择栏
     stock_col1, stock_col2, stock_col3, stock_col4 = st.columns([2, 2, 2, 2])
 
     popular_tickers = [
@@ -495,7 +636,6 @@ with tab_stock:
 
         st.subheader(f"🏢 {comp_name} ({ticker_to_analyze}) — {sector} | {industry}")
         
-        # 1. 核心价格与估值 KPI 卡片
         kpi_r1_1, kpi_r1_2, kpi_r1_3, kpi_r1_4 = st.columns(4)
         
         if cur_price is not None:
@@ -514,7 +654,6 @@ with tab_stock:
         fwd_pe = stock_info.get("forwardPE")
         kpi_r1_4.metric("远期市盈率 (Forward PE)", f"{fwd_pe:.1f}x" if fwd_pe else "N/A")
 
-        # 第二排核心指标
         kpi_r2_1, kpi_r2_2, kpi_r2_3, kpi_r2_4 = st.columns(4)
         ps_ttm = stock_info.get("priceToSalesTrailing12Months")
         kpi_r2_1.metric("市销率 (PS TTM)", f"{ps_ttm:.2f}x" if ps_ttm else "N/A")
@@ -528,7 +667,6 @@ with tab_stock:
         beta = stock_info.get("beta")
         kpi_r2_4.metric("Beta 系数 (波动率)", f"{beta:.2f}" if beta is not None else "N/A")
 
-    # 3. 交互式 K 线与均线副图
     if df_stock_hist is not None and not df_stock_hist.empty:
         fig_stock = create_stock_price_chart(
             df_stock_hist,
@@ -541,9 +679,6 @@ with tab_stock:
     else:
         st.warning(f"未能获取 {ticker_to_analyze} 的历史价格图表数据。")
 
-    # ==================================================================
-    # 4. 扩展模块一：历史估值分位与 PE / PS Band (估值带走势)
-    # ==================================================================
     st.markdown("---")
     st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
     st.caption("叠加历史动态估值倍数通道，评估当前股价处于历史估值的折溢价状态与合理中枢")
@@ -579,9 +714,6 @@ with tab_stock:
         else:
             st.info("估值带图表数据加载中。")
 
-    # ==================================================================
-    # 5. 扩展模块二：反向 DCF 估值测算器 (Reverse DCF & Implied Growth)
-    # ==================================================================
     st.markdown("---")
     st.subheader("🎯 反向 DCF 估值测算器 (Reverse DCF & Implied Growth)")
     st.caption("基于自由现金流折现模型，根据当前股价反推市场隐含的未来 5–10 年 FCF 复合年增长率 (Implied CAGR)")
@@ -650,9 +782,6 @@ with tab_stock:
         else:
             st.info("反向 DCF 测算需要基准自由现金流为正值且折现率大于永续增长率。")
 
-    # ==================================================================
-    # 6. 扩展模块三：技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)
-    # ==================================================================
     st.markdown("---")
     st.subheader("⚡ 技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)")
     st.caption("综合跟踪 14 日强弱动量 RSI、MACD 趋势金叉/死叉与 200MA 均线乖离率 (Bias %)")
@@ -676,8 +805,6 @@ with tab_stock:
         macd_s = e12 - e26
         sig_s = macd_s.ewm(span=9, adjust=False).mean()
         hist_s = macd_s - sig_s
-        latest_macd = macd_s.iloc[-1]
-        latest_sig = sig_s.iloc[-1]
 
         t_c1, t_c2, t_c3 = st.columns(3)
         t_c1.metric(
@@ -724,7 +851,6 @@ with tab_semi:
     st.header("⚡ 芯片半导体产业链深度追踪")
     st.caption(f"🕒 实时数据更新 (美东时间): **{current_et_str}** | 覆盖算力、晶圆代工、光刻设备、存储与模拟芯片全产业链")
 
-    # 1. 行业基准与核心标的相对收益对比
     st.subheader("📈 半导体龙头多股累计收益率对比 (Relative Performance)")
 
     semi_symbols_all = [item["symbol"] for item in SEMI_BASKET]
@@ -760,7 +886,6 @@ with tab_semi:
 
     st.markdown("---")
 
-    # 2. 半导体产业链估值与成长性散点透视图
     st.subheader("🎯 半导体全产业链市值 vs PS / PE 估值气泡透视图")
     st.caption("横轴为市值规模，纵轴为滚动估值倍数，气泡大小对应营收规模")
 
