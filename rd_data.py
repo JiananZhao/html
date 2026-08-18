@@ -1074,29 +1074,59 @@ with tab_stock:
             st.markdown("---")
 
             # 3. 动态 PE / PS 估值通道 (PE / PS Band)
-            st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
-            col_band_ctrl1, col_band_ctrl2 = st.columns([3, 5])
-            with col_band_ctrl1:
-                val_type_code = st.radio("选择通道基准估值模型:", ["PE Band (基于 TTM EPS)", "PS Band (基于 TTM 每股营收)"], horizontal=True)
+            # ==================================================================
+    # 4. 扩展模块一：历史估值分位与 PE / PS Band (估值通道透视)
+    # ==================================================================
+    st.markdown("---")
+    st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
+    st.caption("叠加历史动态估值倍数通道，评估当前股价处于历史估值的折溢价状态与合理中枢")
 
-            rev_per_sh = (stock_info.get("totalRevenue", np.nan) / shares_out) if (pd.notna(shares_out) and shares_out > 0 and pd.notna(stock_info.get("totalRevenue", np.nan))) else np.nan
-            
-            fig_pe_band = create_pe_ps_band_chart(
-                stock_df,
-                ticker_to_analyze,
-                current_eps=eps_ttm if "PE" in val_type_code else None,
-                current_rev_per_share=rev_per_sh if "PS" in val_type_code else None,
-                timeframe=stock_tf
-            )
-            if fig_pe_band:
-                st.plotly_chart(fig_pe_band, use_container_width=True)
-                with st.expander(f"💡 {val_type_code} 估值通道投资解读", expanded=False):
-                    st.markdown("""
-                    * **估值通道含义**：将股价与固定倍数乘数线并列绘制，直观展现股价究竟是由**底层盈利/营收驱动**，还是由**纯粹估值倍数扩张/收缩**驱动。
-                    * **通道上下轨策略**：当股价触及历史估值通道上轨且缺乏业绩超预期上修时往往面临估值顶；跌破下轨且基本面护城河稳固时呈现非对称左侧赔率。
-                    """)
+    val_col1, val_col2 = st.columns()
+    with val_col2:
+        val_type_choice = st.radio("选择通道基准估值模型:", ["PE Band (基于 TTM EPS)", "PS Band (基于 TTM 每股营收)"], index=0)
+        is_pe_mode = "PE" in val_type_choice
+        val_type_code = "PE" if is_pe_mode else "PS"
+        band_tf = st.selectbox("估值带时间跨度:", ["1Y", "3Y", "5Y", "ALL"], index=1, key="band_timeframe")
 
-            st.markdown("---")
+    with val_col1:
+        cur_p = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice") or stock_info.get("previousClose") or 100.0
+        cur_pe_val = stock_info.get("trailingPE") if stock_info else None
+        cur_eps_val = stock_info.get("trailingEps") if stock_info else None
+        cur_ps_val = stock_info.get("priceToSalesTrailing12Months") if stock_info else None
+        
+        # 计算每股营收 SPS (Sales Per Share)
+        rev_raw = stock_info.get("totalRevenue") if stock_info else None
+        shs_out = stock_info.get("sharesOutstanding") if stock_info else None
+        cur_sps_val = (rev_raw / shs_out) if (rev_raw and shs_out and shs_out > 0) else ((cur_p / cur_ps_val) if (cur_p and cur_ps_val) else None)
+
+        # 检查是否满足绘图条件
+        if is_pe_mode and (not cur_eps_val or cur_eps_val <= 0):
+            st.warning(f"⚠️ **{ticker_to_analyze}** 当前滚动每股收益 (TTM EPS: ${cur_eps_val if cur_eps_val is not None else 'N/A'}) 为负或暂未实现盈利，无法绘制 PE 市盈率通道。请在右侧单选框切换至 **PS Band (基于 TTM 每股营收)** 评估其营收估值水位。")
+        else:
+            val_metric_val = cur_eps_val if is_pe_mode else cur_sps_val
+            val_multiple_val = cur_pe_val if is_pe_mode else cur_ps_val
+
+            if df_stock_hist is not None and not df_stock_hist.empty and val_metric_val and val_metric_val > 0:
+                fig_band = create_pe_ps_band_chart(
+                    df_stock_hist,
+                    symbol=ticker_to_analyze,
+                    current_eps=val_metric_val,
+                    current_pe=val_multiple_val,
+                    valuation_type=val_type_code,
+                    timeframe=band_tf
+                )
+                if fig_band:
+                    st.plotly_chart(fig_band, use_container_width=True)
+                    with st.expander(f"💡 {val_type_code} Band 估值通道投资解读", expanded=False):
+                        metric_name = "每股收益 (EPS)" if is_pe_mode else "每股营收 (SPS)"
+                        st.markdown(f"""
+                        * **估值通道逻辑**：以公司当前{metric_name}（${val_metric_val:.2f}）为基准，绘制 5 条历史代表性估值倍数通道（0.6x、0.8x、1.0x、1.25x、1.5x）。
+                        * **超买/超卖信号**：
+                          * 股价触及或突破顶轨（高估值通道）：表明市场给予极高预期溢价，情绪可能过热。
+                          * 股价回落至底轨（低估值通道）：通常对应基本面利空充分出清或悲观情绪超跌区间。
+                        """)
+            else:
+                st.info(f"未能获取 {ticker_to_analyze} 足够的估值数据用于绘制通道。")
 
             # 4. 反向 DCF 估值测算器 (Reverse DCF)
             st.subheader("🎯 反向 DCF 估值测算器 (Reverse DCF & Implied Growth)")
