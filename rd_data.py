@@ -55,6 +55,7 @@ from visualization import (
     create_sloos_credit_chart,
 )
 
+
 # ------------------------------------------------------------------
 # 页面基础配置 (宽屏沉浸式布局)
 # ------------------------------------------------------------------
@@ -64,6 +65,40 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 自定义 CSS 优化看板视觉层次
+st.markdown("""
+<style>
+    .reportview-container {
+        margin-top: -2em;
+    }
+    .metric-container {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background-color: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        white-space: pre-wrap;
+        background-color: #f1f5f9;
+        border-radius: 6px 6px 0px 0px;
+        gap: 6px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #e2e8f0;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ------------------------------------------------------------------
 # 辅助函数：严格转换为美东时间 (EDT)
@@ -107,7 +142,6 @@ def _fetch_fred_series_observations(series_id: str, value_col: str, observation_
     except Exception:
         pass
 
-    # 1. 尝试使用 FRED API
     if fred_api_key:
         try:
             import requests
@@ -132,7 +166,6 @@ def _fetch_fred_series_observations(series_id: str, value_col: str, observation_
         except Exception as e:
             print(f"FRED API fetch error for {series_id}: {e}")
 
-    # 2. 降级到公共 FRED CSV 接口
     try:
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
@@ -489,7 +522,7 @@ SEMI_BASKET = [
 st.title("🏛️ 美股与宏观经济深度量化决策终端")
 st.caption(f"🚀 系统构建状态: **实时连通** | 数据最后刷新: **{current_et_str}** | 引擎支持: **FRED 宏观高频数据库** & **yfinance 全息实时流**")
 
-# 顶级 Tab 导航栏
+# 核心 Tab 顶层容器
 tab_macro, tab_stock, tab_semi, tab_company = st.tabs([
     "🌐 宏观与市场总览 (Macro & Breadth)",
     "🔍 个股量化与估值追踪 (Stock Tracker)",
@@ -516,76 +549,227 @@ with tab_macro:
     treasury_csv = "daily-treasury-rates.csv"
     treasury_updated = get_file_updated_time_eastern(treasury_csv)
 
-    if os.path.exists(treasury_csv):
-        df_treasury_raw = pd.read_csv(treasury_csv)
-        if not df_treasury_raw.empty:
-            date_col = 'Date' if 'Date' in df_treasury_raw.columns else df_treasury_raw.columns[0]
-            df_treasury_raw['Date'] = pd.to_datetime(df_treasury_raw[date_col])
-            
-            fig_tr = create_treasury_chart(df_treasury_raw, timeframe=macro_tf, height=480)
-            if fig_tr:
-                st.plotly_chart(fig_tr, use_container_width=True)
+    with st.spinner("正在获取并转换国债收益率数据..."):
+        df_long = load_and_transform_data()
 
-            fig_spread = create_yield_spreads_chart(df_treasury_raw, timeframe=macro_tf, height=420)
-            if fig_spread:
-                st.plotly_chart(fig_spread, use_container_width=True)
+    if df_long is not None and not df_long.empty:
+        latest_date = df_long['Date'].max().strftime('%Y-%m-%d')
+        st.caption(f"🕒 数据刷新时间 (美东时间): **{treasury_updated}** | 最新数据交易日: **{latest_date}**")
 
+        fig_treasury = create_treasury_chart(df_long)
+        if fig_treasury:
+            st.plotly_chart(fig_treasury, use_container_width=True)
+            with st.expander("💡 美债收益率曲线 (Yield Curve) 解读指南", expanded=False):
+                st.markdown("""
+                * **形态演变比较**：对比最新曲线、1个月前及1年前曲线。
+                * **倒挂阶段 (Inversion, 2Y > 10Y)**：短端政策利率高企压低长端衰退预期，预示银行净息差受挤压与信用紧缩。
+                * **陡峭化阶段 (Steepening)**：
+                  * **牛陡 (Bull Steepening)**：降息周期开启，短端利率急跌，恢复正利差（通常伴随衰退后期的流动性修复）。
+                  * **熊陡 (Bear Steepening)**：长端利率飙升，由通胀中枢上移、美债供给冲击或期限溢价走高驱动。
+                """)
+        
+        st.sidebar.header("国债数据信息")
+        st.sidebar.markdown(f"刷新时间 (美东): **{treasury_updated}**")
+        st.sidebar.markdown(f"最新日期: **{latest_date}**")
+        st.sidebar.markdown(f"总数据点: **{len(df_long)//12}**")
+    else:
+        st.error("未能加载国债收益率数据。")
+
+    # --- 2. S&P 500 市场宽度广度 ---
     st.markdown("---")
-
-    # --- 2. 宏观领先与先行指标网格 ---
-    st.header("🌊 宏观高频体温计与先行指标系统")
-    
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        fig_sahm = create_sahm_rule_chart(timeframe=macro_tf, height=400)
-        if fig_sahm:
-            st.plotly_chart(fig_sahm, use_container_width=True)
-
-        fig_claims = create_jobless_claims_chart(timeframe=macro_tf, height=400)
-        if fig_claims:
-            st.plotly_chart(fig_claims, use_container_width=True)
-
-        fig_sloos = create_sloos_credit_chart(timeframe=macro_tf, height=400)
-        if fig_sloos:
-            st.plotly_chart(fig_sloos, use_container_width=True)
-
-        fig_m2 = create_m2_money_supply_chart(timeframe=macro_tf, height=400)
-        if fig_m2:
-            st.plotly_chart(fig_m2, use_container_width=True)
-
-    with col_m2:
-        fig_net_liq = create_net_liquidity_chart(timeframe=macro_tf, height=400)
-        if fig_net_liq:
-            st.plotly_chart(fig_net_liq, use_container_width=True)
-
-        fig_sofr = create_sofr_iorb_chart(timeframe=macro_tf, height=400)
-        if fig_sofr:
-            st.plotly_chart(fig_sofr, use_container_width=True)
-
-        fig_capex = create_core_capex_chart(timeframe=macro_tf, height=400)
-        if fig_capex:
-            st.plotly_chart(fig_capex, use_container_width=True)
-
-        fig_dxy = create_dxy_chart(timeframe=macro_tf, height=400)
-        if fig_dxy:
-            st.plotly_chart(fig_dxy, use_container_width=True)
-
-    st.markdown("---")
-
-    # --- 3. 市场广度与情绪指数 ---
-    st.header("📈 美股市场广度与投资者情绪监控")
     render_market_breadth_ui()
 
-    col_e1, col_e2 = st.columns(2)
-    with col_e1:
-        fig_top10 = create_top10_concentration_chart(height=420)
-        if fig_top10:
-            st.plotly_chart(fig_top10, use_container_width=True)
+    # --- 3. 市场情绪量化指标：CBOE VIX 恐慌指数 & CNN 恐慌与贪婪指数 ---
+    st.markdown("---")
+    st.header("📊 市场情绪量化指标 (VIX & CNN Fear/Greed Index)")
 
-    with col_e2:
-        fig_fg = create_cnn_fear_greed_chart(current_val=58.0, height=420)
+    e_col1, e_col2 = st.columns(2)
+
+    with e_col1:
+        st.subheader("CBOE VIX 恐慌指数")
+        df_vix = get_vix_data()
+        if not df_vix.empty:
+            latest_vix_date = pd.to_datetime(df_vix['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_vix_val = df_vix['VIX'].iloc[-1]
+            
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_vix_date}**")
+            
+            vc1, vc2 = st.columns(2)
+            vc1.metric("最新 VIX 指数", f"{latest_vix_val:.2f}", delta="情绪分界: 20.0", delta_color="inverse" if latest_vix_val > 20.0 else "normal")
+            vc2.metric("高恐慌警戒线", "30.00")
+
+            vix_y_range = None
+            if st.checkbox("手动自定义 VIX Y 轴范围", key="vix_manual_y"):
+                val_vix = df_vix['VIX']
+                v_min = float(val_vix.dropna().min())
+                v_max = float(val_vix.dropna().max())
+                vix_y_range = st.slider("VIX Y 轴范围", round(max(0.0, v_min - 5.0), 1), round(v_max + 10.0, 1), (round(v_min, 1), round(v_max, 1)), 0.5, key="vix_y_slider")
+
+            fig_vix = create_vix_chart(df_vix, y_range=vix_y_range, timeframe=macro_tf)
+            if fig_vix:
+                st.plotly_chart(fig_vix, use_container_width=True)
+                with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标含义**：芝加哥期权交易所 (CBOE) 波动率指数 (VIX)，反映市场对未来 30 天 S&P 500 年化波动率的预判。
+                    * **情绪分界 (20.0)**：
+                      * **VIX $< 15$**：低波动、高风险偏好阶段。
+                      * **$15 \\le \\text{VIX} < 20$**：常态合理波动区间。
+                      * **$\\text{VIX} \\ge 20$**：情绪焦虑升温，避险需求增加。
+                      * **$\\text{VIX} \\ge 30$**：高恐慌预警，对应急跌抛售或阶段性恐慌底探明。
+                    """)
+
+    with e_col2:
+        st.subheader("CNN 恐惧与贪婪指数")
+        fg_score, fg_rating, df_fg_hist = get_cnn_fear_and_greed_data()
+        
+        st.caption(f"🕒 实时情绪评分: **{fg_score:.1f} / 100** | 状态: **{fg_rating}**")
+        
+        fg_c1, fg_c2 = st.columns(2)
+        fg_c1.metric("当前情绪评级", f"{fg_rating}", delta=f"Score: {fg_score:.1f}")
+        fg_c2.metric("极度贪婪 / 极度恐惧", "75.0 / 25.0")
+
+        fig_fg = create_cnn_fear_greed_chart(current_score=fg_score, df_history=df_fg_hist, timeframe=macro_tf)
         if fig_fg:
             st.plotly_chart(fig_fg, use_container_width=True)
+            with st.expander("💡 CNN 恐惧与贪婪指数解读指南", expanded=False):
+                st.markdown("""
+                * **合成维度**：综合市场动量、股价强弱、股价广度、看跌看涨期权比率、垃圾债需求、市场波动率及避险资产需求 7 大维度。
+                * **区间划分**：
+                  * **$0 - 25$ (Extreme Fear)**：极度恐惧，市场处于恐慌性抛售，往往孕育中长期买点。
+                  * **$25 - 45$ (Fear)**：偏向悲观。
+                  * **$45 - 55$ (Neutral)**：中性震荡。
+                  * **$55 - 75$ (Greed)**：偏向乐观。
+                  * **$75 - 100$ (Extreme Greed)**：极度贪婪，市场情绪过热，警惕获利回吐与回调风险。
+                """)
+
+    # --- 4. 信用利差与宏观流动性监控 ---
+    st.markdown("---")
+    st.header("🌊 信用利差与宏观流动性监控 (Credit Spreads & Liquidity)")
+
+    l_col1, l_col2 = st.columns(2)
+
+    with l_col1:
+        st.subheader("高收益债信用利差 (BAML OAS)")
+        df_credit = get_credit_spread_data()
+        if not df_credit.empty:
+            latest_cs_date = pd.to_datetime(df_credit['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_cs_val = df_credit['Credit_Spread'].iloc[-1]
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_cs_date}**")
+            
+            cs1, cs2 = st.columns(2)
+            cs1.metric("当前利差 (OAS)", f"{latest_cs_val:.2f}%", delta="预警红线: 5.00%", delta_color="inverse" if latest_cs_val > 5.0 else "normal")
+            cs2.metric("违约扩张红线", "5.00%")
+
+            cs_y_range = None
+            if st.checkbox("手动自定义利差 Y 轴范围", key="cs_manual_y"):
+                val_cs = df_credit['Credit_Spread']
+                c_min = float(val_cs.dropna().min())
+                c_max = float(val_cs.dropna().max())
+                cs_y_range = st.slider("信用利差 Y 轴范围", round(max(0.0, c_min - 1.0), 1), round(c_max + 2.0, 1), (round(c_min, 1), round(c_max, 1)), 0.1, key="cs_y_slider")
+
+            fig_credit = create_credit_spread_chart(df_credit, y_range=cs_y_range, timeframe=macro_tf)
+            if fig_credit:
+                st.plotly_chart(fig_credit, use_container_width=True)
+                with st.expander("💡 高收益债信用利差解读指南", expanded=False):
+                    st.markdown("""
+                    * **经济意义**：高收益债券收益率与同期限无风险美债之间的利差。反映企业借贷违约风险溢价与信贷市场健康度。
+                    * **分界阈值**：
+                      * **利差 $< 3.5\%$**：信贷环境极度宽松，违约风险定价低，利好权益资产。
+                      * **$3.5\% - 5.0\%$**：常态健康区间。
+                      * **利差 $> 5.0\%$**：信用收缩预警，中小企业再融资压力剧增，通常伴随股市深幅回调。
+                    """)
+
+    with l_col2:
+        st.subheader("美联储资产负债表规模 (WALCL)")
+        df_fed = get_fed_balance_sheet_data()
+        if not df_fed.empty:
+            latest_fed_date = pd.to_datetime(df_fed['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_fed_val = df_fed['Total_Assets'].iloc[-1] / 1e6
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_fed_date}**")
+            
+            f1, f2 = st.columns(2)
+            f1.metric("美联储总资产规模", f"${latest_fed_val:,.2f} T", delta="QT 量化紧缩中" if latest_fed_val < 8.0 else "QE 扩张中")
+            f2.metric("疫情峰值参考", "$8.96 T")
+
+            fed_y_range = None
+            if st.checkbox("手动自定义美联储资产 Y 轴范围", key="fed_manual_y"):
+                val_fed = df_fed['Total_Assets'] / 1e6
+                f_min = float(val_fed.dropna().min())
+                f_max = float(val_fed.dropna().max())
+                fed_y_range = st.slider("美联储总资产 Y 轴范围 ($T)", round(max(0.0, f_min - 0.5), 1), round(f_max + 1.0, 1), (round(f_min, 1), round(f_max, 1)), 0.1, key="fed_y_slider")
+
+            fig_fed = create_fed_balance_sheet_chart(df_fed, y_range=fed_y_range, timeframe=macro_tf)
+            if fig_fed:
+                st.plotly_chart(fig_fed, use_container_width=True)
+                with st.expander("💡 美联储资产负债表规模解读指南", expanded=False):
+                    st.markdown("""
+                    * **基础逻辑**：美联储通过扩表 (QE) 注入基础货币，通过缩表 (QT) 回收银行体系流动性。
+                    * **与风险资产联动**：美联储资产负债表规模拐点通常领先美股估值倍数与科技股牛熊周期 2–3 个季度。
+                    """)
+
+    # --- 5. 宏观领先与先行指标网格 ---
+    st.markdown("---")
+    st.header("📊 宏观先行指标与流动性体温计 (Leading Indicators & Liquidity)")
+
+    g_col1, g_col2 = st.columns(2)
+
+    with g_col1:
+        st.subheader("萨姆法则实时衰退预警 (SAHM Rule)")
+        df_sahm = get_sahm_rule_data()
+        if not df_sahm.empty:
+            fig_sahm = create_sahm_rule_chart(df_sahm, timeframe=macro_tf)
+            if fig_sahm:
+                st.plotly_chart(fig_sahm, use_container_width=True)
+
+        st.subheader("周度初请失业金 4周移动均线 (IC4WSA)")
+        df_claims = get_jobless_claims_data()
+        if not df_claims.empty:
+            fig_claims = create_jobless_claims_chart(df_claims, timeframe=macro_tf)
+            if fig_claims:
+                st.plotly_chart(fig_claims, use_container_width=True)
+
+        st.subheader("银行信贷标准净收紧比例 (SLOOS)")
+        df_sloos = get_sloos_credit_data()
+        if not df_sloos.empty:
+            fig_sloos = create_sloos_credit_chart(df_sloos, timeframe=macro_tf)
+            if fig_sloos:
+                st.plotly_chart(fig_sloos, use_container_width=True)
+
+        st.subheader("广义货币供应量 M2 同比增速")
+        df_m2 = get_m2_money_supply_data()
+        if not df_m2.empty:
+            fig_m2 = create_m2_money_supply_chart(df_m2, timeframe=macro_tf)
+            if fig_m2:
+                st.plotly_chart(fig_m2, use_container_width=True)
+
+    with g_col2:
+        st.subheader("美联储宏观净流动性水龙头 (WALCL - TGA - RRP)")
+        df_net_liq = get_net_liquidity_data()
+        if not df_net_liq.empty:
+            fig_net_liq = create_net_liquidity_chart(df_net_liq, timeframe=macro_tf)
+            if fig_net_liq:
+                st.plotly_chart(fig_net_liq, use_container_width=True)
+
+        st.subheader("SOFR - IORB 银行间微观流动性利差")
+        df_sofr = get_sofr_iorb_data()
+        if not df_sofr.empty:
+            fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
+            if fig_sofr:
+                st.plotly_chart(fig_sofr, use_container_width=True)
+
+        st.subheader("核心资本品新订单 (Core CapEx / NEWORDER)")
+        df_capex = get_core_capex_data()
+        if not df_capex.empty:
+            fig_capex = create_core_capex_chart(df_capex, timeframe=macro_tf)
+            if fig_capex:
+                st.plotly_chart(fig_capex, use_container_width=True)
+
+        st.subheader("美元指数 (DXY) 全球流动性潮汐")
+        df_dxy = get_dxy_data()
+        if not df_dxy.empty:
+            fig_dxy = create_dxy_chart(df_dxy, timeframe=macro_tf)
+            if fig_dxy:
+                st.plotly_chart(fig_dxy, use_container_width=True)
 
 
 # ==================================================================
