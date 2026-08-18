@@ -1075,40 +1075,46 @@ with tab_stock:
 
             # 3. 动态 PE / PS 估值通道 (PE / PS Band)
             # ==================================================================
-            # 4. 扩展模块一：历史估值分位与 PE / PS Band (估值通道透视)
-            # ==================================================================
             st.markdown("---")
             st.subheader("📈 历史估值分位与 PE / PS Band (估值通道透视)")
             st.caption("叠加历史动态估值倍数通道，评估当前股价处于历史估值的折溢价状态与合理中枢")
-        
-            val_col1, val_col2 = st.columns()
+            
+            # 1. 修复：必须传入列宽比例或列数 [3, 1]
+            val_col1, val_col2 = st.columns([3, 1])
+            
             with val_col2:
-                val_type_choice = st.radio("选择通道基准估值模型:", ["PE Band (基于 TTM EPS)", "PS Band (基于 TTM 每股营收)"], index=0)
+                val_type_choice = st.radio(
+                    "选择通道基准估值模型:", 
+                    ["PE Band (基于 TTM EPS)", "PS Band (基于 TTM 每股营收)"], 
+                    index=0,
+                    key="pe_ps_val_mode_choice"
+                )
                 is_pe_mode = "PE" in val_type_choice
                 val_type_code = "PE" if is_pe_mode else "PS"
                 band_tf = st.selectbox("估值带时间跨度:", ["1Y", "3Y", "5Y", "ALL"], index=1, key="band_timeframe")
-        
+            
             with val_col1:
                 cur_p = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice") or stock_info.get("previousClose") or 100.0
                 cur_pe_val = stock_info.get("trailingPE") if stock_info else None
                 cur_eps_val = stock_info.get("trailingEps") if stock_info else None
                 cur_ps_val = stock_info.get("priceToSalesTrailing12Months") if stock_info else None
-                
+            
                 # 计算每股营收 SPS (Sales Per Share)
                 rev_raw = stock_info.get("totalRevenue") if stock_info else None
                 shs_out = stock_info.get("sharesOutstanding") if stock_info else None
                 cur_sps_val = (rev_raw / shs_out) if (rev_raw and shs_out and shs_out > 0) else ((cur_p / cur_ps_val) if (cur_p and cur_ps_val) else None)
-        
+            
                 # 检查是否满足绘图条件
                 if is_pe_mode and (not cur_eps_val or cur_eps_val <= 0):
                     st.warning(f"⚠️ **{ticker_to_analyze}** 当前滚动每股收益 (TTM EPS: ${cur_eps_val if cur_eps_val is not None else 'N/A'}) 为负或暂未实现盈利，无法绘制 PE 市盈率通道。请在右侧单选框切换至 **PS Band (基于 TTM 每股营收)** 评估其营收估值水位。")
                 else:
                     val_metric_val = cur_eps_val if is_pe_mode else cur_sps_val
                     val_multiple_val = cur_pe_val if is_pe_mode else cur_ps_val
-        
-                    if df_stock_hist is not None and not df_stock_hist.empty and val_metric_val and val_metric_val > 0:
+            
+                    # 2. 修复：使用当前作用域中的实际 DataFrame 变量 stock_df
+                    if stock_df is not None and not stock_df.empty and val_metric_val and val_metric_val > 0:
                         fig_band = create_pe_ps_band_chart(
-                            df_stock_hist,
+                            stock_df,
                             symbol=ticker_to_analyze,
                             current_eps=val_metric_val,
                             current_pe=val_multiple_val,
