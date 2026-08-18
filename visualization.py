@@ -819,8 +819,8 @@ def create_pe_ps_band_chart(
     base_metric = current_rev_per_share if is_ps_mode else current_eps
     
     # 估值通道倍数梯队：PS 模式使用 (4x, 8x, 12x, 16x, 22x)，PE 模式使用 (20x, 30x, 45x, 60x, 80x)
-    multiples = [4, 8, 12, 16, 22] if is_ps_mode else [20, 30, 45, 60, 80]
-    colors = ['#94a3b8', '#60a5fa', '#3b82f6', '#f59e0b', '#ef4444']
+    multiples = [1, 2, 4, 8, 16, 24, 32] if is_ps_mode else [5, 10, 20, 30, 45, 60, 80]
+    colors = ['#c300ff', '#0011ff', '#00fff2', '#00ff08', '#fbff00', '#ffb300', '#ff0000']
 
     fig = go.Figure()
 
