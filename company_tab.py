@@ -616,10 +616,8 @@ def render_company_deep_dive_tab():
     st.header("🏢 公司画像与深度财报拆解分析 (Company Deep Dive & Financials)")
     st.markdown("全方位剖析公司主营业务构成、核心高管阵列、治理结构、P&L 利润流向瀑布图、多期财务明细与实时新闻动态。")
 
-    # 快捷输入与自选池
-    quick_tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSM", "AVGO", "TEAM", "CELH", "MPT"]
-    
-    col_input, col_quick = st.columns([1.2, 2.8])
+    # 美股代码搜索输入框
+    col_input, _ = st.columns([1.5, 2.5])
     with col_input:
         default_sym = "NVDA"
         if "tab4_active_ticker" not in st.session_state:
@@ -631,16 +629,8 @@ def render_company_deep_dive_tab():
             key="tab4_ticker_text_input"
         ).strip().upper()
 
-        if input_ticker != st.session_state["tab4_active_ticker"]:
+        if input_ticker and input_ticker != st.session_state["tab4_active_ticker"]:
             st.session_state["tab4_active_ticker"] = input_ticker
-
-    with col_quick:
-        st.markdown("<span style='font-size:0.85rem;color:gray;'>快捷切换观察池:</span>", unsafe_allow_html=True)
-        quick_cols = st.columns(len(quick_tickers))
-        for idx, sym in enumerate(quick_tickers):
-            if quick_cols[idx].button(sym, key=f"quick_btn_{sym}", use_container_width=True):
-                st.session_state["tab4_active_ticker"] = sym
-                st.rerun()
 
     active_ticker = st.session_state.get("tab4_active_ticker", "NVDA")
 
