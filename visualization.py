@@ -5,16 +5,69 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 # ------------------------------------------------------------------
-# 1. 辅助函数：根据时间窗口过滤历史数据
+# 1. 核心国债收益率曲线图表 (U.S. Treasury Yield Curve Comparison)
+# ------------------------------------------------------------------
+def create_treasury_chart(df_long: pd.DataFrame):
+    if df_long is None or df_long.empty:
+        return None
+
+    df = df_long.copy()
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+        latest_date = df['Date'].max()
+    else:
+        return None
+
+    mat_col = 'Maturity_Years' if 'Maturity_Years' in df.columns else ('Maturity_Label' if 'Maturity_Label' in df.columns else 'Maturity')
+
+    date_1m = latest_date - pd.DateOffset(months=1)
+    date_1y = latest_date - pd.DateOffset(years=1)
+
+    available_dates = df['Date'].unique()
+    
+    def _find_nearest_date(target):
+        past_dates = [d for d in available_dates if d <= target]
+        return max(past_dates) if past_dates else min(available_dates)
+
+    target_dates = [
+        latest_date,
+        _find_nearest_date(date_1m),
+        _find_nearest_date(date_1y)
+    ]
+
+    df_filtered = df[df['Date'].isin(target_dates)].copy()
+    df_filtered['Date_Str'] = df_filtered['Date'].dt.strftime('%Y-%m-%d')
+
+    fig = px.line(
+        df_filtered,
+        x=mat_col,
+        y='Yield',
+        color='Date_Str',
+        title='U.S. Treasury Yield Curve Comparison',
+        labels={mat_col: '期限 (Maturity Years)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
+        template='plotly_white'
+    )
+
+    fig.update_traces(mode='lines+markers', marker=dict(size=6))
+    fig.update_layout(
+        height=500,
+        hovermode='x unified',
+        uirevision='treasury_yield_chart',
+        yaxis_title='收益率 (%)'
+    )
+    fig.update_yaxes(autorange=True, fixedrange=False)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 辅助函数：根据选定时间范围切片 DataFrame
 # ------------------------------------------------------------------
 def filter_by_timeframe(df: pd.DataFrame, date_col: str, timeframe: str = "ALL"):
     if df is None or df.empty or not timeframe or timeframe == "ALL":
         return df
 
-
     df_sorted = df.sort_values(date_col)
     last_date = df_sorted[date_col].max()
-
 
     tf_map = {
         "1M": pd.DateOffset(months=1),
@@ -26,11 +79,9 @@ def filter_by_timeframe(df: pd.DataFrame, date_col: str, timeframe: str = "ALL")
         "10Y": pd.DateOffset(years=10),
     }
 
-
     if timeframe in tf_map:
         start_date = last_date - tf_map[timeframe]
         return df_sorted[df_sorted[date_col] >= start_date].copy()
-
 
     return df
 
@@ -38,536 +89,452 @@ def filter_by_timeframe(df: pd.DataFrame, date_col: str, timeframe: str = "ALL")
 # ------------------------------------------------------------------
 # 2. 失业率趋势图表 (UNRATE)
 # ------------------------------------------------------------------
-def create_treasury_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 480):
-    """
-    绘制多期限美债收益率历史走势图表
-    """
-    if df is None or df.empty:
+def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_unrate is None or df_unrate.empty:
         return None
 
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
+    df = df_unrate.copy()
+    if 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'])
+        df = filter_by_timeframe(df, 'date', timeframe)
+        x_col = 'date'
+    elif 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = filter_by_timeframe(df, 'Date', timeframe)
+        x_col = 'Date'
+    else:
         return None
 
-    fig = go.Figure()
+    if df.empty:
+        return None
+
+    val_col = 'Unemployment_Rate' if 'Unemployment_Rate' in df.columns else ('value' if 'value' in df.columns else df.columns[1])
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'U.S. Unemployment Rate (UNRATE) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '失业率 (%)'},
+        template='plotly_white'
+    )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'unemp_chart_{timeframe}',
+        yaxis_title='失业率 (%)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 3. 高收益债信用利差走势图表 (Credit Spread)
+# ------------------------------------------------------------------
+def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
+
+    df = df_data.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'Credit_Spread' if 'Credit_Spread' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'U.S. High Yield Option-Adjusted Spread (BAML OAS) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '信用利差 (%)'},
+        template='plotly_white'
+    )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'credit_spread_{timeframe}',
+        yaxis_title='利差 (%)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 4. 美联储资产负债表总资产走势图表 (Fed Balance Sheet)
+# ------------------------------------------------------------------
+def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_fed is None or df_fed.empty:
+        return None
+
+    df = df_fed.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'Total_Assets' if 'Total_Assets' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
     
-    maturities = [
-        ('1M', '#94a3b8', 1.0, 'dot'),
-        ('3M', '#64748b', 1.0, 'dot'),
-        ('6M', '#475569', 1.0, 'dot'),
-        ('1Y', '#0284c7', 1.2, 'dash'),
-        ('2Y', '#2563eb', 2.0, 'solid'),
-        ('5Y', '#f59e0b', 1.2, 'dash'),
-        ('10Y', '#dc2626', 2.5, 'solid'),
-        ('20Y', '#9333ea', 1.2, 'dash'),
-        ('30Y', '#16a34a', 1.8, 'solid'),
-    ]
+    # 转换为万亿美元 ($ Trillion)
+    df['Total_Assets_Trillion'] = df[val_col] / 1e6 if df[val_col].max() > 1e5 else df[val_col]
 
-    for col, color, width, dash in maturities:
-        if col in df_filtered.columns:
-            fig.add_trace(go.Scatter(
-                x=df_filtered['Date'],
-                y=df_filtered[col],
-                mode='lines',
-                name=f'{col} 收益率',
-                line=dict(color=color, width=width, dash=dash if dash != 'solid' else None),
-                hovertemplate=f'<b>{col}</b>: %{{y:.2f}}%<extra></extra>'
-            ))
-
-    fig.update_layout(
-        title=f"美国国债收益率多期限历史走势 - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="收益率 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        uirevision=f"treasury_{timeframe}"
+    fig = px.line(
+        df,
+        x=x_col,
+        y='Total_Assets_Trillion',
+        title=f'Federal Reserve Total Assets (WALCL) - [{timeframe}]',
+        labels={x_col: '日期', 'Total_Assets_Trillion': '总资产 ($ Trillion)'},
+        template='plotly_white'
     )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'fed_bs_{timeframe}',
+        yaxis_title='规模 ($ Trillion)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 3. 失业率趋势图表 (UNRATE)
+# 5. 金油比历史走势图表 (Gold / Oil Ratio)
 # ------------------------------------------------------------------
-def create_unemployment_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    """
-    绘制失业率历史走势与衰退阴影
-    """
-    if df is None or df.empty:
+def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_ratio is None or df_ratio.empty:
         return None
 
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
+    df = df_ratio.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
-    fig = go.Figure()
-    val_col = 'Value' if 'Value' in df_filtered.columns else ('value' if 'value' in df_filtered.columns else df_filtered.columns[1])
+    val_col = 'Ratio' if 'Ratio' in df.columns else df.columns[1]
 
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='失业率 (%)',
-        line=dict(color='#2563eb', width=2.0),
-        hovertemplate='<b>失业率</b>: %{y:.1f}%<extra></extra>'
-    ))
-
-    fig.add_hline(
-        y=4.0,
-        line_dash="dash",
-        line_color="#94a3b8",
-        annotation_text="充分就业中枢参考线 (4.0%)",
-        annotation_position="bottom right"
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Gold / WTI Oil Price Ratio - [{timeframe}]',
+        labels={x_col: '日期', val_col: '金油比 (Gold/Oil Ratio)'},
+        template='plotly_white'
     )
-
     fig.update_layout(
-        title=f"美国失业率走势 (UNRATE) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="失业率 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"unemp_{timeframe}"
+        height=450,
+        hovermode='x unified',
+        uirevision=f'gold_oil_{timeframe}',
+        yaxis_title='比率'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 4. 信用利差与金融压力图表 (Credit Spread)
+# 6. 10Y TIPS 实际利率与盈亏平衡通胀预期
 # ------------------------------------------------------------------
-def create_credit_spread_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
+def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_data is None or df_data.empty:
         return None
 
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
-        return None
-
-    val_col = 'Value' if 'Value' in df_filtered.columns else ('value' if 'value' in df_filtered.columns else df_filtered.columns[1])
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='信用利差 (bps / %)',
-        line=dict(color='#ea580c', width=2.0),
-        fill='tozeroy',
-        fillcolor='rgba(234, 88, 12, 0.1)',
-        hovertemplate='<b>利差读数</b>: %{y:.2f}<extra></extra>'
-    ))
-
-    fig.update_layout(
-        title=f"信用利差走势 (Credit Spread) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="利差水平",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"credit_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 5. 美联储资产负债表规模 (Fed Total Assets)
-# ------------------------------------------------------------------
-def create_fed_balance_sheet_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        return None
-
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
-        return None
-
-    val_col = 'Value' if 'Value' in df_filtered.columns else ('value' if 'value' in df_filtered.columns else df_filtered.columns[1])
-    y_vals = df_filtered[val_col] / 1e6 if df_filtered[val_col].max() > 1e5 else df_filtered[val_col]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=y_vals,
-        mode='lines',
-        name='美联储总资产 ($T)',
-        line=dict(color='#059669', width=2.2),
-        fill='tozeroy',
-        fillcolor='rgba(5, 150, 105, 0.08)',
-        hovertemplate='<b>总资产规模</b>: $%{y:.2f} T<extra></extra>'
-    ))
-
-    fig.update_layout(
-        title=f"美联储资产负债表规模走势 (Fed Balance Sheet) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="规模 ($ Trillion)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"fed_bs_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 6. 金油比历史走势图 (Gold / Oil Ratio)
-# ------------------------------------------------------------------
-def create_gold_oil_ratio_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        return None
-
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
-        return None
-
-    val_col = 'Ratio' if 'Ratio' in df_filtered.columns else ('ratio' if 'ratio' in df_filtered.columns else df_filtered.columns[1])
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='金油比 (Gold/Oil)',
-        line=dict(color='#eab308', width=2.0),
-        hovertemplate='<b>金油比</b>: %{y:.2f}<extra></extra>'
-    ))
-
-    fig.add_hline(
-        y=30.0,
-        line_dash="dash",
-        line_color="#ef4444",
-        annotation_text="极端避险警戒线 (30x)",
-        annotation_position="top left"
-    )
-
-    fig.update_layout(
-        title=f"金油比走势 (Gold / Oil Ratio) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="比率 (Ratio)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"gold_oil_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 7. 实际利率与通胀预期 (Real Yield & Breakeven Inflation)
-# ------------------------------------------------------------------
-def create_real_yield_breakeven_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        return None
-
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
+    df = df_data.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
     fig = go.Figure()
 
-    if 'DFII10' in df_filtered.columns:
+    if 'DFII10' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=df_filtered['DFII10'],
+            x=df[x_col],
+            y=df['DFII10'],
             mode='lines',
             name='10Y TIPS 实际利率 (DFII10)',
-            line=dict(color='#7c3aed', width=2.0),
-            hovertemplate='<b>实际利率</b>: %{y:.2f}%<extra></extra>'
+            line=dict(color='#7c3aed', width=2)
         ))
 
-    if 'T10YIE' in df_filtered.columns:
+    if 'T10YIE' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=df_filtered['T10YIE'],
+            x=df[x_col],
+            y=df['T10YIE'],
             mode='lines',
-            name='10Y 平衡通胀率 (T10YIE)',
-            line=dict(color='#0284c7', width=1.8, dash='dash'),
-            hovertemplate='<b>通胀预期</b>: %{y:.2f}%<extra></extra>'
+            name='10Y 平衡通胀预期 (T10YIE)',
+            line=dict(color='#0284c7', width=1.5, dash='dash')
         ))
 
-    fig.add_hline(y=0.0, line_dash="solid", line_color="#cbd5e1", line_width=1)
-    fig.add_hline(y=2.0, line_dash="dot", line_color="#ef4444", annotation_text="美联储 2.0% 通胀锚点")
-
     fig.update_layout(
-        title=f"10年期实际利率 (TIPS) 与隐含通胀预期 - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="百分比 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        uirevision=f"real_yield_{timeframe}"
+        title=f'10Y Real Yield (DFII10) & 10Y Breakeven Inflation (T10YIE) - [{timeframe}]',
+        xaxis_title='日期',
+        yaxis_title='百分比 (%)',
+        template='plotly_white',
+        height=450,
+        hovermode='x unified',
+        uirevision=f'real_yield_{timeframe}'
     )
 
-    return fig
-
-
-# ------------------------------------------------------------------
-# 8. 芝加哥联储全国金融状况指数 (NFCI)
-# ------------------------------------------------------------------
-def create_nfci_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        return None
-
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
-        return None
-
-    val_col = 'NFCI' if 'NFCI' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
-
-    fig = go.Figure()
-    y_vals = df_filtered[val_col]
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=y_vals,
-        mode='lines',
-        name='NFCI 指数',
-        line=dict(color='#3b82f6', width=2.0),
-        hovertemplate='<b>NFCI 读数</b>: %{y:.2f}<extra></extra>'
-    ))
-
-    fig.add_hline(
-        y=0.0,
-        line_dash="solid",
-        line_color="#1e293b",
-        line_width=1.2,
-        annotation_text="0.0 历史平均中性线 (上方紧缩 / 下方宽松)"
-    )
-
-    fig.update_layout(
-        title=f"芝加哥联储全国金融状况指数 (NFCI) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="指数水平",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"nfci_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 9. 美联储净流动性指标 (Net Liquidity)
-# ------------------------------------------------------------------
-def create_net_liquidity_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=180, freq='D')
-        net_liq = np.linspace(6.2, 6.6, 180) + np.random.normal(0, 0.05, 180)
-        df_filtered = pd.DataFrame({'Date': dates, 'Net_Liquidity': net_liq})
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
     else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
-        return None
-
-    val_col = 'Net_Liquidity' if 'Net_Liquidity' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
-    y_vals = df_filtered[val_col] / 1e6 if df_filtered[val_col].max() > 1e5 else df_filtered[val_col]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=y_vals,
-        mode='lines',
-        name='美联储净流动性 ($T)',
-        line=dict(color='#2563eb', width=2.2),
-        fill='tozeroy',
-        fillcolor='rgba(37, 99, 235, 0.08)',
-        hovertemplate='<b>净流动性</b>: $%{y:.2f} T<extra></extra>'
-    ))
-
-    fig.update_layout(
-        title=f"美联储宏观净流动性水龙头 (WALCL - TGA - RRP) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="流动性规模 ($ Trillion)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"net_liq_{timeframe}"
-    )
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 10. SOFR - IORB 银行间微观流动性利差
+# 7. 芝加哥联储全国金融状况指数 (NFCI)
 # ------------------------------------------------------------------
-def create_sofr_iorb_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=90, freq='D')
-        spread = np.random.normal(1.2, 0.8, 90)
-        df_filtered = pd.DataFrame({'Date': dates, 'Spread_bps': spread})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_nfci is None or df_nfci.empty:
         return None
 
-    val_col = 'Spread_bps' if 'Spread_bps' in df_filtered.columns else ('spread' if 'spread' in df_filtered.columns else df_filtered.columns[1])
+    df = df_nfci.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='SOFR - IORB (bps)',
-        line=dict(color='#0d9488', width=1.8),
-        hovertemplate='<b>隔夜资金摩擦利差</b>: %{y:.2f} bps<extra></extra>'
-    ))
+    val_col = 'NFCI' if 'NFCI' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig.add_hline(
-        y=3.0,
-        line_dash="dash",
-        line_color="#ef4444",
-        annotation_text="微观流动性摩擦警戒线 (+3.0 bps)",
-        annotation_position="top left"
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Chicago Fed National Financial Conditions Index (NFCI) - [{timeframe}]',
+        labels={x_col: '日期', val_col: 'NFCI 指数'},
+        template='plotly_white'
     )
-
-    fig.update_layout(
-        title=f"SOFR - IORB 隔夜资金面微观体温计 - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="利差 (bps)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"sofr_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 11. 标普 500 前十大权重股集中度分析图
-# ------------------------------------------------------------------
-def create_top10_concentration_chart(df_constituents: pd.DataFrame = None, height: int = 460):
-    sample_data = pd.DataFrame({
-        'Symbol': ['MSFT', 'AAPL', 'NVDA', 'AMZN', 'GOOGL', 'META', 'BRK.B', 'TSLA', 'AVGO', 'JPM', '其余 490+ 成分股'],
-        'Weight_Pct': [7.1, 6.8, 6.5, 3.8, 2.4, 2.3, 1.7, 1.5, 1.4, 1.3, 65.2]
-    })
     
-    df_plot = df_constituents if (df_constituents is not None and not df_constituents.empty) else sample_data
+    # 0 轴分界线
+    fig.add_hline(y=0.0, line_dash="dash", line_color="#0f172a", annotation_text="0.0 历史中性线 (上方紧缩 / 下方宽松)")
+
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'nfci_{timeframe}',
+        yaxis_title='指数读数'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 8. 美联储宏观净流动性水龙头走势图表
+# ------------------------------------------------------------------
+def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_liq is None or df_liq.empty:
+        return None
+
+    df = df_liq.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'Fed_Net_Liquidity_Tn' if 'Fed_Net_Liquidity_Tn' in df.columns else ('Net_Liquidity' if 'Net_Liquidity' in df.columns else df.columns[1])
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Fed Net Liquidity (WALCL - TGA - RRP) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '净流动性 ($ Trillion)'},
+        template='plotly_white'
+    )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'net_liq_{timeframe}',
+        yaxis_title='流动性规模 ($ Trillion)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 9. SOFR - IORB 隔夜资金面微观体温计
+# ------------------------------------------------------------------
+def create_sofr_iorb_chart(df_sofr: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_sofr is None or df_sofr.empty:
+        return None
+
+    df = df_sofr.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'Spread_bps' if 'Spread_bps' in df.columns else df.columns[1]
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'SOFR - IORB Spread (Overnight Liquidity Friction) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '利差 (bps)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=3.0, line_dash="dash", line_color="#ef4444", annotation_text="微观摩擦警戒线 (+3 bps)")
+
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'sofr_{timeframe}',
+        yaxis_title='利差 (基点 bps)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 10. 标普 500 前十大持仓集中度分析饼图
+# ------------------------------------------------------------------
+def create_top10_concentration_chart(df_top10: pd.DataFrame):
+    if df_top10 is None or df_top10.empty:
+        return None
 
     fig = px.pie(
-        df_plot,
-        values='Weight_Pct',
+        df_top10,
+        values='Weight',
         names='Symbol',
-        title="标普 500 指数头部成分股权重集中度分布 (Top 10 Heavyweights)",
-        color_discrete_sequence=px.colors.sequential.Blues_r,
-        hole=0.4
+        title='S&P 500 Top 10 Holdings Weight Concentration',
+        template='plotly_white',
+        hole=0.35,
+        color_discrete_sequence=px.colors.sequential.Blues_r
     )
-    
     fig.update_traces(textposition='inside', textinfo='percent+label')
-    fig.update_layout(
-        template="plotly_white",
-        height=height,
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
-
+    fig.update_layout(height=480, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 
 # ------------------------------------------------------------------
-# 12. 恐慌指数 VIX 波动率期限结构与走势
+# 11. CBOE VIX 恐慌指数走势图表
 # ------------------------------------------------------------------
-def create_vix_chart(df: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
+def create_vix_chart(df_vix: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_vix is None or df_vix.empty:
         return None
 
-    df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-    if df_filtered.empty:
+    df = df_vix.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
-    val_col = 'Close' if 'Close' in df_filtered.columns else ('value' if 'value' in df_filtered.columns else df_filtered.columns[1])
+    val_col = 'VIX' if 'VIX' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='VIX 恐慌指数',
-        line=dict(color='#8b5cf6', width=2.0),
-        hovertemplate='<b>VIX 读数</b>: %{y:.2f}<extra></extra>'
-    ))
-
-    fig.add_hline(y=20.0, line_dash="dash", line_color="#f59e0b", annotation_text="情绪分界线 (20.0)")
-    fig.add_hline(y=30.0, line_dash="dash", line_color="#ef4444", annotation_text="高度恐慌红线 (30.0)")
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'CBOE Volatility Index (VIX) - [{timeframe}]',
+        labels={x_col: '日期', val_col: 'VIX 读数'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=20.0, line_dash="dash", line_color="#f59e0b", annotation_text="情绪分界 (20.0)")
+    fig.add_hline(y=30.0, line_dash="dash", line_color="#ef4444", annotation_text="高恐慌警戒 (30.0)")
 
     fig.update_layout(
-        title=f"CBOE VIX 市场恐慌波动率走势 - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="VIX 读数",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"vix_{timeframe}"
+        height=450,
+        hovermode='x unified',
+        uirevision=f'vix_{timeframe}',
+        yaxis_title='VIX'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 13. CNN 恐惧与贪婪指数 (Fear & Greed Index Gauge)
+# 12. CNN 恐惧与贪婪指数走势图表
 # ------------------------------------------------------------------
-def create_cnn_fear_greed_chart(current_val: float = 55.0, height: int = 380):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=current_val,
-        title={'text': "CNN 恐惧与贪婪情绪指数 (Fear & Greed)", 'font': {'size': 18}},
-        gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-            'bar': {'color': "#1e293b"},
-            'steps': [
-                {'range': [0, 25], 'color': '#ef4444'},
-                {'range': [25, 45], 'color': '#f97316'},
-                {'range': [45, 55], 'color': '#cbd5e1'},
-                {'range': [55, 75], 'color': '#84cc16'},
-                {'range': [75, 100], 'color': '#22c55e'}
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': current_val
-            }
-        }
-    ))
+def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="ALL", current_score=None):
+    if df_fgi is None or df_fgi.empty:
+        return None
+
+    df = df_fgi.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'score' if 'score' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'CNN Fear & Greed Historical Trend - [{timeframe}]',
+        labels={x_col: '日期', val_col: '情绪评分 (0 - 100)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=75.0, line_dash="dash", line_color="#ef4444", annotation_text="极度贪婪 (75)")
+    fig.add_hline(y=25.0, line_dash="dash", line_color="#10b981", annotation_text="极度恐惧 (25)")
 
     fig.update_layout(
-        template="plotly_white",
-        height=height,
-        margin=dict(l=30, r=30, t=60, b=20)
+        height=450,
+        hovermode='x unified',
+        uirevision=f'fgi_{timeframe}',
+        yaxis_title='评分'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(range=[0, 100], fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 14. 个股交互式 K 线与均线图表
+# 13. 个股交互式 K 线与均线图表 (Stock Price Candlestick & MA)
 # ------------------------------------------------------------------
 def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: str = "Candlestick", timeframe: str = "1Y"):
     if df_stock is None or df_stock.empty:
@@ -633,9 +600,18 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
 
 
 # ------------------------------------------------------------------
-# 15. 多股历史相对收益对比图表 (Relative Performance vs Benchmark)
+# 14. 多股相对基准累计收益对比走势图表
 # ------------------------------------------------------------------
-def create_relative_performance_chart(df_dict: dict, base_symbol: str = "SOXX", timeframe: str = "1Y"):
+def create_relative_performance_chart(df_prices: pd.DataFrame, tickers: list = None, timeframe: str = "YTD", base_symbol: str = "SOXX"):
+    if df_prices is None:
+        return None
+
+    # 支持 dict 输入
+    if isinstance(df_prices, dict):
+        df_dict = df_prices
+    else:
+        df_dict = {}
+
     if not df_dict:
         return None
 
@@ -715,9 +691,9 @@ def create_relative_performance_chart(df_dict: dict, base_symbol: str = "SOXX", 
 
 
 # ------------------------------------------------------------------
-# 16. 多周期核心财务报表趋势图表
+# 15. 多周期核心财务报表趋势图表 (Financial Trends Chart)
 # ------------------------------------------------------------------
-def create_financial_trends_chart(df_trends: pd.DataFrame, title_prefix: str = "季度"):
+def create_financial_trends_chart(df_trends: pd.DataFrame, period_type: str = "季度"):
     if df_trends is None or df_trends.empty:
         return None
 
@@ -758,7 +734,7 @@ def create_financial_trends_chart(df_trends: pd.DataFrame, title_prefix: str = "
         ), secondary_y=True)
 
     fig.update_layout(
-        title=f"{title_prefix} 营收、净利润规模与核心盈利能力走势",
+        title=f"{period_type} 营收、净利润规模与核心盈利能力走势",
         template="plotly_white",
         hovermode="x unified",
         barmode='group',
@@ -771,7 +747,7 @@ def create_financial_trends_chart(df_trends: pd.DataFrame, title_prefix: str = "
 
 
 # ------------------------------------------------------------------
-# 17. 个股历史 PE / PS Band 估值通道走势图
+# 16. 个股历史 PE / PS Band 估值通道走势图
 # ------------------------------------------------------------------
 def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: float = None, current_pe: float = None, valuation_type: str = "PE", timeframe: str = "3Y"):
     """
@@ -878,7 +854,7 @@ def create_pe_ps_band_chart(df_stock: pd.DataFrame, symbol: str, current_eps: fl
 
 
 # ------------------------------------------------------------------
-# 18. 个股技术面动量指标系统 (K线 + MACD + RSI + 200MA偏离度)
+# 17. 个股技术面动量指标系统 (K线 + MACD + RSI + 200MA偏离度)
 # ------------------------------------------------------------------
 def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timeframe: str = "1Y"):
     if df_stock is None or df_stock.empty:
@@ -1019,384 +995,350 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
 
 
 # ------------------------------------------------------------------
-# 19. 期限利差多周期走势图 (2s10s & 3m10s)
+# 18. 美债期限利差多周期走势图表 (2s10s & 3m10s)
 # ------------------------------------------------------------------
-def create_yield_spreads_chart(df_treasury: pd.DataFrame, timeframe: str = "ALL", height: int = 420):
-    if df_treasury is None or df_treasury.empty:
+def create_yield_spreads_chart(df_spreads: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_spreads is None or df_spreads.empty:
         return None
 
-    df_filtered = filter_by_timeframe(df_treasury, 'Date', timeframe)
-    if df_filtered.empty:
+    df = df_spreads.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
     fig = go.Figure()
 
-    if '10Y' in df_filtered.columns and '2Y' in df_filtered.columns:
-        spread_2_10 = (df_filtered['10Y'] - df_filtered['2Y']) * 100
+    if '10Y_2Y_Spread' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=spread_2_10,
+            x=df[x_col],
+            y=df['10Y_2Y_Spread'],
             mode='lines',
             name='10Y - 2Y 利差 (2s10s)',
-            line=dict(color='#2563eb', width=2.0),
-            hovertemplate='<b>2s10s</b>: %{y:+.1f} bps<extra></extra>'
+            line=dict(color='#2563eb', width=2)
         ))
 
-    if '10Y' in df_filtered.columns and '3M' in df_filtered.columns:
-        spread_3m_10 = (df_filtered['10Y'] - df_filtered['3M']) * 100
+    if '10Y_3M_Spread' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=spread_3m_10,
+            x=df[x_col],
+            y=df['10Y_3M_Spread'],
             mode='lines',
             name='10Y - 3M 衰退利差',
-            line=dict(color='#dc2626', width=1.5, dash='dash'),
-            hovertemplate='<b>3m10s</b>: %{y:+.1f} bps<extra></extra>'
+            line=dict(color='#dc2626', width=1.5, dash='dash')
         ))
 
-    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1.2, annotation_text="0 bps 倒挂分界线")
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1.2, annotation_text="0.00% 倒挂分界线")
 
     fig.update_layout(
-        title=f"美债期限利差历史走势 (2s10s & 3m10s) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="利差 (基点 bps)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        uirevision=f"spreads_{timeframe}"
+        title=f'U.S. Treasury Yield Spreads (10Y-2Y & 10Y-3M) - [{timeframe}]',
+        xaxis_title='日期',
+        yaxis_title='利差 (%)',
+        template='plotly_white',
+        height=450,
+        hovermode='x unified',
+        uirevision=f'spreads_{timeframe}'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 20. 周度初请失业金 4周移动均线 (Jobless Claims 4W MA)
+# 19. 周度初请失业金 4周移动均线
 # ------------------------------------------------------------------
-def create_jobless_claims_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=52, freq='W')
-        vals = np.linspace(210, 245, 52) + np.random.normal(0, 4, 52)
-        df_filtered = pd.DataFrame({'Date': dates, 'Claims_4W': vals})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+def create_jobless_claims_chart(df_claims: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_claims is None or df_claims.empty:
         return None
 
-    val_col = 'Claims_4W' if 'Claims_4W' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
+    df = df_claims.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='初请失业金 4周均线 (k)',
-        line=dict(color='#4f46e5', width=2.0),
-        hovertemplate='<b>初请均线</b>: %{y:.1f} k<extra></extra>'
-    ))
+    val_col = 'Claims_4W' if 'Claims_4W' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig.add_hline(y=250.0, line_dash="dash", line_color="#ef4444", annotation_text="劳动力转冷警惕线 (250k)")
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Initial Jobless Claims 4-Week Moving Average (IC4WSA) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '初请人数 (人)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=250000, line_dash="dash", line_color="#ef4444", annotation_text="25.0 万人失业扩散预警线")
 
     fig.update_layout(
-        title=f"美国周度初请失业金 4周移动均线 (IC4WSA) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="人数 (千人 k)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"claims_{timeframe}"
+        height=450,
+        hovermode='x unified',
+        uirevision=f'claims_{timeframe}',
+        yaxis_title='人数'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 21. 美元指数 (DXY) 汇率与全球流动性
+# 20. 美元指数 (DXY) 全球流动性走势图表
 # ------------------------------------------------------------------
-def create_dxy_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=180, freq='D')
-        vals = np.linspace(104.5, 102.8, 180) + np.random.normal(0, 0.5, 180)
-        df_filtered = pd.DataFrame({'Date': dates, 'DXY': vals})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+def create_dxy_chart(df_dxy: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_dxy is None or df_dxy.empty:
         return None
 
-    val_col = 'DXY' if 'DXY' in df_filtered.columns else ('Close' if 'Close' in df_filtered.columns else df_filtered.columns[1])
+    df = df_dxy.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='美元指数 (DXY)',
-        line=dict(color='#0284c7', width=2.0),
-        hovertemplate='<b>DXY 指数</b>: %{y:.2f}<extra></extra>'
-    ))
+    val_col = 'DXY' if 'DXY' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig.update_layout(
-        title=f"美元指数走势与离岸流动性潮汐 (DXY) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="指数点位",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"dxy_{timeframe}"
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'U.S. Dollar Index (DTWEXBGS) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '美元指数'},
+        template='plotly_white'
     )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'dxy_{timeframe}',
+        yaxis_title='指数'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 22. 核心 PCE 与平均时薪增速螺旋 (Inflation & Wage Spiral)
+# 21. 核心 PCE 与时薪螺旋走势图表 (Inflation & Wages)
 # ------------------------------------------------------------------
-def create_inflation_wages_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=24, freq='M')
-        pce = np.linspace(3.5, 2.6, 24)
-        wages = np.linspace(4.4, 3.8, 24)
-        df_filtered = pd.DataFrame({'Date': dates, 'PCE': pce, 'Wages': wages})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
+def create_inflation_wages_chart(df_data: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_data is None or df_data.empty:
+        return None
 
-    if df_filtered.empty:
+    df = df_data.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
     fig = go.Figure()
 
-    if 'PCE' in df_filtered.columns:
+    if 'PCE' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=df_filtered['PCE'],
+            x=df[x_col],
+            y=df['PCE'],
             mode='lines+markers',
-            name='核心 PCE 年率 (%)',
-            line=dict(color='#dc2626', width=2.0),
-            hovertemplate='<b>核心 PCE</b>: %{y:.2f}%<extra></extra>'
+            name='核心 PCE 同比增速 (%)',
+            line=dict(color='#dc2626', width=2)
         ))
 
-    if 'Wages' in df_filtered.columns:
+    if 'Wages' in df.columns:
         fig.add_trace(go.Scatter(
-            x=df_filtered['Date'],
-            y=df_filtered['Wages'],
+            x=df[x_col],
+            y=df['Wages'],
             mode='lines+markers',
             name='平均时薪同比增速 (%)',
-            line=dict(color='#059669', width=2.0),
-            hovertemplate='<b>时薪增速</b>: %{y:.2f}%<extra></extra>'
+            line=dict(color='#059669', width=2)
         ))
 
-    fig.add_hline(y=2.0, line_dash="dot", line_color="#94a3b8", annotation_text="美联储 2.0% 通胀锚点")
+    fig.add_hline(y=2.0, line_dash="dot", line_color="#94a3b8", annotation_text="美联储 2% 目标")
 
     fig.update_layout(
-        title=f"核心 PCE 与时薪螺旋走势 (PCE vs Wages) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="同比增速 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        uirevision=f"pce_wages_{timeframe}"
+        title=f'Core PCE YoY vs Average Hourly Earnings YoY - [{timeframe}]',
+        xaxis_title='日期',
+        yaxis_title='同比增速 (%)',
+        template='plotly_white',
+        height=450,
+        hovermode='x unified',
+        uirevision=f'pce_wages_{timeframe}'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 23. 萨姆法则实时衰退预警指标 (SAHM Rule Recession Indicator)
+# 22. 萨姆法则实时衰退预警指标图表 (SAHM Rule)
 # ------------------------------------------------------------------
-def create_sahm_rule_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=36, freq='M')
-        vals = np.linspace(0.15, 0.53, 36) + np.random.normal(0, 0.02, 36)
-        df_filtered = pd.DataFrame({'Date': dates, 'SAHM': vals})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+def create_sahm_rule_chart(df_sahm: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_sahm is None or df_sahm.empty:
         return None
 
-    val_col = 'SAHM' if 'SAHM' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='萨姆法则读数 (%)',
-        line=dict(color='#ea580c', width=2.2),
-        fill='tozeroy',
-        fillcolor='rgba(234, 88, 12, 0.1)',
-        hovertemplate='<b>SAHM 读数</b>: %{y:.2f}%<extra></extra>'
-    ))
-
-    fig.add_hline(
-        y=0.50,
-        line_dash="dash",
-        line_color="#ef4444",
-        line_width=1.5,
-        annotation_text="衰退确立警戒红线 (+0.50%)",
-        annotation_position="top left"
-    )
-
-    fig.update_layout(
-        title=f"萨姆法则实时经济衰退预警指标 (SAHMREALTIME) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="指标读数 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"sahm_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 24. 核心资本品新订单 (Core CapEx Orders - NEWORDER)
-# ------------------------------------------------------------------
-def create_core_capex_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=24, freq='M')
-        orders = np.linspace(72.0, 76.5, 24) + np.random.normal(0, 0.3, 24)
-        df_filtered = pd.DataFrame({'Date': dates, 'Orders': orders})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+    df = df_sahm.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
-    val_col = 'Orders' if 'Orders' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
+    val_col = 'SAHM' if 'SAHM' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines+markers',
-        name='非国防不含飞机资本品新订单 ($B)',
-        line=dict(color='#0d9488', width=2.0),
-        hovertemplate='<b>核心 CapEx 订单</b>: $%{y:.2f} B<extra></extra>'
-    ))
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Sahm Rule Real-Time Recession Indicator (SAHMREALTIME) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '萨姆读数 (%)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=0.50, line_dash="dash", line_color="#ef4444", annotation_text="衰退确立警戒红线 (+0.50%)")
 
     fig.update_layout(
-        title=f"核心资本品新订单走势 (Core CapEx / NEWORDER) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="订单规模 ($ Billion)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"capex_{timeframe}"
+        height=450,
+        hovermode='x unified',
+        uirevision=f'sahm_{timeframe}',
+        yaxis_title='读数 (%)'
     )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
 # ------------------------------------------------------------------
-# 25. 广义货币供应量 M2 同比走势
+# 23. 核心资本品新订单走势图表 (Core CapEx Orders)
 # ------------------------------------------------------------------
-def create_m2_money_supply_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=36, freq='M')
-        m2_growth = np.linspace(-3.5, 2.8, 36)
-        df_filtered = pd.DataFrame({'Date': dates, 'M2_YoY': m2_growth})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+def create_core_capex_chart(df_capex: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_capex is None or df_capex.empty:
         return None
 
-    val_col = 'M2_YoY' if 'M2_YoY' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        mode='lines',
-        name='M2 货币同比增速 (%)',
-        line=dict(color='#16a34a', width=2.2),
-        fill='tozeroy',
-        fillcolor='rgba(22, 163, 74, 0.08)',
-        hovertemplate='<b>M2 同比增速</b>: %{y:+.2f}%<extra></extra>'
-    ))
-
-    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1.0)
-
-    fig.update_layout(
-        title=f"美联储 M2 货币供应量同比走势 (M2SL) - [{timeframe}]",
-        xaxis_title="日期",
-        yaxis_title="同比增速 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"m2_{timeframe}"
-    )
-
-    return fig
-
-
-# ------------------------------------------------------------------
-# 26. 美联储高级信贷调查 (SLOOS 银行贷款收紧比例)
-# ------------------------------------------------------------------
-def create_sloos_credit_chart(df: pd.DataFrame = None, timeframe: str = "ALL", height: int = 420):
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=16, freq='Q')
-        tightening = np.array([45, 52, 48, 35, 25, 18, 15, 12, 8, 4, 0, -2, -5, -4, -3, -2])
-        df_filtered = pd.DataFrame({'Date': dates, 'Tightening_Pct': tightening})
-    else:
-        df_filtered = filter_by_timeframe(df, 'Date', timeframe)
-
-    if df_filtered.empty:
+    df = df_capex.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
         return None
 
-    val_col = 'Tightening_Pct' if 'Tightening_Pct' in df_filtered.columns else ('Value' if 'Value' in df_filtered.columns else df_filtered.columns[1])
+    val_col = 'Orders' if 'Orders' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=df_filtered['Date'],
-        y=df_filtered[val_col],
-        name='信贷标准净收紧比例 (%)',
-        marker_color='#475569',
-        hovertemplate='<b>贷款净收紧</b>: %{y:+.1f}%<extra></extra>'
-    ))
-
-    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1.0)
-
-    fig.update_layout(
-        title=f"美联储 SLOOS 银行大中型企业贷款净收紧比例 - [{timeframe}]",
-        xaxis_title="季度报告期",
-        yaxis_title="净收紧比例 (%)",
-        template="plotly_white",
-        hovermode="x unified",
-        height=height,
-        margin=dict(l=40, r=40, t=50, b=40),
-        uirevision=f"sloos_{timeframe}"
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Core Capital Goods Orders Nondefense Ex Air (NEWORDER) - [{timeframe}]',
+        labels={x_col: '日期', val_col: '订单规模 ($ Millions)'},
+        template='plotly_white'
     )
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'capex_{timeframe}',
+        yaxis_title='金额 ($M)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
 
     return fig
 
 
-# 保留别名导出以防调用报错
-create_sp500_market_cap_chart = create_unemployment_chart
-create_soxx_market_cap_chart = create_unemployment_chart
-create_soxx_relative_strength_chart = create_unemployment_chart
-create_soxx_individual_relative_strength_chart = create_unemployment_chart
-create_semi_ratio_vs_soxx_chart = create_unemployment_chart
+# ------------------------------------------------------------------
+# 24. 广义货币供应量 M2 同比走势图表 (M2 Money Supply)
+# ------------------------------------------------------------------
+def create_m2_money_supply_chart(df_m2: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_m2 is None or df_m2.empty:
+        return None
+
+    df = df_m2.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'M2_YoY' if 'M2_YoY' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
+
+    fig = px.line(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'U.S. M2 Money Supply YoY Growth (M2SL) - [{timeframe}]',
+        labels={x_col: '日期', val_col: 'M2 同比增速 (%)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1)
+
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'm2_{timeframe}',
+        yaxis_title='同比 (%)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
+
+
+# ------------------------------------------------------------------
+# 25. 美联储高级信贷调查 (SLOOS 银行贷款净收紧比例)
+# ------------------------------------------------------------------
+def create_sloos_credit_chart(df_sloos: pd.DataFrame, y_range=None, timeframe="ALL"):
+    if df_sloos is None or df_sloos.empty:
+        return None
+
+    df = df_sloos.copy()
+    x_col = 'date' if 'date' in df.columns else ('Date' if 'Date' in df.columns else df.columns[0])
+    df[x_col] = pd.to_datetime(df[x_col])
+    df = filter_by_timeframe(df, x_col, timeframe)
+    if df.empty:
+        return None
+
+    val_col = 'Tightening_Pct' if 'Tightening_Pct' in df.columns else ('Value' if 'Value' in df.columns else df.columns[1])
+
+    fig = px.bar(
+        df,
+        x=x_col,
+        y=val_col,
+        title=f'Fed SLOOS Net % of Domestic Banks Tightening Standards - [{timeframe}]',
+        labels={x_col: '日期', val_col: '净收紧比例 (%)'},
+        template='plotly_white'
+    )
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#0f172a", line_width=1)
+
+    fig.update_layout(
+        height=450,
+        hovermode='x unified',
+        uirevision=f'sloos_{timeframe}',
+        yaxis_title='比例 (%)'
+    )
+
+    if y_range is not None:
+        fig.update_yaxes(range=y_range)
+    else:
+        fig.update_yaxes(autorange=True, fixedrange=False)
+
+    return fig
