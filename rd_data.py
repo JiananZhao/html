@@ -266,7 +266,7 @@ def get_nfci_data():
 
 
 @st.cache_data(ttl=60 * 60 * 6)
-def get_net_liquidity_data():
+def get_fed_net_liquidity_data():
     """
     计算美联储宏观真实净流动性：
     Net Liquidity = WALCL (美联储总资产) - WTREGEN (财政部一般账户 TGA) - RRPONTSYD (隔夜逆回购 RRP)
@@ -279,8 +279,8 @@ def get_net_liquidity_data():
         df_merged = pd.merge(df_walcl, df_tga, on="date", how="outer")
         df_merged = pd.merge(df_merged, df_rrp, on="date", how="outer").sort_values("date")
         df_merged = df_merged.ffill().dropna()
-        df_merged["Net_Liquidity"] = df_merged["WALCL"] - df_merged["TGA"] - df_merged["RRP"]
-        return df_merged[["date", "Net_Liquidity"]]
+        df_merged["Fed_Net_Liquidity_Tn"] = (df_merged["WALCL"] - df_merged["TGA"] - df_merged["RRP"]) / 1e6
+        return df_merged[["date", "Fed_Net_Liquidity_Tn"]]
     return pd.DataFrame()
 
 
@@ -348,6 +348,39 @@ def get_m2_money_supply_data():
 def get_sloos_credit_data():
     """获取美联储高级信贷官调查 (SLOOS) 银行大中型企业贷款标准净收紧比例 (DRTSCILM)"""
     return _fetch_fred_series_observations("DRTSCILM", "Tightening_Pct", "1990-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_yield_spreads_data():
+    """获取美债期限利差数据 (10Y-2Y & 10Y-3M)"""
+    df_t10 = _fetch_fred_series_observations("DGS10", "DGS10", "2000-01-01")
+    df_t2 = _fetch_fred_series_observations("DGS2", "DGS2", "2000-01-01")
+    df_t3m = _fetch_fred_series_observations("DGS3MO", "DGS3MO", "2000-01-01")
+    
+    if not df_t10.empty and not df_t2.empty:
+        df_merged = pd.merge(df_t10, df_t2, on="date", how="inner")
+        df_merged["10Y_2Y_Spread"] = df_merged["DGS10"] - df_merged["DGS2"]
+        if not df_t3m.empty:
+            df_merged = pd.merge(df_merged, df_t3m, on="date", how="left")
+            df_merged["10Y_3M_Spread"] = df_merged["DGS10"] - df_merged["DGS3MO"]
+        return df_merged
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_highyield_data():
+    """获取高收益债信用利差数据 (BAMLH0A0HYM2)"""
+    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "2000-01-01")
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_sp500_top10_concentration_data():
+    """获取标普 500 前十大权重股集中度数据"""
+    return pd.DataFrame({
+        'Symbol': ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'GOOG', 'BRK-B', 'AVGO', 'LLY', '其余 490+ 标的'],
+        'Name': ['英伟达', '苹果', '微软', '亚马逊', 'Meta', '谷歌 A', '谷歌 C', '伯克希尔', '博通', '礼来', '其余成分股合计'],
+        'Weight': [7.12, 6.85, 6.48, 3.75, 2.42, 2.18, 1.85, 1.72, 1.54, 1.38, 64.71]
+    })
 
 
 @st.cache_data(ttl=60 * 60 * 4)
@@ -661,7 +694,7 @@ with tab_macro:
             cs2.metric("违约扩张红线", "5.00%")
 
             cs_y_range = None
-            if st.checkbox("手动自定义利差 Y 轴范围", key="cs_manual_y"):
+            if st.checkbox("手动自定义信用利差 Y 轴范围", key="cs_manual_y"):
                 val_cs = df_credit['Credit_Spread']
                 c_min = float(val_cs.dropna().min())
                 c_max = float(val_cs.dropna().max())
@@ -707,69 +740,268 @@ with tab_macro:
                     * **与风险资产联动**：美联储资产负债表规模拐点通常领先美股估值倍数与科技股牛熊周期 2–3 个季度。
                     """)
 
-    # --- 5. 宏观领先与先行指标网格 ---
+    # --- 5. 宏观先行指标与流动性追踪 ---
     st.markdown("---")
-    st.header("📊 宏观先行指标与流动性体温计 (Leading Indicators & Liquidity)")
+    st.header("📊 宏观指标与流动性追踪")
 
-    g_col1, g_col2 = st.columns(2)
+    m_col1, m_col2 = st.columns(2)
 
-    with g_col1:
-        st.subheader("萨姆法则实时衰退预警 (SAHM Rule)")
+    with m_col1:
+        df_ry = get_real_yield_and_breakeven_data()
+        if not df_ry.empty:
+            latest_ry_date = pd.to_datetime(df_ry['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("10Y TIPS 实际利率 & 通胀预期")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_ry_date}**")
+
+            ry_y_range = None
+            if st.checkbox("手动自定义实际利率 Y 轴范围", key="ry_manual_y"):
+                val_ry = df_ry['10Y_Real_Yield'] if '10Y_Real_Yield' in df_ry.columns else df_ry.iloc[:, 1]
+                r_min = float(val_ry.dropna().min())
+                r_max = float(val_ry.dropna().max())
+                ry_y_range = st.slider("实际利率 Y 轴范围 (%)", round(r_min - 1.0, 1), round(r_max + 1.0, 1), (round(r_min, 1), round(r_max, 1)), 0.1, key="ry_slider")
+
+            fig_ry = create_real_yield_breakeven_chart(df_ry, y_range=ry_y_range, timeframe=macro_tf)
+            if fig_ry:
+                st.plotly_chart(fig_ry, use_container_width=True)
+                with st.expander("💡 10Y TIPS 实际利率 & 通胀预期解读指南", expanded=False):
+                    st.markdown("""
+                    * **费雪拆解**：$\\text{10Y 名义收益率} = \\text{10Y TIPS 实际利率} + \\text{10Y 盈亏平衡通胀率}$。
+                    * **10Y TIPS 实际利率 (Real Yield)**：
+                      * 代表全社会真实无风险资本成本（资产定价之锚）。
+                      * **估值挤压**：当 10Y 实际利率 $> 2.0\\%$ 或快速上行时，无风险真实折现率升高，压制科技股等高估值资产。
+                    * **通胀预期 (Breakeven Inflation)**：
+                      * 反映市场交易出的未来 10 年平均通胀中枢。若实际利率升而通胀预期降，说明货币紧缩在真实压制通胀。
+                    """)
+        else:
+            st.info("实际利率与通胀预期数据加载中或不可用。")
+
+    with m_col2:
+        df_net_liq = get_fed_net_liquidity_data()
+        if not df_net_liq.empty:
+            latest_liq_date = pd.to_datetime(df_net_liq['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("美联储净流动性 & 银行准备金")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_liq_date}**")
+
+            liq_y_range = None
+            if st.checkbox("手动自定义净流动性 Y 轴范围", key="liq_manual_y"):
+                val_liq = df_net_liq['Fed_Net_Liquidity_Tn']
+                l_min = float(val_liq.dropna().min())
+                l_max = float(val_liq.dropna().max())
+                liq_y_range = st.slider("净流动性 Y 轴范围 (万亿 USD)", round(l_min - 0.5, 2), round(l_max + 0.5, 2), (round(l_min, 2), round(l_max, 2)), 0.05, key="liq_slider")
+
+            fig_liq = create_net_liquidity_chart(df_net_liq, y_range=liq_y_range, timeframe=macro_tf)
+            if fig_liq:
+                st.plotly_chart(fig_liq, use_container_width=True)
+                with st.expander("💡 美联储净流动性解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标公式**：$\\text{净流动性} = \\text{美联储总资产 (WALCL)} - \\text{财政部现金存款 (TGA)} - \\text{隔夜逆回购 (RRP)}$。
+                    * **先行信号**：净流动性是美股标普 500 指数中短期水位的最强先行指标（领先 2–4 周）。
+                    """)
+        else:
+            st.info("美联储净流动性数据加载中或不可用。")
+
+    # --- 6. 金融条件与微观流动性 ---
+    m_col3, m_col4 = st.columns(2)
+
+    with m_col3:
+        df_nfci = get_nfci_data()
+        if not df_nfci.empty:
+            latest_nfci_date = pd.to_datetime(df_nfci['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_nfci.columns else "最新"
+            st.subheader("芝加哥联储全国金融条件指数 (NFCI)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_nfci_date}**")
+
+            nfci_y_range = None
+            if st.checkbox("手动自定义 NFCI Y 轴范围", key="nfci_manual_y"):
+                val_nfci = df_nfci['NFCI'] if 'NFCI' in df_nfci.columns else df_nfci.iloc[:, 1]
+                n_min = float(val_nfci.dropna().min())
+                n_max = float(val_nfci.dropna().max())
+                nfci_y_range = st.slider("NFCI Y 轴范围", round(n_min - 0.5, 1), round(n_max + 0.5, 1), (round(n_min, 1), round(n_max, 1)), 0.1, key="nfci_slider")
+
+            fig_nfci = create_nfci_chart(df_nfci, y_range=nfci_y_range, timeframe=macro_tf)
+            if fig_nfci:
+                st.plotly_chart(fig_nfci, use_container_width=True)
+                with st.expander("💡 芝加哥联储全国金融条件指数 (NFCI) 解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标含义**：综合了货币市场、股权市场、债权市场以及传统/影子银行体系的 100+ 个微观金融指标。
+                    * **零轴分界**：
+                      * **NFCI $< 0$**：全美金融条件比历史平均水平更宽松。
+                      * **NFCI $> 0$**：金融条件处于紧缩状态，陡峭上行提示信用紧缩与市场波动率上升。
+                    """)
+        else:
+            st.info("NFCI 数据加载中或不可用。")
+
+    with m_col4:
+        df_highyield = get_highyield_data()
+        if not df_highyield.empty:
+            latest_hy_date = pd.to_datetime(df_highyield['date'].iloc[-1]).strftime('%Y-%m-%d') if 'date' in df_highyield.columns else "最新"
+            st.subheader("高收益债信用利差 (US High Yield Spread)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_hy_date}**")
+
+            credit_y_range = None
+            if st.checkbox("手动自定义信用利差 Y 轴范围", key="credit_manual_y"):
+                val_hy = df_highyield['Value'] if 'Value' in df_highyield.columns else df_highyield.iloc[:, 1]
+                hy_min = float(val_hy.dropna().min())
+                hy_max = float(val_hy.dropna().max())
+                credit_y_range = st.slider("信用利差 Y 轴范围 (%)", round(max(0.0, hy_min - 1.0), 1), round(hy_max + 2.0, 1), (round(hy_min, 1), round(hy_max, 1)), 0.1, key="credit_y_slider")
+
+            fig_hy = create_credit_spread_chart(df_highyield, y_range=credit_y_range, timeframe=macro_tf)
+            if fig_hy:
+                st.plotly_chart(fig_hy, use_container_width=True)
+                with st.expander("💡 高收益债信用利差 (High Yield Spread) 解读指南", expanded=False):
+                    st.markdown("""
+                    * **违约风险体温计**：高收益债与同期限美债利差，当利差快速走阔突破 $5.0\\%$ 警戒线时，标志着企业端再融资风险开始向实体经济扩散。
+                    """)
+        else:
+            st.info("高收益债信用利差数据加载中或不可用。")
+
+    # --- 7. 期限利差与衰退预警模型 ---
+    st.markdown("---")
+    st.header("📊 期限利差与衰退预警模型 (Yield Spreads & Recession Warning)")
+
+    rs_col1, rs_col2 = st.columns(2)
+
+    with rs_col1:
+        df_spreads = get_yield_spreads_data()
+        if not df_spreads.empty:
+            latest_sp_date = pd.to_datetime(df_spreads['date'].iloc[-1]).strftime('%Y-%m-%d')
+            st.subheader("10Y-2Y & 10Y-3M 美债期限利差")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_sp_date}**")
+
+            s1, s2 = st.columns(2)
+            if '10Y_2Y_Spread' in df_spreads.columns:
+                val_2y = df_spreads['10Y_2Y_Spread'].iloc[-1]
+                s1.metric("10Y - 2Y 利差", f"{val_2y:+.2f}%", delta="倒挂警戒: 0.00%", delta_color="inverse" if val_2y < 0.0 else "normal")
+            if '10Y_3M_Spread' in df_spreads.columns:
+                val_3m = df_spreads['10Y_3M_Spread'].iloc[-1]
+                s2.metric("10Y - 3M 利差", f"{val_3m:+.2f}%", delta="倒挂警戒: 0.00%", delta_color="inverse" if val_3m < 0.0 else "normal")
+
+            spreads_y_range = None
+            if st.checkbox("手动自定义期限利差 Y 轴范围", key="spreads_manual_y"):
+                s_cols = [c for c in ['10Y_2Y_Spread', '10Y_3M_Spread'] if c in df_spreads.columns]
+                s_min = float(df_spreads[s_cols].min().min())
+                s_max = float(df_spreads[s_cols].max().max())
+                spreads_y_range = st.slider("利差 Y 轴范围 (%)", round(s_min - 0.5, 1), round(s_max + 0.5, 1), (round(s_min, 1), round(s_max, 1)), 0.1, key="spreads_y_slider")
+
+            fig_spreads = create_yield_spreads_chart(df_spreads, y_range=spreads_y_range, timeframe=macro_tf)
+            if fig_spreads:
+                st.plotly_chart(fig_spreads, use_container_width=True)
+                with st.expander("💡 10Y-2Y & 10Y-3M 美债期限利差解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标含义**：长端国债利率（10Y）减去短端国债利率（2Y 或 3M），是衡量债券市场宏观预期与货币紧缩程度的金标准。
+                    * **倒挂机制 (Inversion, < 0.0%)**：美联储激进加息推升短端政策利率，而市场对远期经济衰退与降息预期压低长端收益率。
+                    * **解冻与陡峭化预警 (Un-inversion / Steepening)**：
+                      * 历史规律显示，**倒挂结束重新转正（Un-inversion）至牛市陡峭化阶段**，往往是衰退真正兑现、企业盈利下修与股市波动最剧烈的危险期。
+                    """)
+        else:
+            st.info("美债期限利差数据加载中或不可用。")
+
+    with rs_col2:
         df_sahm = get_sahm_rule_data()
         if not df_sahm.empty:
-            fig_sahm = create_sahm_rule_chart(df_sahm, timeframe=macro_tf)
+            latest_sahm_date = pd.to_datetime(df_sahm['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_sahm_val = df_sahm['SAHM'].iloc[-1]
+            st.subheader("萨姆法则实时经济衰退指标 (SAHM Rule)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_sahm_date}**")
+
+            sh1, sh2 = st.columns(2)
+            sh1.metric("最新萨姆读数", f"{latest_sahm_val:.2f}%", delta="衰退红线: 0.50%", delta_color="inverse" if latest_sahm_val >= 0.50 else "normal")
+            sh2.metric("衰退确立阈值", "+0.50%")
+
+            sahm_y_range = None
+            if st.checkbox("手动自定义萨姆法则 Y 轴范围", key="sahm_manual_y"):
+                val_sh = df_sahm['SAHM']
+                sh_min = float(val_sh.dropna().min())
+                sh_max = float(val_sh.dropna().max())
+                sahm_y_range = st.slider("萨姆法则 Y 轴范围", round(sh_min - 0.2, 1), round(sh_max + 0.5, 1), (round(sh_min, 1), round(sh_max, 1)), 0.1, key="sahm_y_slider")
+
+            fig_sahm = create_sahm_rule_chart(df_sahm, y_range=sahm_y_range, timeframe=macro_tf)
             if fig_sahm:
                 st.plotly_chart(fig_sahm, use_container_width=True)
+                with st.expander("💡 萨姆法则实时经济衰退预警指标解读指南", expanded=False):
+                    st.markdown("""
+                    * **指标定义**：当全美失业率的 3 个月移动平均值较过去 12 个月内的最低点上升 **0.50 个百分点 (+0.50%)** 或以上时，标志着经济已实质性进入衰退阶段。
+                    * **历史胜率**：自 1970 年以来的历次美国经济衰退中，该指标拥有 **100% 的精准命中率，且无一虚假信号**。
+                    """)
+        else:
+            st.info("萨姆法则指标数据加载中或不可用。")
 
-        st.subheader("周度初请失业金 4周移动均线 (IC4WSA)")
+    # --- 8. 劳动力市场高频体温计 ---
+    st.markdown("---")
+    st.header("📊 劳动力市场高频体温计 (Labor Market Heatmap)")
+
+    lab_col1, lab_col2 = st.columns(2)
+
+    with lab_col1:
         df_claims = get_jobless_claims_data()
         if not df_claims.empty:
-            fig_claims = create_jobless_claims_chart(df_claims, timeframe=macro_tf)
+            latest_cl_date = pd.to_datetime(df_claims['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_cl_val = df_claims['Claims_4W'].iloc[-1]
+            st.subheader("周度初请失业金 4周移动均线 (IC4WSA)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_cl_date}**")
+
+            cl1, cl2 = st.columns(2)
+            cl1.metric("最新 4周均线", f"{latest_cl_val:,.0f} 人", delta="警戒线: 25.0 万人", delta_color="inverse" if latest_cl_val > 250000 else "normal")
+            cl2.metric("失业扩散预警线", "250,000 人")
+
+            claims_y_range = None
+            if st.checkbox("手动自定义初请均线 Y 轴范围", key="claims_manual_y"):
+                val_cl = df_claims['Claims_4W']
+                cl_min = float(val_cl.dropna().min())
+                cl_max = float(val_cl.dropna().max())
+                claims_y_range = st.slider("初请失业金 Y 轴范围", int(cl_min - 20000), int(cl_max + 30000), (int(cl_min), int(cl_max)), 5000, key="claims_y_slider")
+
+            fig_claims = create_jobless_claims_chart(df_claims, y_range=claims_y_range, timeframe=macro_tf)
             if fig_claims:
                 st.plotly_chart(fig_claims, use_container_width=True)
+                with st.expander("💡 周度初请失业金 4周移动均线解读指南", expanded=False):
+                    st.markdown("""
+                    * **最高频劳动力体温计**：每周四公布。4周均线平滑了单周异常噪声。
+                    * **分界线 (25.0 万人)**：
+                      * **$< 22.0$ 万人**：劳动力市场极度紧俏，薪资通胀压力仍存。
+                      * **$> 25.0$ 万人**：裁员开始向多行业扩散，往往领先失业率 (UNRATE) 上行 1–2 个月。
+                    """)
+        else:
+            st.info("初请失业金数据加载中或不可用。")
 
-        st.subheader("银行信贷标准净收紧比例 (SLOOS)")
-        df_sloos = get_sloos_credit_data()
-        if not df_sloos.empty:
-            fig_sloos = create_sloos_credit_chart(df_sloos, timeframe=macro_tf)
-            if fig_sloos:
-                st.plotly_chart(fig_sloos, use_container_width=True)
+    with lab_col2:
+        df_unemp = get_unemployment_data()
+        if not df_unemp.empty:
+            latest_un_date = pd.to_datetime(df_unemp['date'].iloc[-1]).strftime('%Y-%m-%d')
+            latest_un_val = df_unemp['Unemployment_Rate'].iloc[-1]
+            st.subheader("美国官方失业率走势 (UNRATE)")
+            st.caption(f"🕒 数据刷新时间 (美东时间): **{current_et_str}** | 最新公布日期: **{latest_un_date}**")
 
-        st.subheader("广义货币供应量 M2 同比增速")
-        df_m2 = get_m2_money_supply_data()
-        if not df_m2.empty:
-            fig_m2 = create_m2_money_supply_chart(df_m2, timeframe=macro_tf)
-            if fig_m2:
-                st.plotly_chart(fig_m2, use_container_width=True)
+            un1, un2 = st.columns(2)
+            un1.metric("最新失业率", f"{latest_un_val:.1f}%")
+            un_avg = df_unemp['Unemployment_Rate'].mean()
+            un2.metric("历史平均中枢", f"{un_avg:.1f}%")
 
-    with g_col2:
-        st.subheader("美联储宏观净流动性水龙头 (WALCL - TGA - RRP)")
-        df_net_liq = get_net_liquidity_data()
-        if not df_net_liq.empty:
-            fig_net_liq = create_net_liquidity_chart(df_net_liq, timeframe=macro_tf)
-            if fig_net_liq:
-                st.plotly_chart(fig_net_liq, use_container_width=True)
+            unemp_y_range = None
+            if st.checkbox("手动自定义失业率 Y 轴范围", key="unemp_manual_y"):
+                val_un = df_unemp['Unemployment_Rate']
+                un_min = float(val_un.dropna().min())
+                un_max = float(val_un.dropna().max())
+                unemp_y_range = st.slider("失业率 Y 轴范围 (%)", round(max(2.0, un_min - 1.0), 1), round(un_max + 2.0, 1), (round(un_min, 1), round(un_max, 1)), 0.1, key="unemp_y_slider")
 
-        st.subheader("SOFR - IORB 银行间微观流动性利差")
-        df_sofr = get_sofr_iorb_data()
-        if not df_sofr.empty:
-            fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
-            if fig_sofr:
-                st.plotly_chart(fig_sofr, use_container_width=True)
+            fig_unemp = create_unemployment_chart(df_unemp, y_range=unemp_y_range, timeframe=macro_tf)
+            if fig_unemp:
+                st.plotly_chart(fig_unemp, use_container_width=True)
+                with st.expander("💡 美国官方失业率 (UNRATE) 解读指南", expanded=False):
+                    st.markdown("""
+                    * **自然失业率锚点**：美联储长期自然失业率估计中枢为 $4.0\\% - 4.2\\%$。
+                    """)
+        else:
+            st.info("失业率数据加载中或不可用。")
 
-        st.subheader("核心资本品新订单 (Core CapEx / NEWORDER)")
-        df_capex = get_core_capex_data()
-        if not df_capex.empty:
-            fig_capex = create_core_capex_chart(df_capex, timeframe=macro_tf)
-            if fig_capex:
-                st.plotly_chart(fig_capex, use_container_width=True)
-
-        st.subheader("美元指数 (DXY) 全球流动性潮汐")
-        df_dxy = get_dxy_data()
-        if not df_dxy.empty:
-            fig_dxy = create_dxy_chart(df_dxy, timeframe=macro_tf)
-            if fig_dxy:
-                st.plotly_chart(fig_dxy, use_container_width=True)
+    # --- 9. 宏观宏图研报指南 ---
+    with st.expander("📚 宏观利率曲线与量化流动性指标深度研报指南", expanded=False):
+        st.markdown("""
+        ### 模块一：国债收益率曲线形态与经济周期阶段
+        1. **牛市平坦化 (Bull Flattening)**：长端利率下行快于短端。通常发生在加息周期末期或经济放缓预期升温阶段。
+        2. **熊市平坦化 (Bear Flattening)**：短端利率因央行紧缩大幅飙升，曲线倒挂。历史上多次精准预警后续经济下行压力。
+        3. **牛市陡峭化 (Bull Steepening)**：央行开启快速降息，短端利率暴跌拉动利差转正。此阶段通常伴随衰退兑现与企业盈利下修。
+        4. **熊市陡峭化 (Bear Steepening)**：长端利率因期限溢价与发债供给压力暴涨，通常冲击高估值成长股与风险资产估值中枢。
+        """)
 
 
 # ==================================================================
