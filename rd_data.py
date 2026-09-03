@@ -314,6 +314,123 @@ def get_m2_money_supply_data():
 def get_sloos_credit_data():
     return _fetch_fred_series_observations("DRTSCIS", "Tightening_Net_Pct", "1990-01-01")
 
+# ==================================================================
+# 宏观新指标 1: 股权风险溢价 (Equity Risk Premium, ERP)
+# ==================================================================
+@st.cache_data(ttl=60 * 60 * 6)
+def get_erp_data():
+    """
+    获取 10Y 美债收益率与 S&P 500 盈利收益率 (Earnings Yield)，计算 ERP
+    """
+    try:
+        import yfinance as yf
+        # 1. 抓取 10Y 美债收益率 (^TNX) 与 SPY
+        tnx = yf.download("^TNX", period="5y", progress=False)['Close']
+        spy = yf.Ticker("SPY")
+        spy_hist = spy.history(period="5y")['Close']
+        
+        # 2. 获取当前 Forward P/E 与 Trailing P/E
+        fwd_pe = spy.info.get('forwardPE', 21.5)
+        trail_pe = spy.info.get('trailingPE', 25.0)
+        current_ey = (1.0 / fwd_pe) * 100.0  # 远期盈利收益率 %
+        
+        # 3. 构建历史时间序列（基于 SPY 历史估值与 TNX 美债收益率）
+        df = pd.DataFrame(index=tnx.index)
+        df['10Y_Yield'] = tnx.squeeze()
+        # 将当前 Earnings Yield 与 10Y 收益率对齐
+        latest_yield = df['10Y_Yield'].dropna().iloc[-1]
+        current_erp = current_ey - latest_yield
+        
+        df = df.reset_index()
+        df.columns = ['date', '10Y_Yield']
+        df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+        
+        return {
+            "current_erp": current_erp,
+            "current_ey": current_ey,
+            "fwd_pe": fwd_pe,
+            "latest_yield": latest_yield,
+            "df_history": df.dropna()
+        }
+    except Exception as e:
+        print(f"Error fetching ERP data: {e}")
+        return {}
+
+
+# ==================================================================
+# 宏观新指标 2: CBOE SKEW 指数 与 SqueezeMetrics 暗池指数 (DIX)
+# ==================================================================
+@st.cache_data(ttl=60 * 60 * 6)
+def get_skew_dix_data():
+    """
+    抓取 CBOE SKEW (^SKEW) 与 SqueezeMetrics 暗池指数 (DIX.csv)
+    """
+    res = {"df_skew": pd.DataFrame(), "df_dix": pd.DataFrame()}
+    
+    # 1. 获取 CBOE SKEW
+    try:
+        import yfinance as yf
+        df_skew = yf.download("^SKEW", period="5y", progress=False)
+        if not df_skew.empty:
+            df_skew = df_skew[['Close']].reset_index()
+            df_skew.columns = ['date', 'SKEW']
+            df_skew['date'] = pd.to_datetime(df_skew['date']).dt.tz_localize(None)
+            res["df_skew"] = df_skew.dropna()
+    except Exception as e:
+        print(f"Error fetching SKEW: {e}")
+
+    # 2. 获取 SqueezeMetrics 官方 DIX 数据源
+    try:
+        import urllib.request
+        url = "https://squeezemetrics.com/monitor/static/DIX.csv"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            df_dix = pd.read_csv(resp)
+            if not df_dix.empty and 'date' in df_dix.columns and 'dix' in df_dix.columns:
+                df_dix['date'] = pd.to_datetime(df_dix['date'])
+                df_dix['DIX_pct'] = df_dix['dix'] * 100.0  # 换算为百分比
+                if 'gex' in df_dix.columns:
+                    df_dix['GEX'] = df_dix['gex'] / 1e9    # 换算为十亿美元
+                res["df_dix"] = df_dix[['date', 'price', 'DIX_pct'] + (['GEX'] if 'GEX' in df_dix.columns else [])].dropna()
+    except Exception as e:
+        print(f"Error fetching DIX: {e}")
+
+    return res
+
+
+# ==================================================================
+# 宏观新指标 3: 跨资产避险/风险偏好比率 (铜金比 & HYG/TLT)
+# ==================================================================
+@st.cache_data(ttl=60 * 60 * 6)
+def get_risk_ratios_data():
+    """
+    抓取 COMEX 铜/黄金 (HG=F, GC=F) 以及垃圾债/国债 (HYG, TLT)
+    """
+    try:
+        import yfinance as yf
+        tickers = ["HG=F", "GC=F", "HYG", "TLT"]
+        df_raw = yf.download(tickers, period="5y", progress=False)['Close']
+        if df_raw is not None and not df_raw.empty:
+            df = df_raw.copy().reset_index()
+            df.columns = [str(c[0] if isinstance(c, tuple) else c) for c in df.columns]
+            df.rename(columns={'Date': 'date'}, inplace=True)
+            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+            
+            # 1. 铜金比 (Copper / Gold Ratio * 1000 放大便于观察)
+            if 'HG=F' in df.columns and 'GC=F' in df.columns:
+                df['Copper_Gold_Ratio'] = (df['HG=F'] / df['GC=F']) * 1000.0
+                df['CG_MA50'] = df['Copper_Gold_Ratio'].rolling(50).mean()
+            
+            # 2. 信用债风险比率 (HYG / TLT)
+            if 'HYG' in df.columns and 'TLT' in df.columns:
+                df['HYG_TLT_Ratio'] = df['HYG'] / df['TLT']
+                df['HT_MA50'] = df['HYG_TLT_Ratio'].rolling(50).mean()
+                
+            return df.dropna(subset=['date']).reset_index(drop=True)
+    except Exception as e:
+        print(f"Error fetching Risk-on / Risk-off ratios: {e}")
+    return pd.DataFrame()
+    
 # ------------------------------------------------------------------
 # 3. 个股量化、财务报表、反向 DCF 与半导体产业链数据获取函数
 # ------------------------------------------------------------------
