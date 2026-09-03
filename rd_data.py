@@ -318,45 +318,57 @@ def get_sloos_credit_data():
     return _fetch_fred_series_observations("DRTSCIS", "Tightening_Net_Pct", "1990-01-01")
 
 # ==================================================================
-# 宏观新指标 1: 股权风险溢价 (Equity Risk Premium, ERP)
+# 宏观新指标 1: 股权风险溢价 (方案 2: SPX 实时点位 / 远期 NTM EPS)
 # ==================================================================
-@st.cache_data(ttl=60 * 60 * 6)
-def get_erp_data():
+@st.cache_data(ttl=60 * 60 * 4)
+def get_erp_data(base_ntm_eps: float = 288.0):
     """
-    获取 10Y 美债收益率与 S&P 500 盈利收益率 (Earnings Yield)，计算 ERP
+    方案 2: 基于标普 500 (^GSPC) 实时点位与华尔街一致预期 NTM EPS 动态倒算 Forward P/E 与 ERP
+    :param base_ntm_eps: 当前标普 500 未来 12 个月的一致预期 EPS (FactSet/Yardeni 2026 基准约 $285~$290)
     """
     try:
         import yfinance as yf
-        # 1. 抓取 10Y 美债收益率 (^TNX) 与 SPY
+        # 1. 抓取 S&P 500 指数 (^GSPC) 与 10Y 美债收益率 (^TNX)
+        spx = yf.download("^GSPC", period="5y", progress=False)['Close']
         tnx = yf.download("^TNX", period="5y", progress=False)['Close']
-        spy = yf.Ticker("SPY")
-        spy_hist = spy.history(period="5y")['Close']
         
-        # 2. 获取当前 Forward P/E 与 Trailing P/E
-        fwd_pe = spy.info.get('forwardPE', 21.5)
-        trail_pe = spy.info.get('trailingPE', 25.0)
-        current_ey = (1.0 / fwd_pe) * 100.0  # 远期盈利收益率 %
+        if spx.empty or tnx.empty:
+            return {}
+            
+        spx_series = spx.squeeze().dropna()
+        tnx_series = tnx.squeeze().dropna()
         
-        # 3. 构建历史时间序列（基于 SPY 历史估值与 TNX 美债收益率）
-        df = pd.DataFrame(index=tnx.index)
-        df['10Y_Yield'] = tnx.squeeze()
-        # 将当前 Earnings Yield 与 10Y 收益率对齐
-        latest_yield = df['10Y_Yield'].dropna().iloc[-1]
-        current_erp = current_ey - latest_yield
+        # 2. 提取标普 500 最新点位与 10Y 美债最新收益率
+        latest_spx_price = float(spx_series.iloc[-1])
+        latest_yield = float(tnx_series.iloc[-1])
+        
+        # 3. 实时计算动态远期估值指标
+        ntm_eps = float(base_ntm_eps)
+        fwd_pe = latest_spx_price / ntm_eps           # 动态 Forward P/E
+        current_ey = (ntm_eps / latest_spx_price) * 100.0  # 远期盈利收益率 (%)
+        current_erp = current_ey - latest_yield       # 实时股权风险溢价 (%)
+        
+        # 4. 构建历史利差序列（对齐两者的历史数据）
+        df = pd.DataFrame({'SPX': spx_series, '10Y_Yield': tnx_series}).dropna()
+        # 历史盈利收益率估算序列
+        df['Earnings_Yield'] = (ntm_eps / df['SPX']) * 100.0
+        df['ERP'] = df['Earnings_Yield'] - df['10Y_Yield']
         
         df = df.reset_index()
-        df.columns = ['date', '10Y_Yield']
+        df.rename(columns={'Date': 'date', 'index': 'date'}, inplace=True)
         df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
         
         return {
             "current_erp": current_erp,
             "current_ey": current_ey,
             "fwd_pe": fwd_pe,
+            "ntm_eps": ntm_eps,
+            "spx_price": latest_spx_price,
             "latest_yield": latest_yield,
-            "df_history": df.dropna()
+            "df_history": df[['date', '10Y_Yield', 'Earnings_Yield', 'ERP']]
         }
     except Exception as e:
-        print(f"Error fetching ERP data: {e}")
+        print(f"Error calculating dynamic ERP: {e}")
         return {}
 
 
