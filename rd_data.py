@@ -771,28 +771,42 @@ with tab_macro:
             st.info("正在加载或暂无 CNN 恐慌与贪婪指数数据...")
 
     # ==================================================================
-    # 4. 股权风险溢价 (Equity Risk Premium, ERP)
+    # 4. 股权风险溢价 (Equity Risk Premium, ERP) - 方案 2 动态版
     # ==================================================================
     st.markdown("---")
     st.header("📊 股权风险溢价 (Equity Risk Premium, ERP)")
     
-    erp_data = get_erp_data()
+    # 允许在前端动态微调 NTM EPS 预期（默认设置为当前华尔街基准 288.0 美元）
+    col_ctrl, _ = st.columns([2.5, 7.5])
+    with col_ctrl:
+        custom_eps = st.number_input(
+            "华尔街标普 500 NTM EPS 一致预期 ($):",
+            min_value=200.0, max_value=400.0, value=288.0, step=1.0,
+            help="未来 12 个月一致预期每股收益。调高 EPS 预期意味着盈利更乐观，Forward P/E 降低，ERP 提升。"
+        )
+    
+    erp_data = get_erp_data(base_ntm_eps=custom_eps)
+    
     if erp_data:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("当前 ERP 风险溢价", f"{erp_data['current_erp']:+.2f}%", 
-                  help="ERP < 0.5% 提示美股相对美债无风险资产的吸引力偏低")
-        c2.metric("标普 500 盈利收益率", f"{erp_data['current_ey']:.2f}%")
-        c3.metric("标普远期 P/E", f"{erp_data['fwd_pe']:.1f}x")
+                  help="ERP = 远期盈利收益率 - 10Y美债收益率。<0.5% 提示美股相对债券性价比较低")
+        c2.metric("远期盈利收益率 (Fwd EY)", f"{erp_data['current_ey']:.2f}%",
+                  help=f"计算公式: EPS (${erp_data['ntm_eps']:.0f}) / SPX (${erp_data['spx_price']:,.1f})")
+        c3.metric("标普实时远期 P/E", f"{erp_data['fwd_pe']:.1f}x",
+                  help=f"标普点位 ({erp_data['spx_price']:,.1f}) / NTM EPS (${erp_data['ntm_eps']:.0f})")
         c4.metric("10Y 美债无风险收益率", f"{erp_data['latest_yield']:.2f}%")
         
         fig_erp = create_erp_chart(erp_data, timeframe=macro_tf)
         if fig_erp:
             st.plotly_chart(fig_erp, use_container_width=True)
-            with st.expander("💡 股权风险溢价 (ERP) 投资决策指南", expanded=False):
-                st.markdown("""
-                * **核心逻辑**：ERP 代表持有股票而非 10 年期国债所获得的风险超额报酬。
-                * **极低状态 (ERP < 0% ~ 0.5%)**：美股估值过高或无风险利率高企，股票性价比较低，提示防御配置。
-                * **高吸引力状态 (ERP > 3.0%)**：市场出现超跌恐慌，权益资产具备显著的安全边际。
+            with st.expander("💡 股权风险溢价 (ERP) 与远期估值决策指南", expanded=False):
+                st.markdown(f"""
+                * **当前核算基准**：S&P 500 实时点位 **${erp_data['spx_price']:,.1f}**，华尔街 NTM EPS 一致预期 **${erp_data['ntm_eps']:.1f}**。
+                * **ERP 估值含义**：
+                  * **$\text{{ERP}} < 0\%$（极端倒挂）**：股票盈利收益率低于 10 年期无风险美债，历史上多见于泡沫末期，权益资产抗风险缓冲极低。
+                  * **$0\% \le \text{{ERP}} \le 1.0\%$（低性价比）**：美股处于估值偏高状态，防守型资产比重宜适当提升。
+                  * **$\text{{ERP}} > 2.5\% \sim 3.0\%$（高吸引力）**：股票资产具备充足的安全边际，通常对应市场超跌反弹或牛市初期的优质买点。
                 """)
 
     # ==================================================================
