@@ -1186,3 +1186,100 @@ def create_sloos_credit_chart(df_data: pd.DataFrame, timeframe="ALL"):
         uirevision=f"sloos_chart_{timeframe}"
     )
     return fig
+
+# ------------------------------------------------------------------
+# 1. 股权风险溢价 (ERP) 综合图表
+# ------------------------------------------------------------------
+def create_erp_chart(erp_dict: dict, timeframe: str = "3Y"):
+    if not erp_dict or "df_history" not in erp_dict:
+        return None
+    df = filter_by_timeframe(erp_dict["df_history"].copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    current_ey = erp_dict.get("current_ey", 4.65)
+    df['Earnings_Yield'] = current_ey
+    df['ERP'] = df['Earnings_Yield'] - df['10Y_Yield']
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    # 标普 500 盈利收益率 vs 10Y 美债利率
+    fig.add_trace(go.Scatter(x=df['date'], y=df['10Y_Yield'], name="10Y 美债收益率 (%)", line=dict(color='#ef4444', width=2)), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['date'], y=df['Earnings_Yield'], name="标普 500 盈利收益率 (%)", line=dict(color='#22c55e', width=2, dash='dot')), secondary_y=False)
+    
+    # ERP 溢价利差柱状填充
+    colors = ['#3b82f6' if val >= 0 else '#f97316' for val in df['ERP']]
+    fig.add_trace(go.Bar(x=df['date'], y=df['ERP'], name="ERP 风险溢价差 (EY - 10Y)", marker_color=colors, opacity=0.35), secondary_y=True)
+
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", secondary_y=True)
+    fig.update_layout(
+        title="<b>S&P 500 股权风险溢价 (Equity Risk Premium, ERP)</b>",
+        hovermode="x unified",
+        template="plotly_dark",
+        height=450,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(title_text="收益率 (%)", secondary_y=False)
+    fig.update_yaxes(title_text="ERP 风险溢价 (%)", secondary_y=True)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 2. CBOE SKEW 与暗池 DIX 双子图
+# ------------------------------------------------------------------
+def create_skew_dix_chart(skew_dix_dict: dict, timeframe: str = "1Y"):
+    df_skew = skew_dix_dict.get("df_skew", pd.DataFrame())
+    df_dix = skew_dix_dict.get("df_dix", pd.DataFrame())
+    
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                        subplot_titles=("<b>CBOE SKEW 黑天鹅偏度指数 (左尾极端尾部防守)</b>",
+                                        "<b>SqueezeMetrics DIX 暗池机构买入比例 (%)</b>"))
+    
+    # 1. SKEW
+    if not df_skew.empty:
+        df_s = filter_by_timeframe(df_skew.copy(), 'date', timeframe)
+        if not df_s.empty:
+            fig.add_trace(go.Scatter(x=df_s['date'], y=df_s['SKEW'], name="SKEW 指数", line=dict(color='#a855f7', width=2)), row=1, col=1)
+            fig.add_hline(y=140, line_dash="dash", line_color="#ef4444", annotation_text="高防守警戒线 (140)", row=1, col=1)
+            fig.add_hline(y=120, line_dash="dot", line_color="#94a3b8", row=1, col=1)
+
+    # 2. DIX
+    if not df_dix.empty:
+        df_d = filter_by_timeframe(df_dix.copy(), 'date', timeframe)
+        if not df_d.empty:
+            fig.add_trace(go.Scatter(x=df_d['date'], y=df_d['DIX_pct'], name="DIX 暗池买入比 (%)", line=dict(color='#38bdf8', width=2)), row=2, col=1)
+            fig.add_hline(y=45.0, line_dash="dash", line_color="#22c55e", annotation_text="机构多头强吸筹线 (45%)", row=2, col=1)
+            fig.add_hline(y=40.0, line_dash="dot", line_color="#94a3b8", row=2, col=1)
+
+    fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", showlegend=False)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 3. 跨资产避险/风险偏好比率 (铜金比 & HYG/TLT)
+# ------------------------------------------------------------------
+def create_cross_asset_ratios_chart(df_ratios: pd.DataFrame, timeframe: str = "2Y"):
+    if df_ratios is None or df_ratios.empty:
+        return None
+    df = filter_by_timeframe(df_ratios.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                        subplot_titles=("<b>铜金比 (Copper / Gold Ratio × 1000) — 工业复苏 vs 避险</b>",
+                                        "<b>信用利差风险比率 (HYG / TLT) — 风险偏好 Risk-On 体温计</b>"))
+    
+    # 铜金比
+    if 'Copper_Gold_Ratio' in df.columns:
+        fig.add_trace(go.Scatter(x=df['date'], y=df['Copper_Gold_Ratio'], name="铜金比", line=dict(color='#f59e0b', width=2)), row=1, col=1)
+        if 'CG_MA50' in df.columns:
+            fig.add_trace(go.Scatter(x=df['date'], y=df['CG_MA50'], name="50日均线", line=dict(color='#cbd5e1', width=1, dash='dot')), row=1, col=1)
+
+    # HYG / TLT
+    if 'HYG_TLT_Ratio' in df.columns:
+        fig.add_trace(go.Scatter(x=df['date'], y=df['HYG_TLT_Ratio'], name="HYG/TLT", line=dict(color='#10b981', width=2)), row=2, col=1)
+        if 'HT_MA50' in df.columns:
+            fig.add_trace(go.Scatter(x=df['date'], y=df['HT_MA50'], name="50日均线", line=dict(color='#cbd5e1', width=1, dash='dot')), row=2, col=1)
+
+    fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", showlegend=True)
+    return fig
