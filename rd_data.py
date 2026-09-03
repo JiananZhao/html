@@ -755,6 +755,84 @@ with tab_macro:
         else:
             st.info("正在加载或暂无 CNN 恐慌与贪婪指数数据...")
 
+    # ==================================================================
+    # 4. 股权风险溢价 (Equity Risk Premium, ERP)
+    # ==================================================================
+    st.markdown("---")
+    st.header("📊 股权风险溢价 (Equity Risk Premium, ERP)")
+    
+    erp_data = get_erp_data()
+    if erp_data:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("当前 ERP 风险溢价", f"{erp_data['current_erp']:+.2f}%", 
+                  help="ERP < 0.5% 提示美股相对美债无风险资产的吸引力偏低")
+        c2.metric("标普 500 盈利收益率", f"{erp_data['current_ey']:.2f}%")
+        c3.metric("标普远期 P/E", f"{erp_data['fwd_pe']:.1f}x")
+        c4.metric("10Y 美债无风险收益率", f"{erp_data['latest_yield']:.2f}%")
+        
+        fig_erp = create_erp_chart(erp_data, timeframe=macro_tf)
+        if fig_erp:
+            st.plotly_chart(fig_erp, use_container_width=True)
+            with st.expander("💡 股权风险溢价 (ERP) 投资决策指南", expanded=False):
+                st.markdown("""
+                * **核心逻辑**：ERP 代表持有股票而非 10 年期国债所获得的风险超额报酬。
+                * **极低状态 (ERP < 0% ~ 0.5%)**：美股估值过高或无风险利率高企，股票性价比较低，提示防御配置。
+                * **高吸引力状态 (ERP > 3.0%)**：市场出现超跌恐慌，权益资产具备显著的安全边际。
+                """)
+
+    # ==================================================================
+    # 5. CBOE SKEW 黑天鹅指数与暗池 DIX
+    # ==================================================================
+    st.markdown("---")
+    st.header("📊 机构极端情绪与暗池资金 (SKEW & Dark Pool DIX)")
+    
+    skew_dix_dict = get_skew_dix_data()
+    if skew_dix_dict:
+        df_skew = skew_dix_dict.get("df_skew", pd.DataFrame())
+        df_dix = skew_dix_dict.get("df_dix", pd.DataFrame())
+        
+        sk1, sk2 = st.columns(2)
+        if not df_skew.empty:
+            cur_skew = df_skew['SKEW'].iloc[-1]
+            sk1.metric("最新 CBOE SKEW 指数", f"{cur_skew:.1f}", 
+                       delta="高防守警戒: 140", delta_color="inverse" if cur_skew > 140 else "normal")
+        if not df_dix.empty:
+            cur_dix = df_dix['DIX_pct'].iloc[-1]
+            sk2.metric("最新暗池买入比 (DIX)", f"{cur_dix:.1f}%", 
+                       delta="主力吸筹线: 45%", delta_color="normal" if cur_dix > 45.0 else "off")
+            
+        fig_skew_dix = create_skew_dix_chart(skew_dix_dict, timeframe=macro_tf)
+        if fig_skew_dix:
+            st.plotly_chart(fig_skew_dix, use_container_width=True)
+            with st.expander("💡 SKEW 与暗池 DIX 解读指南", expanded=False):
+                st.markdown("""
+                * **CBOE SKEW**：衡量虚值 Put 溢价。若 VIX 处于低位但 SKEW 飙升突破 140，意味着大资金正在隐秘抢购崩盘保险。
+                * **暗池 DIX**：衡量大机构挂单成交做多比例。DIX > 45%（绿色警戒线）往往预示着中短期多头底部买点成立。
+                """)
+
+    # ==================================================================
+    # 6. 跨资产避险/风险偏好比率 (Copper/Gold & HYG/TLT)
+    # ==================================================================
+    st.markdown("---")
+    st.header("📊 跨资产避险与风险偏好比率 (Risk-on / Risk-off)")
+    
+    df_ratios = get_risk_ratios_data()
+    if df_ratios is not None and not df_ratios.empty:
+        r1, r2 = st.columns(2)
+        if 'Copper_Gold_Ratio' in df_ratios.columns:
+            r1.metric("铜金比率 (Copper/Gold)", f"{df_ratios['Copper_Gold_Ratio'].dropna().iloc[-1]:.2f}")
+        if 'HYG_TLT_Ratio' in df_ratios.columns:
+            r2.metric("信用利差风险比率 (HYG/TLT)", f"{df_ratios['HYG_TLT_Ratio'].dropna().iloc[-1]:.3f}")
+            
+        fig_ratios = create_cross_asset_ratios_chart(df_ratios, timeframe=macro_tf)
+        if fig_ratios:
+            st.plotly_chart(fig_ratios, use_container_width=True)
+            with st.expander("💡 跨资产比率解读指南", expanded=False):
+                st.markdown("""
+                * **铜金比**：宏观经济增长与大宗商品周期的风向标。比率突破 50 日均线上行代表周期复苏与 Risk-on。
+                * **HYG / TLT**：高收益债与长期国债比值。比值坚挺上行说明信贷息差稳定、风险偏好良好；破位下行则是股市调整前夕的早期预警信号。
+                """)
+                
     st.markdown("---")
 
     # --- 3. 资金面体温计 & 指数结构集中度 ---
