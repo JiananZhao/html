@@ -1174,3 +1174,145 @@ def create_personal_saving_rate_chart(df_save: pd.DataFrame, timeframe: str = "5
     fig.update_yaxes(autorange=True, fixedrange=False)
     return fig
 
+
+# ------------------------------------------------------------------
+# 29. 中金公司「胜率 - 赔率」全景量化大类资产与行业板块四象限图
+# ------------------------------------------------------------------
+def create_cicc_quadrant_chart(df_quadrant: pd.DataFrame, selected_category: str = "🌟 全量 23 个板块全景"):
+    if df_quadrant is None or df_quadrant.empty:
+        return None
+
+    df = df_quadrant.copy()
+    if selected_category and "全量" not in selected_category and "全部" not in selected_category:
+        df = df[df['category'] == selected_category]
+
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+
+    # 1. 四象限背景着色
+    # Q1 (右上): 戴维斯双击 - 柔和绿色
+    fig.add_shape(type="rect", x0=50, x1=100, y0=50, y1=100,
+                  fillcolor="rgba(34, 197, 94, 0.07)", line_width=0, layer="below")
+    # Q2 (左上): 动量顺势/高估 - 柔和紫蓝色
+    fig.add_shape(type="rect", x0=0, x1=50, y0=50, y1=100,
+                  fillcolor="rgba(168, 85, 247, 0.07)", line_width=0, layer="below")
+    # Q3 (左下): 戴维斯双杀 - 柔和红色
+    fig.add_shape(type="rect", x0=0, x1=50, y0=0, y1=50,
+                  fillcolor="rgba(239, 68, 68, 0.07)", line_width=0, layer="below")
+    # Q4 (右下): 价值洼地 - 柔和琥珀黄色
+    fig.add_shape(type="rect", x0=50, x1=100, y0=0, y1=50,
+                  fillcolor="rgba(245, 158, 11, 0.07)", line_width=0, layer="below")
+
+    # 2. 十字基准中轴线 (中位数 50)
+    fig.add_vline(x=50, line_dash="solid", line_color="rgba(255, 255, 255, 0.35)", line_width=1.5)
+    fig.add_hline(y=50, line_dash="solid", line_color="rgba(255, 255, 255, 0.35)", line_width=1.5)
+
+    # 3. 象限背景战略指导文字标注 (水印风格)
+    fig.add_annotation(
+        x=75, y=96, text="<b>【第一象限: 戴维斯双击】</b><br><span style='font-size:11px;color:#86efac'>高胜率 + 低估值 (积极进攻 / 重仓配置)</span>",
+        showarrow=False, font=dict(color="#4ade80", size=13), align="center"
+    )
+    fig.add_annotation(
+        x=25, y=96, text="<b>【第二象限: 动量顺势】</b><br><span style='font-size:11px;color:#d8b4fe'>高胜率 + 高估值 (顺势持有 / 紧设止损防回调)</span>",
+        showarrow=False, font=dict(color="#c084fc", size=13), align="center"
+    )
+    fig.add_annotation(
+        x=25, y=6, text="<b>【第三象限: 戴维斯双杀】</b><br><span style='font-size:11px;color:#fca5a5'>低胜率 + 高估值 (坚决回避 / 减仓对冲)</span>",
+        showarrow=False, font=dict(color="#f87171", size=13), align="center"
+    )
+    fig.add_annotation(
+        x=75, y=6, text="<b>【第四象限: 价值洼地】</b><br><span style='font-size:11px;color:#fde68a'>低胜率 + 低估值 (左侧分批定投 / 耐心潜伏)</span>",
+        showarrow=False, font=dict(color="#fbbf24", size=13), align="center"
+    )
+
+    # 4. 按行业大类分别添加气泡散点
+    cat_colors = {
+        "💻 科技硬件与互联网": "#38bdf8",  # 浅蓝/青
+        "🏭 顺周期与高端制造": "#f97316",  # 橙色
+        "🛡️ 防御、电力与内需": "#a855f7",  # 紫色
+        "🌐 宏观大类资产": "#10b981",    # 翠绿
+    }
+
+    categories = df['category'].unique()
+    for cat in categories:
+        df_sub = df[df['category'] == cat].copy()
+        color = cat_colors.get(cat, "#cbd5e1")
+        
+        sym_col = 'ticker' if 'ticker' in df_sub.columns else 'symbol'
+        ticker_series = df_sub[sym_col]
+
+        rel_pct_series = df_sub['rel_percentile_5y'] if 'rel_percentile_5y' in df_sub.columns else df_sub['percentile_5y']
+
+        customdata = np.stack((
+            df_sub['name'],
+            df_sub['price'],
+            df_sub['odds_score'],
+            df_sub['win_score'],
+            df_sub['valuation_tag'],
+            df_sub['action'],
+            df_sub['mom_12_1'],
+            df_sub['desc'],
+            ticker_series,
+            rel_pct_series
+        ), axis=-1)
+
+        fig.add_trace(go.Scatter(
+            x=df_sub['odds_score'],
+            y=df_sub['win_score'],
+            mode='markers+text',
+            name=cat,
+            text=df_sub['name'] + " (" + ticker_series + ")",
+            textposition="top center",
+            textfont=dict(size=11, color="#f1f5f9"),
+            marker=dict(
+                size=16,
+                color=color,
+                opacity=0.92,
+                line=dict(width=2, color="#ffffff")
+            ),
+            customdata=customdata,
+            hovertemplate=(
+                "<b>%{customdata[0]} (%{text})</b><br>"
+                "• 实时价格: <b>$%{customdata[1]:.2f}</b><br>"
+                "• 估值高低估诊断: <b>%{customdata[4]}</b><br>"
+                "• 赔率评分: <b>%{x:.1f} / 100</b> (越高越便宜/越低估)<br>"
+                "• 胜率评分: <b>%{y:.1f} / 100</b> (越高越顺风/动能越强)<br>"
+                "• 相对大盘 5Y 分位: <b>%{customdata[9]:.1f}%</b> (越低越具修复空间)<br>"
+                "• 12-1M 经典动量: <b>%{customdata[6]:+.1f}%</b><br>"
+                "• 中金战术建议: <b>%{customdata[5]}</b><br>"
+                "• 行业说明: %{customdata[7]}<extra></extra>"
+            )
+        ))
+
+    fig.update_layout(
+        title="<b>🎯 中金公司「胜率 - 赔率」全景量化大类资产与行业板块四象限雷达</b>",
+        template="plotly_dark",
+        height=700,
+        xaxis=dict(
+            title="<b>赔率评分 (Odds Score / 估值安全边际) ── 越向右越便宜、越明确低估 ──►</b>",
+            range=[0, 100],
+            dtick=10,
+            showgrid=True,
+            gridcolor="rgba(255,255,255,0.06)"
+        ),
+        yaxis=dict(
+            title="<b>胜率评分 (Win Rate Score / 景气动能驱动) ── 越向上越顺风、确定性越高 ──►</b>",
+            range=[0, 100],
+            dtick=10,
+            showgrid=True,
+            gridcolor="rgba(255,255,255,0.06)"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(l=50, r=40, t=80, b=50)
+    )
+    return fig
+
+

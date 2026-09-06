@@ -34,6 +34,7 @@ from charts.macro_charts import (
     create_epu_chart,
     create_commercial_loans_chart,
     create_personal_saving_rate_chart,
+    create_cicc_quadrant_chart,
 )
 from charts.stock_charts import (
     create_stock_price_chart,
@@ -76,6 +77,7 @@ __all__ = [
     "create_epu_chart",
     "create_commercial_loans_chart",
     "create_personal_saving_rate_chart",
+    "create_cicc_quadrant_chart",
     "create_stock_price_chart",
     "create_relative_performance_chart",
     "create_financial_trends_chart",
