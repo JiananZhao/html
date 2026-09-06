@@ -77,10 +77,29 @@ def _render_kpi_cockpit():
 
     # 1. 流动性水库与体温计
     with c1:
-        df_liq = get_net_liquidity_data()
-        df_sofr = get_sofr_iorb_data()
-        latest_liq = df_liq["Net_Liquidity_Trillion"].dropna().iloc[-1] if not df_liq.empty else np.nan
-        sofr_spread = df_sofr["Spread_bps"].dropna().iloc[-1] if not df_sofr.empty else np.nan
+        latest_liq = np.nan
+        sofr_spread = np.nan
+        try:
+            df_liq = get_net_liquidity_data()
+            if df_liq is not None and not df_liq.empty:
+                for col in ["Fed_Net_Liquidity_Tn", "Net_Liquidity_Trillion"]:
+                    if col in df_liq.columns:
+                        s = df_liq[col].dropna()
+                        if not s.empty:
+                            latest_liq = float(s.iloc[-1])
+                            break
+        except Exception:
+            pass
+
+        try:
+            df_sofr = get_sofr_iorb_data()
+            if df_sofr is not None and not df_sofr.empty and "Spread_bps" in df_sofr.columns:
+                s = df_sofr["Spread_bps"].dropna()
+                if not s.empty:
+                    sofr_spread = float(s.iloc[-1])
+        except Exception:
+            pass
+
         st.metric(
             label="💧 美联储净流动性",
             value=f"${latest_liq:.2f} T" if pd.notna(latest_liq) else "N/A",
@@ -91,13 +110,29 @@ def _render_kpi_cockpit():
 
     # 2. 股债恐慌联动
     with c2:
-        df_vix = get_vix_data()
-        df_move = get_move_index_data()
-        latest_vix = df_vix["VIX"].dropna().iloc[-1] if not df_vix.empty else np.nan
-        latest_move = df_move["MOVE"].dropna().iloc[-1] if not df_move.empty else np.nan
+        latest_vix = np.nan
+        latest_move = np.nan
+        try:
+            df_vix = get_vix_data()
+            if df_vix is not None and not df_vix.empty and "VIX" in df_vix.columns:
+                s = df_vix["VIX"].dropna()
+                if not s.empty:
+                    latest_vix = float(s.iloc[-1])
+        except Exception:
+            pass
+
+        try:
+            df_move = get_move_index_data()
+            if df_move is not None and not df_move.empty and "MOVE" in df_move.columns:
+                s = df_move["MOVE"].dropna()
+                if not s.empty:
+                    latest_move = float(s.iloc[-1])
+        except Exception:
+            pass
+
         st.metric(
             label="⚡ 股市 VIX / 债市 MOVE",
-            value=f"{latest_vix:.1f} / {latest_move:.0f}" if (pd.notna(latest_vix) and pd.notna(latest_move)) else "N/A",
+            value=f"{latest_vix:.1f} / {latest_move:.0f}" if (pd.notna(latest_vix) and pd.notna(latest_move)) else ("N/A" if (pd.isna(latest_vix) and pd.isna(latest_move)) else (f"{latest_vix:.1f} / N/A" if pd.notna(latest_vix) else f"N/A / {latest_move:.0f}")),
             delta="高波动警戒" if ((latest_vix or 0) > 22 or (latest_move or 0) > 115) else "波动平稳常态",
             delta_color="inverse" if ((latest_vix or 0) > 22 or (latest_move or 0) > 115) else "normal",
             help="VIX为股市恐慌指标；MOVE为债市利率期权隐含波动率（全球金融抵押品母恐慌指数）。"
@@ -105,24 +140,50 @@ def _render_kpi_cockpit():
 
     # 3. 衰退预警模型
     with c3:
-        df_sahm = get_sahm_rule_data()
-        df_spr = get_yield_spreads_data()
-        sahm_val = df_sahm["Sahm_Rule"].dropna().iloc[-1] if not df_sahm.empty else np.nan
-        t10y2y = df_spr["T10Y2Y"].dropna().iloc[-1] if (not df_spr.empty and "T10Y2Y" in df_spr.columns) else np.nan
+        sahm_val = np.nan
+        t10y2y = np.nan
+        try:
+            df_sahm = get_sahm_rule_data()
+            if df_sahm is not None and not df_sahm.empty and "Sahm_Rule" in df_sahm.columns:
+                s = df_sahm["Sahm_Rule"].dropna()
+                if not s.empty:
+                    sahm_val = float(s.iloc[-1])
+        except Exception:
+            pass
+
+        try:
+            df_spr = get_yield_spreads_data()
+            if df_spr is not None and not df_spr.empty:
+                for col in ["Spread_10Y2Y", "T10Y2Y"]:
+                    if col in df_spr.columns:
+                        s = df_spr[col].dropna()
+                        if not s.empty:
+                            t10y2y = float(s.iloc[-1])
+                            break
+        except Exception:
+            pass
+
         is_sahm_alarm = (sahm_val or 0) >= 0.50
         st.metric(
             label="🛡️ 萨姆法则衰退指标",
             value=f"{sahm_val:.2f}" if pd.notna(sahm_val) else "N/A",
-            delta="🚨 衰退警报触发 (≥0.50)" if is_sahm_alarm else f"10Y-2Y利差: {t10y2y:+.2f}%",
+            delta="🚨 衰退警报触发 (≥0.50)" if is_sahm_alarm else (f"10Y-2Y: {t10y2y:+.2f}%" if pd.notna(t10y2y) else None),
             delta_color="inverse" if is_sahm_alarm else "normal",
             help="萨姆法则≥0.50%历史100%对应经济衰退。10Y-2Y解除倒挂陡峭化阶段为衰退敏感窗口。"
         )
 
     # 4. 标普股权风险溢价 ERP
     with c4:
-        erp_data = get_erp_data(base_ntm_eps=288.0)
-        cur_erp = erp_data["current_erp"] if erp_data else np.nan
-        fwd_pe = erp_data["fwd_pe"] if erp_data else np.nan
+        cur_erp = np.nan
+        fwd_pe = np.nan
+        try:
+            erp_data = get_erp_data(base_ntm_eps=288.0)
+            if erp_data:
+                cur_erp = erp_data.get("current_erp", np.nan)
+                fwd_pe = erp_data.get("fwd_pe", np.nan)
+        except Exception:
+            pass
+
         st.metric(
             label="🎯 标普 500 ERP 风险溢价",
             value=f"{cur_erp:+.2f}%" if pd.notna(cur_erp) else "N/A",
@@ -133,10 +194,29 @@ def _render_kpi_cockpit():
 
     # 5. 信用利差与金融条件
     with c5:
-        df_oas = get_credit_spread_data()
-        df_nfci = get_nfci_data()
-        cur_oas = df_oas["High_Yield_Spread"].dropna().iloc[-1] if not df_oas.empty else np.nan
-        cur_nfci = df_nfci["NFCI"].dropna().iloc[-1] if not df_nfci.empty else np.nan
+        cur_oas = np.nan
+        cur_nfci = np.nan
+        try:
+            df_oas = get_credit_spread_data()
+            if df_oas is not None and not df_oas.empty:
+                for col in ["Value", "High_Yield_Spread"]:
+                    if col in df_oas.columns:
+                        s = df_oas[col].dropna()
+                        if not s.empty:
+                            cur_oas = float(s.iloc[-1])
+                            break
+        except Exception:
+            pass
+
+        try:
+            df_nfci = get_nfci_data()
+            if df_nfci is not None and not df_nfci.empty and "NFCI" in df_nfci.columns:
+                s = df_nfci["NFCI"].dropna()
+                if not s.empty:
+                    cur_nfci = float(s.iloc[-1])
+        except Exception:
+            pass
+
         st.metric(
             label="🏦 高收益债利差 / NFCI",
             value=f"{cur_oas:.2f}%" if pd.notna(cur_oas) else "N/A",
@@ -145,6 +225,7 @@ def _render_kpi_cockpit():
             help="高收益债OAS>4.5%或芝加哥联储NFCI>0提示企业融资环境紧缩与违约风险蔓延。"
         )
     st.markdown("---")
+
 
 
 # ==================================================================

@@ -149,7 +149,10 @@ def get_unemployment_data():
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_credit_spread_data():
-    return _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "1997-01-01")
+    df = _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "1997-01-01")
+    if not df.empty and "Value" in df.columns:
+        df["High_Yield_Spread"] = df["Value"]
+    return df
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_fed_balance_sheet_data():
@@ -201,7 +204,8 @@ def get_net_liquidity_data():
         merged["RRP"] = merged["RRP"] / 1_000.0
         merged["Bank_Reserves_Tn"] = merged["Reserves"] / 1_000_000.0
         merged["Fed_Net_Liquidity_Tn"] = merged["WALCL"] - merged["TGA"] - merged["RRP"]
-        return merged[["date", "Fed_Net_Liquidity_Tn", "Bank_Reserves_Tn"]].dropna(subset=["date", "Fed_Net_Liquidity_Tn"])
+        merged["Net_Liquidity_Trillion"] = merged["Fed_Net_Liquidity_Tn"]
+        return merged[["date", "Fed_Net_Liquidity_Tn", "Bank_Reserves_Tn", "Net_Liquidity_Trillion"]].dropna(subset=["date", "Fed_Net_Liquidity_Tn"])
     return pd.DataFrame()
 
 @st.cache_data(ttl=60 * 60 * 6)
@@ -221,8 +225,11 @@ def get_yield_spreads_data():
     df_10y3m = _fetch_fred_series_observations("T10Y3M", "Spread_10Y3M", "1990-01-01")
     if not df_10y2y.empty and not df_10y3m.empty:
         merged = pd.merge_asof(df_10y2y.sort_values("date"), df_10y3m.sort_values("date"), on="date", direction="nearest")
+        merged["T10Y2Y"] = merged["Spread_10Y2Y"]
+        merged["T10Y3M"] = merged["Spread_10Y3M"]
         return merged.dropna()
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_jobless_claims_data():
