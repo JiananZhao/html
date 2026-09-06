@@ -335,3 +335,148 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
     fig.update_yaxes(title_text="RSI", range=[0, 100], row=3, col=1)
 
     return fig
+
+
+# ------------------------------------------------------------------
+# 6. 期权持仓分布与 Max Pain 最大痛点图表
+# ------------------------------------------------------------------
+def create_max_pain_chart(options_data: dict, current_price: float = None):
+    """
+    绘制期权到期日各行权价的 Call / Put 未平仓量 (OI) 分布，并标注 Max Pain 最大痛点价位
+    """
+    if not options_data or "df_strikes" not in options_data:
+        return None
+    df = options_data["df_strikes"].copy()
+    if df.empty or 'strike' not in df.columns:
+        return None
+
+    symbol = options_data.get("symbol", "")
+    exp_date = options_data.get("expiration", "")
+    max_pain = options_data.get("max_pain_price", None)
+
+    # 聚焦当前价格上下 35% 范围内的核心行权价区间，避免被边缘深度虚值期权稀释
+    if current_price is not None and current_price > 0:
+        low_strike = current_price * 0.65
+        high_strike = current_price * 1.35
+        df_plot = df[(df['strike'] >= low_strike) & (df['strike'] <= high_strike)].copy()
+        if len(df_plot) < 5:
+            df_plot = df.copy()
+    else:
+        df_plot = df.copy()
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            x=df_plot['strike'],
+            y=df_plot['call_oi'],
+            name="Call 看涨未平仓 (OI)",
+            marker_color='#16a34a',
+            opacity=0.85
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            x=df_plot['strike'],
+            y=df_plot['put_oi'],
+            name="Put 看跌未平仓 (OI)",
+            marker_color='#dc2626',
+            opacity=0.85
+        )
+    )
+
+    if max_pain is not None and pd.notna(max_pain):
+        fig.add_vline(
+            x=max_pain,
+            line_width=2.5,
+            line_dash="dash",
+            line_color="#9333ea",
+            annotation_text=f"Max Pain: ${max_pain:.1f}",
+            annotation_position="top left"
+        )
+
+    if current_price is not None and pd.notna(current_price):
+        fig.add_vline(
+            x=current_price,
+            line_width=2,
+            line_dash="dot",
+            line_color="#2563eb",
+            annotation_text=f"现价: ${current_price:.2f}",
+            annotation_position="top right"
+        )
+
+    fig.update_layout(
+        title=f"<b>{symbol} 期权未平仓量 (OI) 分布与做市商最大痛点 (Max Pain) — 到期日: [{exp_date}]</b>",
+        template="plotly_white",
+        height=480,
+        barmode="group",
+        hovermode="x unified",
+        xaxis_title="行权价 (Strike Price $)",
+        yaxis_title="未平仓合约张数 (Contracts)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    return fig
+
+
+# ------------------------------------------------------------------
+# 7. 微观量价动量、动态吊灯止损与波动率挤压走势图
+# ------------------------------------------------------------------
+def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, timeframe: str = "1Y"):
+    """
+    绘制股价与动态 Chandelier 吊灯多头追踪止损线、20D 均线偏离度 (Bias %) 及布林带带宽 (BandWidth %)
+    """
+    if df_metrics is None or df_metrics.empty:
+        return None
+    df = df_metrics.copy()
+    if 'Date' in df.columns:
+        date_col = 'Date'
+        df[date_col] = pd.to_datetime(df[date_col])
+    else:
+        df = df.reset_index()
+        date_col = df.columns[0]
+        df[date_col] = pd.to_datetime(df[date_col])
+
+    df = filter_by_timeframe(df, date_col, timeframe)
+    if df.empty:
+        return None
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.06,
+        row_heights=[0.65, 0.35],
+        subplot_titles=(
+            f"{symbol} 股价、20MA 与 Chandelier 动态吊灯多头追踪止损位",
+            f"20D 均线偏离度 (Bias %) 与 布林带带宽挤压 (BandWidth %)"
+        )
+    )
+
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['Close'], name="收盘价", line=dict(color='#2563eb', width=2)), row=1, col=1)
+
+    ma20 = df['Close'].rolling(20).mean()
+    fig.add_trace(go.Scatter(x=df[date_col], y=ma20, name="20MA", line=dict(color='#f59e0b', width=1.5, dash='dash')), row=1, col=1)
+
+    if 'Chandelier_Exit' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Chandelier_Exit'], name="Chandelier 动态止损线", line=dict(color='#dc2626', width=1.8, dash='dot')), row=1, col=1)
+
+    if 'Bias20' in df.columns:
+        bias_colors = ['#16a34a' if b >= 0 else '#ef4444' for b in df['Bias20']]
+        fig.add_trace(go.Bar(x=df[date_col], y=df['Bias20'], name="20D 偏离度 (%)", marker_color=bias_colors, opacity=0.7), row=2, col=1)
+        fig.add_hline(y=8.0, line_dash="dash", line_color="#dc2626", annotation_text="+8% 冲高过热", row=2, col=1)
+        fig.add_hline(y=-8.0, line_dash="dash", line_color="#16a34a", annotation_text="-8% 超跌反弹", row=2, col=1)
+
+    if 'BandWidth' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['BandWidth'], name="布林带带宽 (BandWidth %)", line=dict(color='#8b5cf6', width=1.8)), row=2, col=1)
+
+    fig.update_layout(
+        template="plotly_white",
+        height=620,
+        hovermode="x unified",
+        uirevision=f"vol_mom_{symbol}_{timeframe}",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(title_text="价格 ($)", row=1, col=1)
+    fig.update_yaxes(title_text="偏离度 / 带宽 (%)", row=2, col=1)
+    return fig
+

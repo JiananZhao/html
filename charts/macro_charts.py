@@ -952,3 +952,225 @@ def create_cross_asset_ratios_chart(df_ratios: pd.DataFrame, timeframe: str = "2
 
     fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", showlegend=True)
     return fig
+
+
+# ------------------------------------------------------------------
+# 24. ICE BofA MOVE 债市恐慌与抵押品波动率指数
+# ------------------------------------------------------------------
+def create_move_chart(df_move: pd.DataFrame, timeframe: str = "2Y"):
+    if df_move is None or df_move.empty:
+        return None
+    df = filter_by_timeframe(df_move.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df['date'], y=df['MOVE'],
+        name='MOVE 指数 (日频)',
+        line=dict(color='#38bdf8', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(56, 189, 248, 0.08)'
+    ))
+    if 'MOVE_MA20' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['MOVE_MA20'],
+            name='20日均线 (20MA)',
+            line=dict(color='#fbbf24', width=1.5, dash='dash')
+        ))
+
+    # 关键预警水位线
+    fig.add_hline(y=100, line_dash="dot", line_color="#94a3b8", annotation_text="常态中枢 (100)", annotation_position="top right")
+    fig.add_hline(y=120, line_dash="dash", line_color="#f97316", annotation_text="去杠杆警戒线 (120)", annotation_position="top right")
+    fig.add_hline(y=140, line_dash="dash", line_color="#ef4444", annotation_text="流动性风暴极值 (140)", annotation_position="top right")
+
+    fig.update_layout(
+        title="<b>ICE BofA MOVE 债市恐慌指数 (利率衍生品波动率 & 抵押品稳定性)</b>",
+        template="plotly_dark",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="MOVE 指数点位",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(autorange=True, fixedrange=False)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 25. 纽约联储 ACM 10 年期期限溢价 (Term Premium)
+# ------------------------------------------------------------------
+def create_term_premium_chart(df_tp: pd.DataFrame, timeframe: str = "5Y"):
+    if df_tp is None or df_tp.empty:
+        return None
+    df = filter_by_timeframe(df_tp.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+
+    if 'DGS10' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['DGS10'],
+            name='10Y 美债名义收益率 (%)',
+            line=dict(color='#cbd5e1', width=1.5, dash='dot')
+        ))
+
+    if 'Risk_Neutral_Rate' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['Risk_Neutral_Rate'],
+            name='风险中性期望利率 (%)',
+            line=dict(color='#60a5fa', width=1.5)
+        ))
+
+    if 'Term_Premium' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['Term_Premium'],
+            name='ACM 10Y 期限溢价 (%)',
+            line=dict(color='#f43f5e', width=2.5),
+            fill='tozeroy',
+            fillcolor='rgba(244, 63, 94, 0.12)'
+        ))
+
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#ffffff", line_width=1)
+    fig.add_hline(y=0.5, line_dash="dash", line_color="#fbbf24", annotation_text="供给压力温和偏紧 (+0.5%)", annotation_position="top right")
+    fig.add_hline(y=1.0, line_dash="dash", line_color="#ef4444", annotation_text="债务通胀供给冲击红线 (+1.0%)", annotation_position="top right")
+
+    fig.update_layout(
+        title="<b>纽约联储 ACM 10 年期期限溢价 (ACM Term Premium vs 10Y Yield)</b>",
+        template="plotly_dark",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="收益率 / 溢价率 (%)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(autorange=True, fixedrange=False)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 26. 经济政策不确定性指数 (Economic Policy Uncertainty, EPU)
+# ------------------------------------------------------------------
+def create_epu_chart(df_epu: pd.DataFrame, timeframe: str = "3Y"):
+    if df_epu is None or df_epu.empty:
+        return None
+    df = filter_by_timeframe(df_epu.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df['date'], y=df['EPU'],
+        name='EPU 每日高频值',
+        mode='lines',
+        line=dict(color='rgba(148, 163, 184, 0.35)', width=1)
+    ))
+    if 'EPU_MA30' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['EPU_MA30'],
+            name='30日移动平滑均线 (30MA)',
+            line=dict(color='#a855f7', width=2.5)
+        ))
+
+    fig.add_hline(y=100, line_dash="dot", line_color="#94a3b8", annotation_text="历史基准中枢 (100)", annotation_position="top right")
+    fig.add_hline(y=150, line_dash="dash", line_color="#f59e0b", annotation_text="中度政策动荡 (150)", annotation_position="top right")
+    fig.add_hline(y=200, line_dash="dash", line_color="#ef4444", annotation_text="重大危机/大选关税高危区 (200)", annotation_position="top right")
+
+    fig.update_layout(
+        title="<b>美国经济政策不确定性指数 (Economic Policy Uncertainty / EPU)</b>",
+        template="plotly_dark",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="EPU 指数点位",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(autorange=True, fixedrange=False)
+    return fig
+
+
+# ------------------------------------------------------------------
+# 27. 全美商业银行工商业贷款规模与同比增速 (BUSLOANS)
+# ------------------------------------------------------------------
+def create_commercial_loans_chart(df_loans: pd.DataFrame, timeframe: str = "5Y"):
+    if df_loans is None or df_loans.empty:
+        return None
+    df = filter_by_timeframe(df_loans.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+        subplot_titles=("<b>工商业贷款总规模 (Commercial & Industrial Loans, $B)</b>",
+                        "<b>商业贷款同比增速 YoY (%) — 实体信贷扩张/紧缩晴雨表</b>")
+    )
+
+    # 1. 规模
+    if 'Loans_Billion' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['Loans_Billion'],
+            name='贷款总额 ($B)',
+            line=dict(color='#3b82f6', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(59, 130, 246, 0.1)'
+        ), row=1, col=1)
+
+    # 2. YoY 同比增速
+    if 'YoY_pct' in df.columns:
+        colors = ['#ef4444' if v < 0 else '#10b981' for v in df['YoY_pct']]
+        fig.add_trace(go.Bar(
+            x=df['date'], y=df['YoY_pct'],
+            name='YoY 增速 (%)',
+            marker_color=colors
+        ), row=2, col=1)
+        fig.add_hline(y=0.0, line_dash="solid", line_color="#ffffff", line_width=1, row=2, col=1)
+        fig.add_hline(y=5.0, line_dash="dash", line_color="#22c55e", annotation_text="健康信贷扩张 (>5%)", row=2, col=1)
+        fig.add_hline(y=-2.0, line_dash="dash", line_color="#ef4444", annotation_text="信贷紧缩警戒 (<-2%)", row=2, col=1)
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=550,
+        hovermode="x unified",
+        showlegend=False
+    )
+    return fig
+
+
+# ------------------------------------------------------------------
+# 28. 美国居民个人储蓄率 (Personal Saving Rate, PSAVERT)
+# ------------------------------------------------------------------
+def create_personal_saving_rate_chart(df_save: pd.DataFrame, timeframe: str = "5Y"):
+    if df_save is None or df_save.empty:
+        return None
+    df = filter_by_timeframe(df_save.copy(), 'date', timeframe)
+    if df.empty:
+        return None
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df['date'], y=df['Saving_Rate'],
+        name='个人储蓄率 (%)',
+        line=dict(color='#14b8a6', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(20, 184, 166, 0.1)'
+    ))
+    if 'Saving_MA12' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['Saving_MA12'],
+            name='12个月均线 (12MA)',
+            line=dict(color='#f59e0b', width=1.5, dash='dash')
+        ))
+
+    # 常态区间与低位警戒
+    fig.add_hrect(y0=5.5, y1=8.5, fillcolor="rgba(34, 197, 94, 0.08)", line_width=0, annotation_text="历史健康常态区间 (5.5% - 8.5%)", annotation_position="top left")
+    fig.add_hline(y=3.5, line_dash="dash", line_color="#ef4444", annotation_text="超额储蓄耗尽/消费脆弱警戒线 (3.5%)", annotation_position="top right")
+
+    fig.update_layout(
+        title="<b>美国居民个人储蓄率 (Personal Saving Rate / 消费内生抗风险蓄水池)</b>",
+        template="plotly_dark",
+        height=450,
+        hovermode="x unified",
+        yaxis_title="储蓄率 (%)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig.update_yaxes(autorange=True, fixedrange=False)
+    return fig
+

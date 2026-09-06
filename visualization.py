@@ -29,6 +29,11 @@ from charts.macro_charts import (
     create_erp_chart,
     create_skew_dix_chart,
     create_cross_asset_ratios_chart,
+    create_move_chart,
+    create_term_premium_chart,
+    create_epu_chart,
+    create_commercial_loans_chart,
+    create_personal_saving_rate_chart,
 )
 from charts.stock_charts import (
     create_stock_price_chart,
@@ -36,6 +41,8 @@ from charts.stock_charts import (
     create_financial_trends_chart,
     create_pe_ps_band_chart,
     create_technical_momentum_chart,
+    create_max_pain_chart,
+    create_volatility_momentum_chart,
 )
 
 __all__ = [
@@ -64,9 +71,17 @@ __all__ = [
     "create_erp_chart",
     "create_skew_dix_chart",
     "create_cross_asset_ratios_chart",
+    "create_move_chart",
+    "create_term_premium_chart",
+    "create_epu_chart",
+    "create_commercial_loans_chart",
+    "create_personal_saving_rate_chart",
     "create_stock_price_chart",
     "create_relative_performance_chart",
     "create_financial_trends_chart",
     "create_pe_ps_band_chart",
     "create_technical_momentum_chart",
+    "create_max_pain_chart",
+    "create_volatility_momentum_chart",
 ]
+

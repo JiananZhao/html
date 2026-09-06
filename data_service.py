@@ -70,10 +70,13 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
             print(f"FRED API fetch error for {series_id}: {e}")
 
     try:
+        import requests
+        import io
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            df = pd.read_csv(resp)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        resp = requests.get(url, headers=headers, timeout=12)
+        if resp.status_code == 200 and resp.text:
+            df = pd.read_csv(io.StringIO(resp.text))
             if not df.empty and len(df.columns) >= 2:
                 df.columns = ["date", value_col]
                 df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -85,6 +88,7 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
     except Exception as e:
         print(f"Fallback CSV fetch error for {series_id}: {e}")
     return pd.DataFrame()
+
 
 @st.cache_data(ttl=60 * 60 * 6)
 def get_vix_data():
@@ -547,3 +551,272 @@ def get_semiconductor_matrix_data(symbols: list):
         except Exception as e:
             print(f"Error fetching matrix data for {s}: {e}")
     return pd.DataFrame(matrix)
+
+
+# ------------------------------------------------------------------
+# 4. 个股期权微观情绪 (Put/Call Ratio 与 Max Pain 最大痛点)
+# ------------------------------------------------------------------
+@st.cache_data(ttl=60 * 60 * 2)
+def get_stock_option_expirations(symbol: str):
+    """
+    快速获取个股所有可用的期权到期日列表
+    """
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        return list(ticker.options) if ticker.options else []
+    except Exception as e:
+        print(f"Error fetching option expirations for {symbol}: {e}")
+        return []
+
+
+@st.cache_data(ttl=60 * 60 * 2)
+def get_stock_options_sentiment(symbol: str, target_expiration: str = None):
+    """
+    根据用户选定的到期日（或全部近月汇总）获取期权链数据，
+    计算对应的 Put/Call Ratio (OI 与 Volume) 以及 Max Pain 最大痛点
+    """
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        expirations = list(ticker.options) if ticker.options else []
+        if not expirations:
+            return None
+
+        is_aggregated = (target_expiration and "汇总" in target_expiration)
+
+        if is_aggregated:
+            # 聚合前 6 个核心活跃到期日的数据
+            active_exps = expirations[:6]
+            all_calls = []
+            all_puts = []
+            for exp in active_exps:
+                try:
+                    c = ticker.option_chain(exp)
+                    if c.calls is not None and not c.calls.empty:
+                        all_calls.append(c.calls[['strike', 'openInterest', 'volume']])
+                    if c.puts is not None and not c.puts.empty:
+                        all_puts.append(c.puts[['strike', 'openInterest', 'volume']])
+                except Exception:
+                    continue
+
+            if not all_calls or not all_puts:
+                return None
+
+            df_calls_raw = pd.concat(all_calls).groupby('strike').sum().reset_index()
+            df_puts_raw = pd.concat(all_puts).groupby('strike').sum().reset_index()
+            active_exp_label = f"全市场近月汇总 (前 {len(active_exps)} 个交割日)"
+        else:
+            # 单一指定到期日（若未指定或不在列表中，默认使用最近的到期日）
+            if not target_expiration or target_expiration not in expirations:
+                selected_exp = expirations[0]
+            else:
+                selected_exp = target_expiration
+
+            chain = ticker.option_chain(selected_exp)
+            df_calls_raw = chain.calls.copy() if chain.calls is not None else pd.DataFrame()
+            df_puts_raw = chain.puts.copy() if chain.puts is not None else pd.DataFrame()
+            active_exp_label = selected_exp
+
+        call_oi_total = df_calls_raw['openInterest'].sum() if ('openInterest' in df_calls_raw.columns) else 0
+        put_oi_total = df_puts_raw['openInterest'].sum() if ('openInterest' in df_puts_raw.columns) else 0
+        call_vol_total = df_calls_raw['volume'].sum() if ('volume' in df_calls_raw.columns) else 0
+        put_vol_total = df_puts_raw['volume'].sum() if ('volume' in df_puts_raw.columns) else 0
+
+        pcr_oi = (put_oi_total / call_oi_total) if call_oi_total > 0 else np.nan
+        pcr_vol = (put_vol_total / call_vol_total) if call_vol_total > 0 else np.nan
+
+        # 合并各行权价的未平仓合约数与成交量
+        calls_sub = df_calls_raw[['strike', 'openInterest', 'volume']].rename(columns={'openInterest': 'call_oi', 'volume': 'call_vol'})
+        puts_sub = df_puts_raw[['strike', 'openInterest', 'volume']].rename(columns={'openInterest': 'put_oi', 'volume': 'put_vol'})
+        df_strikes = pd.merge(calls_sub, puts_sub, on='strike', how='outer').fillna(0).sort_values('strike').reset_index(drop=True)
+
+        # 计算 Max Pain (期权买方总体收益最低点，即做市商损失最小点)
+        strikes = df_strikes['strike'].values
+        call_oi = df_strikes['call_oi'].values
+        put_oi = df_strikes['put_oi'].values
+
+        total_losses = []
+        for s in strikes:
+            call_payoff = np.sum(np.maximum(0, s - strikes) * call_oi)
+            put_payoff = np.sum(np.maximum(0, strikes - s) * put_oi)
+            total_losses.append(call_payoff + put_payoff)
+
+        df_strikes['buyer_payoff'] = total_losses
+        min_loss_idx = int(np.argmin(total_losses))
+        max_pain_price = float(strikes[min_loss_idx])
+
+        return {
+            "symbol": symbol,
+            "expiration": active_exp_label,
+            "all_expirations": expirations,
+            "call_oi_total": int(call_oi_total),
+            "put_oi_total": int(put_oi_total),
+            "pcr_oi": float(pcr_oi) if pd.notna(pcr_oi) else np.nan,
+            "pcr_vol": float(pcr_vol) if pd.notna(pcr_vol) else np.nan,
+            "max_pain_price": max_pain_price,
+            "df_strikes": df_strikes
+        }
+    except Exception as e:
+        print(f"Error fetching options sentiment for {symbol}: {e}")
+        return None
+
+
+# ------------------------------------------------------------------
+# 5. 微观量价动量与波动率风控指标计算
+# ------------------------------------------------------------------
+def calculate_momentum_metrics(df_stock: pd.DataFrame):
+    """
+    计算微观量价动量与波动率风控指标:
+    - ATR(14) 与 ATR%
+    - Chandelier Exit 动态吊灯多头追踪止损位
+    - 20D 均线偏离度 (Bias Ratio %)
+    - 布林带带宽 (BandWidth %) 与 %B
+    - 12-1M 经典学术动量 (Jegadeesh-Titman)
+    """
+    if df_stock is None or df_stock.empty or 'Close' not in df_stock.columns:
+        return None
+
+    df = df_stock.copy()
+    if 'Date' not in df.columns and isinstance(df.index, pd.DatetimeIndex):
+        df = df.reset_index().rename(columns={'index': 'Date'})
+
+    high = df['High'] if 'High' in df.columns else df['Close']
+    low = df['Low'] if 'Low' in df.columns else df['Close']
+    close = df['Close']
+    prev_close = close.shift(1)
+
+    # 1. 真实波幅 (True Range) 与 14日 ATR
+    tr1 = high - low
+    tr2 = (high - prev_close).abs()
+    tr3 = (low - prev_close).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr14 = tr.rolling(window=14).mean()
+    atr_pct = (atr14 / close) * 100.0
+
+    # 2. 吊灯止损 (Chandelier Exit): 过去 22 天最高价 - 3 * ATR14
+    highest_22 = high.rolling(window=22).max()
+    chandelier_exit = highest_22 - 3 * atr14
+
+    # 3. 20D 均线偏离度 (Bias Ratio %)
+    ma20 = close.rolling(window=20).mean()
+    bias20 = ((close - ma20) / ma20) * 100.0
+
+    # 4. 布林带带宽挤压 (BandWidth %) 与 %B
+    std20 = close.rolling(window=20).std()
+    bb_upper = ma20 + 2 * std20
+    bb_lower = ma20 - 2 * std20
+    bandwidth = ((bb_upper - bb_lower) / ma20) * 100.0
+    pct_b = (close - bb_lower) / (bb_upper - bb_lower + 1e-9)
+
+    # 5. 12-1M 经典学术动量 (剔除最近 1 个月短期反转噪音)
+    mom_12_1 = np.nan
+    if len(close) >= 252:
+        close_t21 = close.iloc[-21]
+        close_t252 = close.iloc[-252]
+        if close_t252 > 0:
+            mom_12_1 = ((close_t21 - close_t252) / close_t252) * 100.0
+    elif len(close) >= 30:
+        close_t21 = close.iloc[-21]
+        close_start = close.iloc[0]
+        if close_start > 0:
+            mom_12_1 = ((close_t21 - close_start) / close_start) * 100.0
+
+    df['ATR14'] = atr14
+    df['ATR_Pct'] = atr_pct
+    df['Chandelier_Exit'] = chandelier_exit
+    df['Bias20'] = bias20
+    df['BandWidth'] = bandwidth
+    df['Pct_B'] = pct_b
+
+    return {
+        "latest_close": float(close.iloc[-1]),
+        "latest_atr": float(atr14.iloc[-1]) if pd.notna(atr14.iloc[-1]) else np.nan,
+        "latest_atr_pct": float(atr_pct.iloc[-1]) if pd.notna(atr_pct.iloc[-1]) else np.nan,
+        "latest_chandelier": float(chandelier_exit.iloc[-1]) if pd.notna(chandelier_exit.iloc[-1]) else np.nan,
+        "latest_bias20": float(bias20.iloc[-1]) if pd.notna(bias20.iloc[-1]) else np.nan,
+        "latest_bandwidth": float(bandwidth.iloc[-1]) if pd.notna(bandwidth.iloc[-1]) else np.nan,
+        "latest_pct_b": float(pct_b.iloc[-1]) if pd.notna(pct_b.iloc[-1]) else np.nan,
+        "mom_12_1": float(mom_12_1) if pd.notna(mom_12_1) else np.nan,
+        "df_metrics": df
+    }
+
+
+# ==================================================================
+# 6. 新增 5 大宏观前瞻先导指标数据服务
+# ==================================================================
+@st.cache_data(ttl=60 * 60 * 4)
+def get_move_index_data():
+    """获取 ICE BofA MOVE 债市恐慌指数 (Yahoo Finance: ^MOVE)"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker("^MOVE")
+        df = ticker.history(period="5y")
+        if not df.empty:
+            df = df.reset_index()
+            if 'Date' in df.columns:
+                df['date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+            df.rename(columns={'Close': 'MOVE'}, inplace=True)
+            df['MOVE_MA20'] = df['MOVE'].rolling(20).mean()
+            return df[['date', 'MOVE', 'MOVE_MA20']].dropna(subset=['date', 'MOVE']).reset_index(drop=True)
+    except Exception as e:
+        print(f"Error fetching MOVE index: {e}")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_term_premium_data():
+    """获取纽约联储 ACM 10 年期期限溢价 (THREEFYTP10) 与 10Y 名义收益率 (DGS10)"""
+    try:
+        df_tp = _fetch_fred_series_observations("THREEFYTP10", "Term_Premium", "2000-01-01")
+        df_10y = _fetch_fred_series_observations("DGS10", "DGS10", "2000-01-01")
+        if not df_tp.empty and not df_10y.empty:
+            merged = pd.merge(df_tp, df_10y, on="date", how="inner").sort_values("date").reset_index(drop=True)
+            merged["Risk_Neutral_Rate"] = merged["DGS10"] - merged["Term_Premium"]
+            return merged
+        elif not df_tp.empty:
+            return df_tp
+    except Exception as e:
+        print(f"Error fetching Term Premium data: {e}")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_epu_data():
+    """获取经济政策不确定性指数 (USEPUINDXD) 并计算 30D 移动平滑均线"""
+    try:
+        df = _fetch_fred_series_observations("USEPUINDXD", "EPU", "2000-01-01")
+        if not df.empty:
+            df["EPU_MA30"] = df["EPU"].rolling(30).mean()
+            return df
+    except Exception as e:
+        print(f"Error fetching EPU data: {e}")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_commercial_loans_data():
+    """获取全美商业银行工商业贷款规模 (BUSLOANS) 与 YoY 同比增速"""
+    try:
+        df = _fetch_fred_series_observations("BUSLOANS", "Loans_Billion", "2000-01-01")
+        if not df.empty:
+            df["YoY_pct"] = df["Loans_Billion"].pct_change(12) * 100.0
+            return df
+    except Exception as e:
+        print(f"Error fetching Commercial Loans data: {e}")
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def get_personal_saving_rate_data():
+    """获取美国居民个人储蓄率 (PSAVERT) 与 12 个月移动均线"""
+    try:
+        df = _fetch_fred_series_observations("PSAVERT", "Saving_Rate", "2000-01-01")
+        if not df.empty:
+            df["Saving_MA12"] = df["Saving_Rate"].rolling(12).mean()
+            return df
+    except Exception as e:
+        print(f"Error fetching Personal Saving Rate data: {e}")
+    return pd.DataFrame()
+
+

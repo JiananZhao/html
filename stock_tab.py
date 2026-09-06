@@ -9,6 +9,9 @@ from data_service import (
     get_stock_historical_data,
     get_stock_fundamentals,
     get_stock_financial_statements,
+    get_stock_option_expirations,
+    get_stock_options_sentiment,
+    calculate_momentum_metrics,
 )
 from quant_models import calculate_reverse_dcf
 from visualization import (
@@ -16,6 +19,8 @@ from visualization import (
     create_pe_ps_band_chart,
     create_technical_momentum_chart,
     create_financial_trends_chart,
+    create_max_pain_chart,
+    create_volatility_momentum_chart,
 )
 
 def render_stock_tab():
@@ -199,7 +204,146 @@ def render_stock_tab():
 
             st.markdown("---")
 
-            # 6. 核心财务报表深度透视 (季度与年度财报主要数据)
+            # 6. 期权衍生品微观情绪与做市商最大痛点 (Put/Call Ratio & Max Pain)
+            st.subheader("🔮 期权衍生品微观情绪与做市商最大痛点 (Put/Call Ratio & Max Pain)")
+            st.caption("透视个股期权微观博弈持仓分布、认沽/认购比率 (PCR) 与临近到期日做市商引力锚定点 (Max Pain)。")
+
+            available_exps = get_stock_option_expirations(ticker_to_analyze)
+            if available_exps:
+                exp_select_options = [available_exps[0]] + ["📊 全部近月汇总 (前 6 个交割日)"] + list(available_exps[1:])
+            else:
+                exp_select_options = ["默认最近到期日"]
+
+            col_opt_sel, col_opt_note = st.columns([3, 4])
+            with col_opt_sel:
+                selected_exp_choice = st.selectbox(
+                    "📅 选择期权观察到期日 (Expiration Date):",
+                    options=exp_select_options,
+                    index=0,
+                    key=f"opt_exp_select_{ticker_to_analyze}"
+                )
+            with col_opt_note:
+                st.caption(f"💡 当前标的共有 **{len(available_exps)}** 个未来到期日可选。支持观察具体单周/单月交割日，或选择「全部近月汇总」透视全市场总资金攻防中枢。")
+
+            with st.spinner(f"正在拉取 {ticker_to_analyze} [{selected_exp_choice}] 期权链与持仓结构..."):
+                options_sentiment = get_stock_options_sentiment(ticker_to_analyze, target_expiration=selected_exp_choice)
+
+            if options_sentiment and not options_sentiment.get("df_strikes", pd.DataFrame()).empty:
+                exp_date = options_sentiment.get("expiration", "")
+                pcr_oi = options_sentiment.get("pcr_oi", np.nan)
+                pcr_vol = options_sentiment.get("pcr_vol", np.nan)
+                max_pain = options_sentiment.get("max_pain_price", np.nan)
+                total_call_oi = options_sentiment.get("call_oi_total", 0)
+                total_put_oi = options_sentiment.get("put_oi_total", 0)
+
+                pain_diff_pct = ((max_pain - curr_price) / curr_price * 100.0) if (pd.notna(max_pain) and pd.notna(curr_price) and curr_price > 0) else np.nan
+
+                opt_c1, opt_c2, opt_c3, opt_c4 = st.columns(4)
+                opt_c1.metric(
+                    label=f"到期日 [{exp_date}] PCR (持仓 OI)",
+                    value=f"{pcr_oi:.2f}" if pd.notna(pcr_oi) else "N/A",
+                    delta="防守悲观 (>1.0)" if (pcr_oi or 0) > 1.0 else ("极度贪婪 (<0.7)" if (pcr_oi or 0) < 0.7 else "中性平衡 (0.7-1.0)"),
+                    delta_color="inverse" if (pcr_oi or 0) > 1.0 else "normal"
+                )
+                opt_c2.metric(
+                    label=f"PCR (成交量 Volume)",
+                    value=f"{pcr_vol:.2f}" if pd.notna(pcr_vol) else "N/A",
+                    delta="短期看空买盘" if (pcr_vol or 0) > 1.0 else "短期看涨买盘",
+                    delta_color="inverse" if (pcr_vol or 0) > 1.0 else "normal"
+                )
+                opt_c3.metric(
+                    label="做市商 Max Pain (最大痛点)",
+                    value=f"${max_pain:.2f}" if pd.notna(max_pain) else "N/A",
+                    delta=f"现价偏离 {pain_diff_pct:+.1f}%" if pd.notna(pain_diff_pct) else None,
+                    delta_color="normal" if abs(pain_diff_pct or 0) < 3.0 else "off"
+                )
+                opt_c4.metric(
+                    label="未平仓期权张数 (Call / Put)",
+                    value=f"{total_call_oi:,} / {total_put_oi:,}",
+                    delta=f"总持仓: {total_call_oi + total_put_oi:,} 张"
+                )
+
+                fig_max_pain = create_max_pain_chart(options_sentiment, current_price=curr_price)
+                if fig_max_pain:
+                    st.plotly_chart(fig_max_pain, use_container_width=True)
+
+                with st.expander("💡 期权衍生品微观情绪与 Max Pain 做市商博弈指南", expanded=False):
+                    st.markdown("""
+                    * **Put/Call Ratio (P/C 比率)**：
+                      * **PCR (OI) > 1.0**：市场上防范下跌的认沽期权持仓显著多于认购，代表保护性买盘或悲观看空情绪浓厚；
+                      * **PCR (OI) < 0.7**：看涨认购期权高度集聚，反映市场情绪过度亢奋，需警惕短期 FOMO 情绪过热；
+                      * **逆向反转逻辑**：当 PCR 升至极端历史高位时，往往对应看空情绪极致释放，常成为阶段性底部催化反弹的信号。
+                    * **Max Pain (最大痛点理论)**：
+                      * **做市商利益中枢**：最大痛点价位使得期权买方总体价值最小化（虚值归零期权数量最多），做市商（卖方）支付的净清算资金最少。
+                      * **交割日引力效应**：在期权临近到期（特别是周五交割日），做市商通过动态对冲（Delta Hedging / Gamma Scalping）倾向于将标的股价向 Max Pain 靠拢。
+                    """)
+            else:
+                st.info(f"暂未获取到 {ticker_to_analyze} 的有效活跃期权链数据（可能为非期权标的或正在拉取中）。")
+
+            # 7. 微观量价动量与自适应波动率风控系统
+            st.markdown("---")
+            st.subheader("⚡ 微观量价动量与自适应波动率风控系统")
+            st.caption("集成 12-1M 经典动量因子、20D 均线乖离率、ATR 真实波幅与 Chandelier 吊灯动态追踪止损位。")
+
+            mom_metrics = calculate_momentum_metrics(stock_df)
+            if mom_metrics:
+                lat_close = mom_metrics["latest_close"]
+                lat_atr = mom_metrics["latest_atr"]
+                lat_atr_pct = mom_metrics["latest_atr_pct"]
+                lat_chandelier = mom_metrics["latest_chandelier"]
+                lat_bias20 = mom_metrics["latest_bias20"]
+                lat_bandwidth = mom_metrics["latest_bandwidth"]
+                mom_12_1 = mom_metrics["mom_12_1"]
+
+                stop_distance_pct = ((lat_chandelier - lat_close) / lat_close * 100.0) if (pd.notna(lat_chandelier) and lat_close > 0) else np.nan
+
+                m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+                m_c1.metric(
+                    label="12-1M 经典学术动量 (Jegadeesh-Titman)",
+                    value=f"{mom_12_1:+.1f}%" if pd.notna(mom_12_1) else "N/A",
+                    delta="强劲中长期动量" if (mom_12_1 or 0) > 15.0 else ("动量较弱" if (mom_12_1 or 0) < 0 else "动量平稳"),
+                    delta_color="normal" if (mom_12_1 or 0) > 0 else "inverse"
+                )
+                m_c2.metric(
+                    label="20D 均线偏离度 (Bias Ratio)",
+                    value=f"{lat_bias20:+.2f}%" if pd.notna(lat_bias20) else "N/A",
+                    delta="短期冲高过热 (>+8%)" if (lat_bias20 or 0) > 8.0 else ("超跌反弹区间 (<-8%)" if (lat_bias20 or 0) < -8.0 else "常态波动"),
+                    delta_color="inverse" if abs(lat_bias20 or 0) > 8.0 else "off"
+                )
+                m_c3.metric(
+                    label="14D ATR 真实波幅 (日均波动)",
+                    value=f"${lat_atr:.2f} ({lat_atr_pct:.1f}%)" if (pd.notna(lat_atr) and pd.notna(lat_atr_pct)) else "N/A",
+                    delta=f"布林带宽: {lat_bandwidth:.1f}%" if pd.notna(lat_bandwidth) else None
+                )
+                m_c4.metric(
+                    label="Chandelier 动态多头追踪止损位",
+                    value=f"${lat_chandelier:.2f}" if pd.notna(lat_chandelier) else "N/A",
+                    delta=f"止损缓冲: {stop_distance_pct:.1f}%" if pd.notna(stop_distance_pct) else None,
+                    delta_color="inverse" if (stop_distance_pct or 0) > -3.0 else "normal"
+                )
+
+                df_metrics_data = mom_metrics["df_metrics"]
+                fig_vol_mom = create_volatility_momentum_chart(df_metrics_data, ticker_to_analyze, timeframe=stock_tf)
+                if fig_vol_mom:
+                    st.plotly_chart(fig_vol_mom, use_container_width=True)
+
+                with st.expander("💡 微观动量、动态止损与波动率自适应风控指南", expanded=False):
+                    st.markdown("""
+                    * **12-1M 经典学术动量 (Jegadeesh & Titman)**：
+                      * 华尔街量化对冲基金最成熟的动量因子之一，计算过去 12 个月收益但**扣除最近 1 个月**。
+                      * **剔除原因**：最近 1 个月受微观流动性与机构调仓冲击，存在强烈的“短期反转效应 (Short-term Reversal)”。剔除后能最纯粹地捕捉由基本面驱动的中长期顺势动量。
+                    * **Chandelier Exit 吊灯动态追踪止损**：
+                      * 基于近期最高价扣除 $3 \times ATR_{14}$。
+                      * **自适应优势**：突破传统固定 5% 或 8% 机械止损的缺陷。对于高波动性成长标的（如半导体、科技股）保留足够的呼吸空间避免被日常噪音震荡洗出，而对于低波动防守标的则收紧止损保护利润。
+                    * **20D 均线偏离度 (Bias Ratio)**：
+                      * 衡量当前价格相对 20MA 的拉升速率。偏离度突破 $+8\%\sim+10\%$ 意味着短期情绪过亢，随时可能回踩均线确认；跌破 $-8\%\sim-10\%$ 往往意味着短期过度悲观，容易触发均值回归修复。
+                    * **布林带挤压 (Bollinger BandWidth Squeeze)**：
+                      * 当带宽降至极低位置时，表明多空能量处于高度压缩的蓄势期，随之而来的通常是大级别波动率扩张与单边单边趋势突破。
+                    """)
+
+            st.markdown("---")
+
+            # 8. 核心财务报表深度透视 (季度与年度财报主要数据)
             st.subheader("📑 核心财务报表深度透视 (季度与年度过去 4–5 期全量明细与趋势图)")
             with st.spinner(f"正在聚合 {ticker_to_analyze} 核心财务三张表趋势明细..."):
                 fin_stmts_dict = get_stock_financial_statements(ticker_to_analyze)
