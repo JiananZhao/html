@@ -68,8 +68,13 @@ from visualization import (
     create_commercial_loans_chart,
     create_personal_saving_rate_chart,
     create_cicc_quadrant_chart,
+    render_threejs_cicc_quadrant_ui,
 )
-from quant_models import calculate_cicc_sector_quadrant
+from quant_models import (
+    calculate_cicc_sector_quadrant,
+    calculate_cicc_official_benchmark,
+    calculate_dynamic_cicc_quadrant
+)
 
 
 def _render_kpi_cockpit():
@@ -733,118 +738,185 @@ def _render_theme_recession_economy(macro_tf: str):
 
 
 # ==================================================================
+# ==================================================================
 # 6. 中金公司「胜率 - 赔率」全景量化大类资产与细分行业四象限雷达
 # ==================================================================
 def _render_theme_cicc_quadrant():
     """主题 6: 中金「胜率 - 赔率」全景大类资产与行业板块配置雷达"""
-    st.subheader("🎯 全球大类资产与美股细分行业「胜率 - 赔率」四象限雷达")
-    st.caption("基于中金公司（CICC）大类资产配置量化框架：纵轴为【胜率 (Win Rate)】衡量基本面动量与景气趋势，横轴为【赔率 (Odds)】衡量估值空间与安全边际。")
+    st.subheader("🎯 全球大类资产与行业板块「胜率 - 赔率」四象限雷达")
+    st.caption("基于中金公司（CICC）大类资产配置研究部官方量化框架：**横轴为【胜率 (Win Rate)】**（衡量基本面动量、长短周期资金合力与景气趋势，范围 0.40~0.80），**纵轴为【赔率 (Odds)】**（基于动态PE/PB/PS滚动5年分位数均值衡量估值空间与安全边际，范围 0.00~1.00）。")
 
-    with st.spinner("正在计算 23 个细分行业板块与全球核心资产的「胜率 - 赔率」量化数据..."):
-        df_quad = calculate_cicc_sector_quadrant()
+    col_uni1, col_uni2 = st.columns([7, 3])
+    with col_uni1:
+        universe_mode = st.radio(
+            "🌐 资产池配置维度与数据源:",
+            [
+                "🌟 全景融合：大类资产 + 美股 23 大细分行业 (31个全量资产·默认推荐)",
+                "📊 美股 23 大细分行业板块 (含电力/能源/芯片/医疗等 23 标的)",
+                "🏛️ 全球宏观跨资产主流指数 (中金官方报告对标池 16 标的)"
+            ],
+            index=0,
+            horizontal=True,
+            key="cicc_universe_mode"
+        )
+    with col_uni2:
+        st.caption("💡 **100% 纯动态市场数据驱动**：由 Yahoo Finance 5 年日线量价与 10 年期美债收益率实时计算，无任何静态硬编码。")
+
+    with st.spinner("正在基于真实量价与宏观利率动态计算中金四象限模型..."):
+        if "全景融合" in universe_mode:
+            df_quad = calculate_dynamic_cicc_quadrant("all")
+        elif "23 大细分" in universe_mode:
+            df_quad = calculate_cicc_sector_quadrant()
+        else:
+            df_quad = calculate_cicc_official_benchmark()
 
     if df_quad is None or df_quad.empty:
         st.warning("暂未获取到四象限数据，请稍后刷新重试。")
         return
 
-    # 1. 顶部核心诊断卡片 (Top 高估 vs Top 低估)
+    # 1. 顶部核心诊断卡片 (Top 综合评分 vs Top 低估 vs Top 动量 vs Top 高估)
     c_val1, c_val2, c_val3, c_val4 = st.columns(4)
     
+    # 按照综合评分降序排 (综合评分高 = 气泡最大 / 最具投资吸引力)
+    top_composite = df_quad.sort_values(by="composite_score", ascending=False).head(3) if "composite_score" in df_quad.columns else df_quad.head(3)
+
     # 按照赔率降序排 (赔率高 = 深度低估 / 安全边际高)
     df_sorted_undervalued = df_quad.sort_values(by="odds_score", ascending=False)
     top_undervalued = df_sorted_undervalued.head(3)
     
+    # 按照胜率降序排 (胜率高 = 顺风动量龙头)
+    top_win = df_quad.sort_values(by="win_score", ascending=False).head(3)
+
     # 按照赔率升序排 (赔率低 = 极度高估 / 动能透支)
     df_sorted_overvalued = df_quad.sort_values(by="odds_score", ascending=True)
     top_overvalued = df_sorted_overvalued.head(3)
-    
-    # 按照胜率降序排 (胜率高 = 顺风动量龙头)
-    top_win = df_quad.sort_values(by="win_score", ascending=False).head(3)
     
     # 象限统计
     q_counts = df_quad['q_code'].value_counts().to_dict()
 
     with c_val1:
-        st.markdown("**💎 最具安全边际 / 低估行业 (Top 3)**")
-        for _, row in top_undervalued.iterrows():
-            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 赔率 **{row['odds_score']}分** <br>&nbsp;&nbsp;<span style='color:#4ade80;font-size:12px'>{row['valuation_tag']}</span>", unsafe_allow_html=True)
-            
+        st.markdown("**🏆 综合投资价值最优 (Top 3 气泡最大)**")
+        for _, row in top_composite.iterrows():
+            c_score = row.get('composite_score', 0)
+            r_tag = row.get('rating', '⭐⭐⭐⭐')
+            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 综合 **{c_score}分** <br>&nbsp;&nbsp;<span style='color:#38bdf8;font-size:12px'>{r_tag} (半径 {row.get('bubble_size', 16)}px)</span>", unsafe_allow_html=True)
+
     with c_val2:
-        st.markdown("**⚠️ 估值最透支 / 需防回调行业 (Top 3)**")
-        for _, row in top_overvalued.iterrows():
-            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 赔率 **{row['odds_score']}分** <br>&nbsp;&nbsp;<span style='color:#f87171;font-size:12px'>{row['valuation_tag']}</span>", unsafe_allow_html=True)
+        st.markdown("**💎 最具安全边际 / 赔率最高 (Top 3)**")
+        for _, row in top_undervalued.iterrows():
+            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 赔率 **{row['odds_score']:.2f}** <br>&nbsp;&nbsp;<span style='color:#4ade80;font-size:12px'>{row['valuation_tag']}</span>", unsafe_allow_html=True)
 
     with c_val3:
-        st.markdown("**🚀 景气动量最强龙头 (Top 3 胜率)**")
+        st.markdown("**🚀 景气动量最强 / 胜率最高 (Top 3)**")
         for _, row in top_win.iterrows():
-            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 胜率 **{row['win_score']}分** <br>&nbsp;&nbsp;<span style='color:#38bdf8;font-size:12px'>12-1M动量: {row['mom_12_1']:+.1f}%</span>", unsafe_allow_html=True)
+            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 胜率 **{row['win_score']:.2f}** <br>&nbsp;&nbsp;<span style='color:#a855f7;font-size:12px'>12-1M动量: {row.get('mom_12_1', 0.0):+.1f}%</span>", unsafe_allow_html=True)
 
     with c_val4:
-        st.markdown("**⚖️ 23 个资产四象限分布**")
-        st.markdown(f"• **第一象限 (戴维斯双击)**: **{q_counts.get('Q1', 0)}** 个")
-        st.markdown(f"• **第二象限 (动量/高估)**: **{q_counts.get('Q2', 0)}** 个")
-        st.markdown(f"• **第三象限 (戴维斯双杀)**: **{q_counts.get('Q3', 0)}** 个")
-        st.markdown(f"• **第四象限 (价值洼地)**: **{q_counts.get('Q4', 0)}** 个")
+        st.markdown("**⚠️ 估值最透支 / 需防回调 (Top 3)**")
+        for _, row in top_overvalued.iterrows():
+            st.markdown(f"• **{row['name']}** (`{row['ticker']}`): 赔率 **{row['odds_score']:.2f}** <br>&nbsp;&nbsp;<span style='color:#f87171;font-size:12px'>{row['valuation_tag']}</span>", unsafe_allow_html=True)
 
+    st.caption(f"📊 **当前资产池 ({len(df_quad)} 个标的) 四象限分布统计**：第一象限(戴维斯双击) **{q_counts.get('Q1', 0)}** 个 ｜ 第二象限(动量高估) **{q_counts.get('Q2', 0)}** 个 ｜ 第三象限(双杀回避) **{q_counts.get('Q3', 0)}** 个 ｜ 第四象限(价值洼地) **{q_counts.get('Q4', 0)}** 个 ｜ 💡 散点气泡半径大小严格与「综合投资评分」绑定，评分越高气泡越大。")
     st.markdown("---")
 
-    # 2. 板块分类雷达图过滤控制与图表
-    col_sel, col_info = st.columns([3, 7])
-    with col_sel:
-        category_options = [
-            "🌟 全量 23 个板块全景",
-            "💻 科技硬件与互联网",
-            "🏭 顺周期与高端制造",
-            "🛡️ 防御、电力与内需",
-            "🌐 宏观大类资产"
-        ]
-        selected_category = st.selectbox(
-            "🔍 选择四象限聚焦分类:",
-            category_options,
+    # 2. 四象限雷达图引擎选择与呈现
+    col_engine, col_note = st.columns([6, 4])
+    with col_engine:
+        radar_engine = st.radio(
+            "🔮 四象限雷达可视化引擎:",
+            [
+                "🚀 方案一：3D 极简琉璃雷达 (清爽无干扰·悬停聚焦放大·推荐)",
+                "📊 方案二：经典 2D 专业统计图表"
+            ],
             index=0,
-            key="cicc_category_filter"
+            horizontal=True,
+            key="cicc_radar_engine_mode"
         )
-    with col_info:
-        st.caption("💡 **象限投资法法则**：右上角绿色区域（第一象限）为戴维斯双击（高胜率+低估值）；左上角紫色区域（第二象限）为高动量但估值透支板块，务必设置动态止损；右下角黄色区域（第四象限）为估值极具吸引力的左侧定投洼地。")
+    with col_note:
+        st.caption("💡 **方案一特色**：PBR 琉璃晶体质感、静态沉静无干扰。**仅在鼠标光标悬停在指定气泡上时，触发平滑 1.3 倍放大、聚光微光与全息战术 HUD 卡片！**")
 
-    fig_quad = create_cicc_quadrant_chart(df_quad, selected_category=selected_category)
-    if fig_quad:
-        st.plotly_chart(fig_quad, use_container_width=True)
+    if "方案二" not in radar_engine:
+        render_threejs_cicc_quadrant_ui(df_quad, height=780)
+    else:
+        col_sel1, col_sel2, col_info = st.columns([3, 3, 4])
+        with col_sel1:
+            all_cats = ["🌟 全部板块全景"] + sorted(list(df_quad['category'].unique()))
+            selected_category = st.selectbox(
+                "🔍 聚焦板块分类:",
+                all_cats,
+                index=0,
+                key="cicc_category_filter"
+            )
+        with col_sel2:
+            theme_options = [
+                "💎「璀璨光晕」霓虹琉璃 (推荐)",
+                "🌈「全景投资热力」色阶渐变",
+                "🧭「中金四象限战略」纯粹战术色"
+            ]
+            selected_theme = st.selectbox(
+                "🎨 气泡视觉渲染风格:",
+                theme_options,
+                index=0,
+                key="cicc_theme_filter"
+            )
+        with col_info:
+            st.caption("💡 **视觉导览**：气泡直径非线性跨越 **12px ~ 50px** (高分资产显著放大，自带璀璨柔光 Aura)。严格遵循中金原版坐标：横轴胜率 (0.40~0.80)，纵轴赔率 (0.00~1.00)。")
+
+        fig_quad = create_cicc_quadrant_chart(df_quad, selected_category=selected_category, render_theme=selected_theme)
+        if fig_quad:
+            st.plotly_chart(fig_quad, use_container_width=True)
 
     # 3. 详细量化指标与战术配置诊断清单
-    st.markdown("##### 📋 全板块「胜率 - 赔率 - 估值诊断」综合全景数据表")
+    st.markdown("##### 📋 全板块「胜率 - 赔率 - 综合评分 - 估值诊断」全景数据表")
     
     # 筛选视图
     filter_val_mode = st.radio(
         "快速过滤标的:",
-        ["全部 23 个资产", "🟢 仅看明确低估资产 (赔率 > 55)", "🔴 仅看相对/极度高估资产 (赔率 < 45)", "🏆 仅看高胜率顺风标的 (胜率 > 60)"],
+        [
+            f"全部 {len(df_quad)} 个资产",
+            "🌟 仅看高综合评分标的 (综合评分 ≥ 60)",
+            "🟢 仅看高赔率/深度低估资产 (赔率 ≥ 0.55)",
+            "🔴 仅看低赔率/高估透支资产 (赔率 < 0.45)",
+            "🏆 仅看高胜率顺风标的 (胜率 ≥ 0.65)"
+        ],
         horizontal=True,
         index=0,
         key="cicc_table_filter"
     )
 
     df_display = df_quad.copy()
-    if "仅看明确低估" in filter_val_mode:
-        df_display = df_display[df_display["odds_score"] >= 55.0]
-    elif "仅看相对/极度高估" in filter_val_mode:
-        df_display = df_display[df_display["odds_score"] < 45.0]
+    if "仅看高综合评分" in filter_val_mode and "composite_score" in df_display.columns:
+        df_display = df_display[df_display["composite_score"] >= 60.0]
+    elif "仅看高赔率" in filter_val_mode:
+        df_display = df_display[df_display["odds_score"] >= 0.55]
+    elif "仅看低赔率" in filter_val_mode:
+        df_display = df_display[df_display["odds_score"] < 0.45]
     elif "仅看高胜率" in filter_val_mode:
-        df_display = df_display[df_display["win_score"] >= 60.0]
+        df_display = df_display[df_display["win_score"] >= 0.65]
 
-    # 整理展示列
+    # 默认按综合评分降序排列 (综合评分最高、气泡最大的排在最前)
+    if "composite_score" in df_display.columns:
+        df_display = df_display.sort_values(by="composite_score", ascending=False)
+
+    # 整理展示列 (包含底层量化特征)
     table_cols = {
         "ticker": "代码",
         "name": "资产/板块名称",
         "category": "细分分类",
         "price": "当前价格",
+        "composite_score": "综合投资评分",
+        "bubble_size": "气泡半径",
+        "rating": "投资评级",
         "valuation_tag": "估值高低诊断",
-        "odds_score": "赔率评分 (越低估分越高)",
-        "win_score": "胜率评分 (景气/动量)",
+        "odds_score": "中金赔率 (0~1)",
+        "win_score": "中金胜率 (0.4~0.8)",
         "quadrant": "所属象限",
-        "rel_percentile_5y": "相对大盘5年折价分位(%)",
+        "rel_percentile_5y": "5年估值分位(%)",
         "mom_12_1": "12-1M动量(%)",
+        "vol_3m": "3M年化波动(%)",
+        "vol_ratio": "成交量放量比",
+        "rate_beta": "美债利率贝塔",
         "bias_200": "200日偏离(%)",
-        "percentile_5y": "绝对价格5年分位(%)",
         "action": "中金战术配置策略",
         "desc": "核心龙头代表/标的说明"
     }
@@ -856,48 +928,48 @@ def _render_theme_cicc_quadrant():
         hide_index=True,
         column_config={
             "当前价格": st.column_config.NumberColumn(format="$%.2f"),
-            "赔率评分 (越低估分越高)": st.column_config.ProgressColumn(
+            "综合投资评分": st.column_config.ProgressColumn(
                 min_value=0, max_value=100, format="%.1f 分"
             ),
-            "胜率评分 (景气/动量)": st.column_config.ProgressColumn(
-                min_value=0, max_value=100, format="%.1f 分"
+            "气泡半径": st.column_config.NumberColumn(format="%.1f px"),
+            "中金赔率 (0~1)": st.column_config.ProgressColumn(
+                min_value=0.0, max_value=1.0, format="%.2f"
             ),
-            "相对大盘5年折价分位(%)": st.column_config.ProgressColumn(
+            "中金胜率 (0.4~0.8)": st.column_config.ProgressColumn(
+                min_value=0.4, max_value=0.8, format="%.2f"
+            ),
+            "5年估值分位(%)": st.column_config.ProgressColumn(
                 min_value=0, max_value=100, format="%.1f%%"
             ),
             "12-1M动量(%)": st.column_config.NumberColumn(format="%+.1f%%"),
+            "3M年化波动(%)": st.column_config.NumberColumn(format="%.1f%%"),
+            "成交量放量比": st.column_config.NumberColumn(format="%.2fx"),
+            "美债利率贝塔": st.column_config.NumberColumn(format="%.2f"),
             "200日偏离(%)": st.column_config.NumberColumn(format="%+.1f%%"),
-            "绝对价格5年分位(%)": st.column_config.NumberColumn(format="%.1f%%"),
         }
     )
 
     # 4. 中金方法论与战术策略指南
-    with st.expander("💡 中金公司（CICC）「胜率 - 赔率」资产配置四象限投资哲学（点击展开阅读）", expanded=False):
+    with st.expander("💡 中金公司（CICC）官方研报「胜率 - 赔率」模型公式与底层逻辑（点击展开阅读）", expanded=False):
         st.markdown("""
-        ### 一、 核心逻辑：为什么要拆解为【胜率】与【赔率】两个维度？
-        在传统单因子投资中，投资者往往面临两大痛苦误区：
-        1. **“便宜但持续阴跌”——陷入【价值陷阱 (Value Trap)】**：仅看 PE/PB 估值便宜就重仓抄底，但该行业基本面与行业景气度正经历下行周期或结构性淘汰（低胜率 + 高赔率），资金持续流出。
-        2. **“景气但高位站岗”——陷入【估值杀跌泡沫】**：仅看短期业绩爆发或技术走势强劲就盲目追高，但估值已经打满甚至透支未来数年预期（高胜率 + 低赔率），一旦宏观流动性或微观业绩略微不及预期便遭剧烈腰斩。
-
-        中金公司战术大类资产配置体系将资产运行解构为两套正交系统：
-        * **横轴【赔率 (Odds)】（左侧估值与安全边际）**：
-          * 衡量“向上潜在修复空间”与“向下安全边际”。
-          * **核心标准——相对大盘折价分位数 (Relative Ratio vs. SPY)**：美股长期牛市导致几乎所有资产的名义绝对价格都在历史高位。中金配置框架的核心在于消除大盘 Beta 抬升，计算板块相对标普 500 的 5 年折价/溢价分位数。
-          * 当非 AI 板块（如必需消费 XLP、电力 XLU、原材料 XLB、金融 XLF）相对大盘比价跌至 5 年历史底部（0~15% 分位）时，具备极高赔率（75~90 分）；而 AI 芯片 SMH 处于 95% 分位，赔率极低（透支严重）。
-        * **纵轴【胜率 (Win Rate)】（右侧基本面动能与宏观顺风）**：
-          * 衡量“当下基本面趋势的确定性”与“宏观流动性/产业景气支持力度”。
-          * 融合**12-1M 学术经典动量效应（剔除近月反转的纯净基本面趋势）**、**中短期（3M）相对超额收益**、**多周期均线多头排列状态**。
-          * 分数越高（>50）代表景气度越顺风、盈利趋势越确定、机构共识越强。
+        ### 一、 中金公司研究部官方注记原文解析 (CICC Official Methodology)
+        > **资料来源**：Bloomberg, FactSet, 中金公司研究部  
+        > **官方注记**：  
+        > 1. **【胜率 (Win Rate, 横轴)】**：代表上涨的概率，采用资产长周期动量、长周期波动性和信用利差等度量加权衡量。以**维度波动性**（一年期动量、三个月波动率与流动性成交金额的资金合力）、**美债利率敏感性**（动态PS估值与10年美债利率斜率）、**盈利预期**（动态EPS同比变化与动态ROE同比差分截面分位数均值）衡量胜率。**因子加权基于 ICIR，混合六成长周期（2019年12月以来）与四成短周期（滚动12个月）形成权重**。  
+        > 2. **【赔率 (Odds, 纵轴)】**：代表上涨空间或远期胜率比，采用估值作为观测指标。以**动态 PE、PB、PS 滚动 5 年分位数均值衡量赔率**（估值越便宜，历史分位数越低，赔率越高接近 1.0）。  
+        > 3. **固收与超强龙头特殊定价**：  
+        >    * **美债（长端 0.98 / 短端 0.84）**：由于基准收益率处于近20年极高位（债券价格处于历史大底洼地），具备极宽阔的下行安全边际与降息资本利得空间，赔率打分全场居首。  
+        >    * **科技七巨头 M7 (0.72)**：虽然静态市盈率偏高，但超强且持续超预期的动态盈利增速快速消化估值，大幅抬高了“远期胜率比”，模型打分高达 0.72。
 
         ---
 
-        ### 二、 四象限战术动作指南
-        | 象限 | 胜率 (景气/趋势) | 赔率 (估值/安全边际) | 状态定性 | 经典战术操作策略 | 代表性板块资产 |
-        | :--- | :---: | :---: | :--- | :--- | :--- |
-        | **第一象限 (Q1)** | 🟢 **高胜率** (>50) | 🟢 **高赔率** (>50) | **戴维斯双击 (Davis Double Play)** | **全市场最优质进攻配置**。基本面顺风向上，同时估值处于相对低位洼地，兼具确定性与超额空间。应作为核心仓位坚定超配。 | 原材料 `XLB`、工业制造 `XLI`、金融 `XLF`、必需消费 `XLP`、电力公用 `XLU` |
-        | **第二象限 (Q2)** | 🟢 **高胜率** (>50) | 🔴 **低赔率** (<50) | **动量顺势 / 防估值消化** | **享受趋势，但务必系好安全带**。典型如 AI 半导体核心标的，业绩与景气无懈可击，但估值高位透支。策略为顺势持有，同时利用动态追踪止损锁定利润，严防高位见顶大幅回撤。 | 芯片半导体 `SMH`、科技全景 `XLK`、纳指 `QQQ` |
-        | **第三象限 (Q3)** | 🔴 **低胜率** (<50) | 🔴 **低赔率** (<50) | **戴维斯双杀 (Davis Double Slaughter)** | **最危险陷阱**。基本面景气逆风向下，同时估值依然偏贵，双重受压。应坚决予以剔除、低配或利用空头/期权对冲风险。 | 中期国债 `IEF` |
-        | **第四象限 (Q4)** | 🔴 **低胜率** (<50) | 🟢 **高赔率** (>50) | **价值洼地 / 左侧蓄势** | **考验耐心与纪律**。典型如超跌的长端美债，估值极度便宜、安全边际极高，但基本面右侧启动信号尚未确立。适合严格控制仓位、采取左侧分批定投，静候胜率拐点催化。 | 20Y+ 长端美债 `TLT`、非必需消费 `XLY` |
+        ### 二、 四象限标准定位与战术配置动作 (以 Win=0.55, Odds=0.50 为中枢原点)
+        | 象限 | 坐标特征 | 状态定性 | 经典战术操作策略 | 中金官方原版标的代表 |
+        | :--- | :---: | :--- | :--- | :--- |
+        | **第一象限 (Q1)**<br>右上角 | 🟢 **高胜率 (≥0.55)**<br>🟢 **高赔率 (≥0.50)** | **戴维斯双击 (Davis Double Play)** | **全市场核心超配与进攻主力**。兼具确定性与向上弹性。 | **美债-长端 (0.64, 0.98)**、**美债-短端 (0.71, 0.84)**、**恒生科技 (0.58, 0.83)**、**M7 (0.71, 0.72)**、**创业板50 (0.63, 0.65)** |
+        | **第二象限 (Q2)**<br>右下角 | 🟢 **高胜率 (≥0.55)**<br>🔴 **低赔率 (<0.50)** | **动量顺势 / 防估值消化** | **顺势持有，紧设止损**。享受强劲景气，但估值透支需防回调。 | **费城半导体 (0.78, 0.35)**、**标普500 (0.61, 0.25)**、**台湾加权 (0.61, 0.21)**、**韩国综指 (0.68, 0.08)** |
+        | **第三象限 (Q3)**<br>左下角 | 🔴 **低胜率 (<0.55)**<br>🔴 **低赔率 (<0.50)** | **戴维斯双杀 (Double Slaughter)** | **坚决回避 / 减仓对冲**。景气疲软且估值无性价比，最危险陷阱。 | **红利低波 (0.47, 0.06)**、**道琼斯 (0.53, 0.15)**、**原油 (0.52, 0.30)**、**中证500 (0.61, 0.08)** |
+        | **第四象限 (Q4)**<br>左上角 | 🔴 **低胜率 (<0.55)**<br>🟢 **高赔率 (≥0.50)** | **价值洼地反转 (Value Deep)** | **左侧分批定投 / 耐心潜伏**。估值极度便宜，静待基本面右侧催化。 | 纳斯达克100 (0.65, 0.45 处于中枢偏高)、万得微盘等处于中位偏左区间 |
         """)
 
 

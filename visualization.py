@@ -36,6 +36,10 @@ from charts.macro_charts import (
     create_personal_saving_rate_chart,
     create_cicc_quadrant_chart,
 )
+from charts.three_quadrant_viz import (
+    get_threejs_quadrant_html,
+    render_threejs_cicc_quadrant_ui,
+)
 from charts.stock_charts import (
     create_stock_price_chart,
     create_relative_performance_chart,
@@ -78,6 +82,8 @@ __all__ = [
     "create_commercial_loans_chart",
     "create_personal_saving_rate_chart",
     "create_cicc_quadrant_chart",
+    "get_threejs_quadrant_html",
+    "render_threejs_cicc_quadrant_ui",
     "create_stock_price_chart",
     "create_relative_performance_chart",
     "create_financial_trends_chart",
