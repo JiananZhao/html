@@ -44,11 +44,18 @@ try:
 except Exception:
     pass
 
+try:
+    import reflexivity_tab
+    importlib.reload(reflexivity_tab)
+except Exception:
+    pass
+
 from data_service import get_current_time_str_eastern
 from macro_tab import render_macro_tab
 from stock_tab import render_stock_tab
 from semi_tab import render_semi_tab
 from company_tab import render_company_deep_dive_tab
+from reflexivity_tab import render_reflexivity_tab
 
 # ------------------------------------------------------------------
 # Streamlit 主页面设置与整体布局渲染
@@ -65,11 +72,12 @@ st.markdown("### 宏观流动性监控、半导体产业追踪与个股量化估
 st.sidebar.markdown(f"**数据更新基准 (美东时间 EDT):** `{get_current_time_str_eastern()}`")
 st.sidebar.markdown("---")
 
-tab_macro, tab_stock, tab_semi, tab_company = st.tabs([
+tab_macro, tab_stock, tab_semi, tab_company, tab_reflexivity = st.tabs([
     "🌐 宏观流动性与经济全景指标",
     "📈 个股全景追踪 & 估值与技术面",
     "⚡ 芯片半导体全产业链追踪",
-    "🏢 财报深度拆解与公司基本面剖析 (Tab 4)"
+    "🏢 财报深度拆解与公司基本面剖析 (Tab 4)",
+    "🦅 索罗斯反身性大类配置 (Tab 5)"
 ])
 
 # ==================================================================
@@ -98,3 +106,12 @@ with tab_company:
         render_company_deep_dive_tab()
     except Exception as e:
         st.error(f"个股深度分析模块加载失败: {e}")
+
+# ==================================================================
+# TAB 5: 索罗斯反身性大类配置 (Soros Reflexivity Macro Allocation)
+# ==================================================================
+with tab_reflexivity:
+    try:
+        render_reflexivity_tab()
+    except Exception as e:
+        st.error(f"反身性大类配置模块加载失败: {e}")
