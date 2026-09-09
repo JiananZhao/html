@@ -33,7 +33,10 @@ def fetch_macro_credit_spread():
     if _fetch_fred_series_observations is not None:
         try:
             df = _fetch_fred_series_observations("BAMLH0A0HYM2", "Value", "2000-01-01")
-            df = df.set_index('Date')
+            if not df.empty:
+                if 'date' in df.columns:
+                    df = df.rename(columns={'date': 'Date'})
+                df = df.set_index('Date')
             return df
         except Exception as e:
             st.warning(f"Failed to fetch FRED data via data_service: {e}")
