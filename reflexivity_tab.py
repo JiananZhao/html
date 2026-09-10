@@ -66,12 +66,6 @@ def fetch_yahoo_data(tickers):
 
 def render_reflexivity_tab():
     st.header("索罗斯反身性大类资产配置 (MVP)")
-    st.markdown("""
-    本模块基于索罗斯反身性理论，量化**资产主观狂热度（价格）**与**客观信贷现实（高收益债利差）**的背离。
-    - **主观认知 ($X_t$)**: 资产收盘价的 200日 Z-Score。
-    - **客观现实 ($Y_t$)**: 高收益债利差的负向 200日 Z-Score（利差越低，信用越宽松）。
-    - **反身性偏离度 ($Gap_t$)**: $X_t - Y_t$。偏离度过高预示**黄昏期（泡沫破裂风险）**。
-    """)
     
     # UI config for tickers
     st.subheader("监控资产池配置")
@@ -150,12 +144,19 @@ def render_reflexivity_tab():
         
         def highlight_regime(val):
             if "黄昏期" in str(val):
-                return "background-color: rgba(255, 0, 0, 0.2); color: red"
+                return "background-color: rgba(255, 0, 0, 0.2); color: red; font-weight: bold"
             elif "出清期" in str(val):
-                return "background-color: rgba(0, 255, 0, 0.2); color: green"
+                return "background-color: rgba(0, 255, 0, 0.2); color: green; font-weight: bold"
             return ""
 
-        st.dataframe(res_df.style.map(highlight_regime, subset=['当前阶段']), use_container_width=True)
+        # 使用 HTML 渲染表格，以强制应用大字体和更紧凑的排版
+        styled_df = res_df.style.map(highlight_regime, subset=['当前阶段']) \
+            .hide(axis='index') \
+            .set_properties(**{'font-size': '18px', 'text-align': 'center', 'padding': '12px 15px'}) \
+            .set_table_styles([{'selector': 'th', 'props': [('font-size', '20px'), ('text-align', 'center'), ('background-color', '#f0f2f6')]}])
+        
+        st.markdown(styled_df.to_html(), unsafe_allow_html=True)
+        st.write("") # Add a little spacing
         
         # Plot Top Danger Asset
         danger_assets = res_df[res_df['反身性偏离度 (Gap)'] > 1.0]
@@ -173,3 +174,13 @@ def render_reflexivity_tab():
         fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Macro_Z'], mode='lines', name='信贷宽松度 (Credit Z)', line=dict(color='#29b09d', dash='dot')))
         fig.update_layout(title=f"{plot_ticker} 过去三年反身性指标趋势", height=400, hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
+
+        st.write("---")
+        with st.expander("📖 计算公式与指标详细解读", expanded=False):
+            st.markdown("""
+            本模块基于索罗斯反身性理论，量化**资产主观狂热度（价格）**与**客观信贷现实（高收益债利差）**的背离。
+            
+            - **主观认知 ($X_t$)**: 资产收盘价的 200日 Z-Score。
+            - **客观现实 ($Y_t$)**: 高收益债利差的负向 200日 Z-Score（利差越低，信用越宽松）。
+            - **反身性偏离度 ($Gap_t$)**: $X_t - Y_t$。偏离度过高预示**黄昏期（泡沫破裂风险）**。
+            """)
