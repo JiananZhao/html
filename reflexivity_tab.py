@@ -158,22 +158,24 @@ def render_reflexivity_tab():
         st.markdown(styled_df.to_html(), unsafe_allow_html=True)
         st.write("") # Add a little spacing
         
-        # Plot Top Danger Asset
-        danger_assets = res_df[res_df['反身性偏离度 (Gap)'] > 1.0]
-        plot_ticker = danger_assets.iloc[0]['Ticker'] if not danger_assets.empty else res_df.iloc[0]['Ticker']
+        # Interactive Tabs for all assets
+        st.subheader("重点监控走势")
+        valid_tickers = res_df['Ticker'].tolist()
+        tabs = st.tabs(valid_tickers)
         
-        st.subheader(f"重点监控走势: {plot_ticker}")
-        df_plot = market_data[plot_ticker].join(macro_df, how='left').ffill().dropna()
-        df_plot['Price_Z'] = (df_plot['Close'] - df_plot['Close'].rolling(200).mean()) / df_plot['Close'].rolling(200).std()
-        df_plot['Gap'] = df_plot['Price_Z'] - df_plot['Macro_Z']
-        df_plot = df_plot.dropna()
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Gap'], mode='lines', name='反身性偏离度 (Gap)', line=dict(color='#ff4b4b', width=2)))
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Price_Z'], mode='lines', name='主观狂热度 (Price Z)', line=dict(color='#0068c9', dash='dash')))
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Macro_Z'], mode='lines', name='信贷宽松度 (Credit Z)', line=dict(color='#29b09d', dash='dot')))
-        fig.update_layout(title=f"{plot_ticker} 过去三年反身性指标趋势", height=400, hovermode="x unified")
-        st.plotly_chart(fig, use_container_width=True)
+        for idx, t in enumerate(valid_tickers):
+            with tabs[idx]:
+                df_plot = market_data[t].join(macro_df, how='left').ffill().dropna()
+                df_plot['Price_Z'] = (df_plot['Close'] - df_plot['Close'].rolling(200).mean()) / df_plot['Close'].rolling(200).std()
+                df_plot['Gap'] = df_plot['Price_Z'] - df_plot['Macro_Z']
+                df_plot = df_plot.dropna()
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Gap'], mode='lines', name='反身性偏离度 (Gap)', line=dict(color='#ff4b4b', width=2)))
+                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Price_Z'], mode='lines', name='主观狂热度 (Price Z)', line=dict(color='#0068c9', dash='dash')))
+                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Macro_Z'], mode='lines', name='信贷宽松度 (Credit Z)', line=dict(color='#29b09d', dash='dot')))
+                fig.update_layout(title=f"{t} 过去三年反身性指标趋势", height=400, hovermode="x unified")
+                st.plotly_chart(fig, use_container_width=True)
 
         st.write("---")
         with st.expander("📖 计算公式与指标详细解读", expanded=False):
