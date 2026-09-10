@@ -24,3 +24,13 @@
 ## 5. API 返回列名大小写敏感 (KeyError)
 - **错误场景**：FRED 返回 date，Yahoo 返回 Date，直接执行 set_index('Date') 崩溃。
 - **强制规范**：set_index 前必须做防御性重命名：if 'date' in df.columns: df = df.rename(columns={'date': 'Date'})。
+
+## 6. 布尔逻辑判断与 np.nan 造成的隐式崩溃 (TypeError)
+- **错误场景**：在评估回测胜率时，写了 sum(...) / len(tw_3m) if tw_3m and len(tw_3m) > 0 else np.nan。当没有信号时，函数返回了 
+p.nan。导致执行 len(np.nan) 直接宕机。
+- **根本原因**：在 Python 中，ool(np.nan) 的值是 True！这导致 if tw_3m 判定通过，随后强行对一个 float 执行 len() 操作。
+- **强制规范**：
+  1. 如果下游逻辑期待一个列表，那么在无数据时绝对**不能返回 
+p.nan**，必须返回空列表 []。
+  2. 永远不要使用 if variable: 来判断一个可能为 
+p.nan 的对象是否有效，应使用明确的类型检测 isinstance(var, list) 或 pd.isna(var)。
