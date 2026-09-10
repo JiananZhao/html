@@ -140,7 +140,7 @@ def render_reflexivity_tab():
         # Helper to calc forward returns
         def calc_fwd_returns(signals, df_full, horizon_days):
             if signals.empty:
-                return np.nan
+                return []
             fwd_rets = []
             for d in signals.index:
                 idx_pos = df_full.index.get_loc(d)
