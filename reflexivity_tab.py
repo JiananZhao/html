@@ -114,8 +114,8 @@ def render_reflexivity_tab():
             
         df = market_data[ticker]
         # Align with macro dates
-        df.index = pd.to_datetime(df.index).tz_localize(None)
-        macro_df.index = pd.to_datetime(macro_df.index).tz_localize(None)
+        df.index = pd.to_datetime(df.index).tz_localize(None).values.astype('datetime64[ns]')
+        macro_df.index = pd.to_datetime(macro_df.index).tz_localize(None).values.astype('datetime64[ns]')
         
         merged = df.join(macro_df, how='left').ffill().dropna()
         if merged.empty:

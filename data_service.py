@@ -852,11 +852,11 @@ def get_reflexivity_macro_factors():
 
     df_list = [hy, nfci, pmi, real_yield, dxy, cg]
     base_dates = pd.DataFrame({'date': pd.date_range(start="2000-01-01", end=datetime.now())})
-    base_dates['date'] = pd.to_datetime(base_dates['date']).dt.tz_localize(None).astype('datetime64[ns]')
+    base_dates['date'] = pd.to_datetime(base_dates['date']).dt.tz_localize(None).values.astype('datetime64[ns]')
     
     for df in df_list:
         if not df.empty and 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None).astype('datetime64[ns]')
+            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None).values.astype('datetime64[ns]')
             base_dates = pd.merge_asof(base_dates, df.sort_values('date'), on='date', direction='backward')
             
     base_dates = base_dates.ffill().dropna()
