@@ -162,8 +162,8 @@ def render_reflexivity_tab():
         # 2. 恐慌抄底 (BUY)
         cond_panic = ((merged['Dist_Min_20'] < -15) | (merged['PriceZ_Min_20'] < -2.0)) & (merged['Close'] > merged['MA20'])
         
-        # 3. 趋势接回 (BUY) - 包含 1% 的突破缓冲 (Buffer)
-        cond_reentry = (merged['Close'] > merged['MA50'] * 1.01) & (merged['Macro_Z'] > -0.5) & (merged['Gap'] < 0.5)
+        # 3. 趋势接回 (BUY) - 无条件认错接回：只要带 1% 缓冲站上 50 日线，绝不踏空！
+        cond_reentry = (merged['Close'] > merged['MA50'] * 1.01)
         merged['Buy_Signal'] = cond_panic | cond_reentry
         
         # ==========================================
