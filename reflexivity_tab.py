@@ -87,18 +87,21 @@ def render_reflexivity_tab():
         return
         
     # Calculate 6-Factor Z-Scores
+    # Helper to calculate Z-Score defensively
+    def calc_z(df, col, reverse=False):
+        if col in df.columns:
+            z = (df[col] - df[col].rolling(200).mean()) / df[col].rolling(200).std()
+            return -z if reverse else z
+        return pd.Series(0.0, index=df.index)
+
     # 负向指标（越高越紧缩）：HY_OAS, NFCI, Real_Yield, DXY
     # 正向指标（越高越扩张）：PMI, Copper_Gold
-    macro_df['HY_Z'] = - (macro_df['HY_OAS'] - macro_df['HY_OAS'].rolling(200).mean()) / macro_df['HY_OAS'].rolling(200).std()
-    macro_df['NFCI_Z'] = - (macro_df['NFCI'] - macro_df['NFCI'].rolling(200).mean()) / macro_df['NFCI'].rolling(200).std()
-    macro_df['PMI_Z'] = (macro_df['PMI'] - macro_df['PMI'].rolling(200).mean()) / macro_df['PMI'].rolling(200).std()
-    macro_df['RealYield_Z'] = - (macro_df['Real_Yield'] - macro_df['Real_Yield'].rolling(200).mean()) / macro_df['Real_Yield'].rolling(200).std()
-    macro_df['DXY_Z'] = - (macro_df['DXY'] - macro_df['DXY'].rolling(200).mean()) / macro_df['DXY'].rolling(200).std()
-    
-    if 'Copper_Gold' in macro_df.columns:
-        macro_df['CG_Z'] = (macro_df['Copper_Gold'] - macro_df['Copper_Gold'].rolling(200).mean()) / macro_df['Copper_Gold'].rolling(200).std()
-    else:
-        macro_df['CG_Z'] = 0.0
+    macro_df['HY_Z'] = calc_z(macro_df, 'HY_OAS', reverse=True)
+    macro_df['NFCI_Z'] = calc_z(macro_df, 'NFCI', reverse=True)
+    macro_df['PMI_Z'] = calc_z(macro_df, 'PMI', reverse=False)
+    macro_df['RealYield_Z'] = calc_z(macro_df, 'Real_Yield', reverse=True)
+    macro_df['DXY_Z'] = calc_z(macro_df, 'DXY', reverse=True)
+    macro_df['CG_Z'] = calc_z(macro_df, 'Copper_Gold', reverse=False)
         
     macro_df = macro_df.fillna(0)
     
