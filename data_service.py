@@ -826,4 +826,37 @@ def get_personal_saving_rate_data():
         print(f"Error fetching Personal Saving Rate data: {e}")
     return pd.DataFrame()
 
+@st.cache_data(ttl=60 * 60 * 6)
+def get_reflexivity_macro_factors():
+    """Fetch the 6 macro factors for the Composite Macro Z index."""
+    import yfinance as yf
+    from datetime import datetime, timedelta
+    import pandas as pd
+    
+    hy = _fetch_fred_series_observations("BAMLH0A0HYM2", "HY_OAS", "2000-01-01")
+    nfci = _fetch_fred_series_observations("NFCI", "NFCI", "2000-01-01")
+    pmi = _fetch_fred_series_observations("NAPM", "PMI", "2000-01-01")
+    real_yield = _fetch_fred_series_observations("DFII10", "Real_Yield", "2000-01-01")
+    dxy = _fetch_fred_series_observations("DTWEXBGS", "DXY", "2000-01-01")
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365 * 20)
+    cg = pd.DataFrame()
+    try:
+        metals = yf.download(["HG=F", "GC=F"], start=start_date.strftime("%Y-%m-%d"), end=end_date.strftime("%Y-%m-%d"), progress=False)['Close']
+        if not metals.empty and isinstance(metals.columns, pd.Index) and "HG=F" in metals.columns and "GC=F" in metals.columns:
+            cg['date'] = pd.to_datetime(metals.index).tz_localize(None)
+            cg['Copper_Gold'] = (metals["HG=F"] / metals["GC=F"]).values
+    except Exception as e:
+        print(f"Copper/Gold fetch error: {e}")
 
+    df_list = [hy, nfci, pmi, real_yield, dxy, cg]
+    base_dates = pd.DataFrame({'date': pd.date_range(start="2000-01-01", end=datetime.now())})
+    
+    for df in df_list:
+        if not df.empty and 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            base_dates = pd.merge_asof(base_dates, df.sort_values('date'), on='date', direction='backward')
+            
+    base_dates = base_dates.ffill().dropna()
+    return base_dates
