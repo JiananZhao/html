@@ -47,8 +47,8 @@ def fetch_composite_macro_data():
 @st.cache_data(ttl=3600)
 def fetch_yahoo_data(tickers):
     end_date = datetime.now()
-    # 为了计算 200 日均线且保证图表能展示完整的三年数据，我们需要向前多拉取约1年的数据（4年）
-    start_date = end_date - timedelta(days=365 * 4) 
+    # 为了支撑 15 年的硬核回测，我们需要拉取过去 16 年的数据（多出1年计算 200 日均线）
+    start_date = end_date - timedelta(days=365 * 16) 
     
     data = {}
     for ticker in tickers:
