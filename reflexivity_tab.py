@@ -155,7 +155,7 @@ def render_reflexivity_tab():
                 return "background-color: rgba(0, 255, 0, 0.2); color: green"
             return ""
 
-        st.dataframe(res_df.style.applymap(highlight_regime, subset=['当前阶段']), use_container_width=True)
+        st.dataframe(res_df.style.map(highlight_regime, subset=['当前阶段']), use_container_width=True)
         
         # Plot Top Danger Asset
         danger_assets = res_df[res_df['反身性偏离度 (Gap)'] > 1.0]
