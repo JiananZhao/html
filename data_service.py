@@ -44,10 +44,18 @@ def _get_fred_api_key():
 # ------------------------------------------------------------------
 @st.cache_data(ttl=60 * 60 * 6)
 def _fetch_fred_series_observations(series_id, value_col, observation_start="2000-01-01"):
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    import io
+    
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 429, 500, 502, 503, 504 ])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
     fred_api_key = _get_fred_api_key()
     if fred_api_key:
         try:
-            import requests
             url = "https://api.stlouisfed.org/fred/series/observations"
             params = {
                 "series_id": series_id,
@@ -56,7 +64,7 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
                 "observation_start": observation_start,
                 "sort_order": "asc",
             }
-            response = requests.get(url, params=params, timeout=15)
+            response = session.get(url, params=params, timeout=30)
             if response.status_code == 200:
                 data = response.json().get("observations", [])
                 if data:
@@ -69,12 +77,11 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
         except Exception as e:
             print(f"FRED API fetch error for {series_id}: {e}")
 
+    # Fallback to CSV
     try:
-        import requests
-        import io
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-        resp = requests.get(url, headers=headers, timeout=12)
+        resp = session.get(url, headers=headers, timeout=30)
         if resp.status_code == 200 and resp.text:
             df = pd.read_csv(io.StringIO(resp.text))
             if not df.empty and len(df.columns) >= 2:
@@ -87,6 +94,7 @@ def _fetch_fred_series_observations(series_id, value_col, observation_start="200
                 return df.reset_index(drop=True)
     except Exception as e:
         print(f"Fallback CSV fetch error for {series_id}: {e}")
+        
     return pd.DataFrame()
 
 
