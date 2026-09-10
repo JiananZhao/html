@@ -29,7 +29,7 @@ DEFAULT_TICKERS = {
     "XLY": "非必需消费"
 }
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_composite_macro_data():
     if get_reflexivity_macro_factors is not None:
         try:
