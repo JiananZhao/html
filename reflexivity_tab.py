@@ -46,7 +46,8 @@ def fetch_macro_credit_spread():
 @st.cache_data(ttl=3600)
 def fetch_yahoo_data(tickers):
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=365 * 3) # 3 years
+    # 为了计算 200 日均线且保证图表能展示完整的三年数据，我们需要向前多拉取约1年的数据（4年）
+    start_date = end_date - timedelta(days=365 * 4) 
     
     data = {}
     for ticker in tickers:
@@ -170,6 +171,10 @@ def render_reflexivity_tab():
                 df_plot['Gap'] = df_plot['Price_Z'] - df_plot['Macro_Z']
                 df_plot = df_plot.dropna()
                 
+                # 截取最近三年用于绘图，以精确匹配“过去三年”的标题要求
+                three_years_ago = pd.Timestamp.now().normalize() - pd.DateOffset(years=3)
+                df_plot = df_plot[df_plot.index >= three_years_ago]
+                
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Gap'], mode='lines', name='反身性偏离度 (Gap)', line=dict(color='#ff4b4b', width=2)))
                 fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Price_Z'], mode='lines', name='主观狂热度 (Price Z)', line=dict(color='#0068c9', dash='dash')))
@@ -182,14 +187,23 @@ def render_reflexivity_tab():
             st.markdown("""
             本模块基于索罗斯反身性理论，量化**资产主观狂热度（价格）**与**客观信贷现实（高收益债利差）**的背离。
             
-            **200日 Z-Score (标准分) 计算公式:**
-            $$ Z_t = \\frac{X_t - \\mu_{200}}{\\sigma_{200}} $$
-            - **$X_t$**: 当前值（如当日收盘价或当日利差）
-            - **$\\mu_{200}$**: 过去 200 个交易日的移动平均值 (Rolling Mean)
-            - **$\\sigma_{200}$**: 过去 200 个交易日的移动标准差 (Rolling Standard Deviation)
+            **200日 Z-Score (标准分) 基础公式:**
+            $$ Z_t = \\frac{X_t - MA(X, 200)}{StdDev(X, 200)} $$
             
-            **指标构建:**
-            - **主观认知 ($X_t$)**: 资产收盘价的 200日 Z-Score。
-            - **客观现实 ($Y_t$)**: 高收益债利差的负向 200日 Z-Score（利差越低，信用越宽松）。
-            - **反身性偏离度 ($Gap_t$)**: $X_t - Y_t$。偏离度过高预示**黄昏期（泡沫破裂风险）**。
+            **本模块核心指标的精确推导计算过程:**
+            
+            **1. 主观狂热度 (Price_Z)**
+            计算标的过去 200 个交易日的收盘价偏离度。数值越高，表明资产价格相较于其长期均值越极端（过度狂热或泡沫）。
+            $$ Price\\_Z_t = \\frac{Close_t - MA(Close, 200)}{StdDev(Close, 200)} $$
+            
+            **2. 客观信贷宽松度 (Macro_Z)**
+            使用美国高收益债期权调整利差 (ICE BofA US High Yield OAS) 作为底层宏观信用的代理指标。**注意公式前方有一个负号**。
+            因为利差飙升（值变大）代表信用环境紧缩、违约风险上升；利差收窄代表信用环境宽松。为了让其与资产价格逻辑同向（数值越高代表环境越好/越宽松），系统对原本的 Z-Score 取负向。
+            $$ Macro\\_Z_t = - \\frac{Spread_t - MA(Spread, 200)}{StdDev(Spread, 200)} $$
+            
+            **3. 反身性偏离度 (Gap)**
+            偏离度衡量了“市场主观狂热的价格”与“底层客观信用现实”之间的撕裂程度。
+            $$ Gap_t = Price\\_Z_t - Macro\\_Z_t $$
+            - **当 Gap 过高时 ($Gap > 1.5$ 且 $Price\\_Z > 1$)**：预示**🔴 黄昏期**。说明价格正在无视基本面的恶化而加速赶顶，泡沫破裂风险极高。
+            - **当 Gap 过低时 ($Gap < -1.5$ 且 $Price\\_Z < -1$)**：预示**🟢 出清期**。说明资产遭遇恐慌性抛售，但底层信用环境实质上正在边际回暖，酝酿左侧机会。
             """)
