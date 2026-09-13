@@ -40,8 +40,10 @@ import pandas as pd
 import numpy as np
 import requests
 
-LOCAL_CSV_PATH = "e:/AI/Github_AIProject/html/market_data_local.csv"
-SIGNAL_LOG_PATH = "e:/AI/Github_AIProject/html/daily_signal_log.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_CSV_PATH = os.path.join(BASE_DIR, "market_data_local.csv")
+SIGNAL_LOG_PATH = os.path.join(BASE_DIR, "daily_signal_log.csv")
+GITHUB_RAW_CSV_URL = "https://raw.githubusercontent.com/JiananZhao/html/master/market_data_local.csv"
 FRED_API_KEY = "a39da0075f8676c83d4346320c8140d6"
 
 
@@ -73,11 +75,18 @@ def fetch_fred_single_series(api_key, series_id, start_date):
 
 def sync_latest_market_data(force=False):
     """
-    增量同步最新行情与宏观数据至本地 CSV 数据库
+    增量同步最新行情与宏观数据至本地 CSV 数据库 (支持跨平台与 GitHub 自动初始化)
     返回同步状态与最新数据总行数
     """
     if not os.path.exists(LOCAL_CSV_PATH):
-        raise FileNotFoundError(f"本地真理库不存在: {LOCAL_CSV_PATH}")
+        try:
+            print(f"[*] 本地真理库不存在，正在从 GitHub 拉取基准数据库: {GITHUB_RAW_CSV_URL}")
+            df_init = pd.read_csv(GITHUB_RAW_CSV_URL)
+            if not df_init.empty and 'date' in df_init.columns:
+                df_init.to_csv(LOCAL_CSV_PATH, index=False)
+                print(f"[+] 成功从 GitHub 初始化本地真理库: {LOCAL_CSV_PATH}")
+        except Exception as e:
+            raise FileNotFoundError(f"本地真理库不存在且无法从 GitHub 初始化: {e}")
 
     df_local = pd.read_csv(LOCAL_CSV_PATH)
     df_local['date'] = pd.to_datetime(df_local['date']).dt.tz_localize(None).astype('datetime64[ns]')
@@ -156,14 +165,21 @@ def sync_latest_market_data(force=False):
         return {"status": "error", "error": str(e), "last_date": last_date.strftime('%Y-%m-%d')}
 
 
-def compute_latest_signals():
+def compute_latest_signals(df_input=None):
     """
     毫秒级快速计算 SPY 与 QQQ 的今日最新状态与双轨制预警信号
+    支持直接传入 DataFrame，或从本地路径/GitHub 远端读取
     """
-    if not os.path.exists(LOCAL_CSV_PATH):
-        raise FileNotFoundError(f"本地数据库不存在: {LOCAL_CSV_PATH}")
+    if df_input is not None and not df_input.empty:
+        df = df_input.copy()
+    elif os.path.exists(LOCAL_CSV_PATH):
+        df = pd.read_csv(LOCAL_CSV_PATH)
+    else:
+        try:
+            df = pd.read_csv(GITHUB_RAW_CSV_URL)
+        except Exception as e:
+            raise FileNotFoundError(f"本地与 GitHub 数据源皆不可用: {e}")
 
-    df = pd.read_csv(LOCAL_CSV_PATH)
     df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None).astype('datetime64[ns]')
     df = df.sort_values('date').reset_index(drop=True)
 

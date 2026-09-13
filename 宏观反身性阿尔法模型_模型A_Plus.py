@@ -49,8 +49,9 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'sans-
 plt.rcParams['axes.unicode_minus'] = False
 
 # 纯本地脱机优先原则 (Local-First): 100% 依赖本地清洗主数据集
-LOCAL_CSV_PATH = "e:/AI/Github_AIProject/html/market_data_local.csv"
-OUTPUT_DIR = "e:/AI/Github_AIProject/html"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_CSV_PATH = os.path.join(BASE_DIR, "market_data_local.csv")
+OUTPUT_DIR = BASE_DIR
 ARTIFACT_DIR = "C:/Users/jiana/.gemini/antigravity-ide/brain/ddcec604-91d0-4b3c-adb2-0d6f1b6d7c5f"
 
 MODEL_A_PLUS_EXCEL = "宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx"

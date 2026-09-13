@@ -45,10 +45,11 @@ from openpyxl.utils import get_column_letter
 # ==============================================================================
 # 纯本地优先原则 (Local-First): 100% 离线脱机运行
 # ==============================================================================
-LOCAL_CSV_PATH = "e:/AI/Github_AIProject/html/market_data_local.csv"
-MODEL_A_EXCEL_PATH = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_交易不频繁版_真实对账与买卖信号全证据.xlsx"
-MODEL_A_SPY_CHART = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_交易不频繁版_SPY买卖信号与净值对比图.png"
-MODEL_A_QQQ_CHART = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_交易不频繁版_QQQ买卖信号与净值对比图.png"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_CSV_PATH = os.path.join(BASE_DIR, "market_data_local.csv")
+MODEL_A_EXCEL_PATH = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A_交易不频繁版_真实对账与买卖信号全证据.xlsx")
+MODEL_A_SPY_CHART = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A_交易不频繁版_SPY买卖信号与净值对比图.png")
+MODEL_A_QQQ_CHART = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A_交易不频繁版_QQQ买卖信号与净值对比图.png")
 
 def simulate_engine_model_a(df, ticker, base_lev=1.0, boost_lev=1.5):
     """

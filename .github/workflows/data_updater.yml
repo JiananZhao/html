@@ -44,15 +44,20 @@ jobs:
         run: |
           python update_market_breadth.py || true
 
+      - name: Run Macro Reflexivity Model daily monitor & updater
+        id: run_reflexivity_script
+        run: |
+          python daily_market_monitor.py || true
+
       - name: Commit and Push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add daily-treasury-rates.csv market_breadth.csv sp500_symbols.csv
+          git add daily-treasury-rates.csv market_breadth.csv sp500_symbols.csv market_data_local.csv daily_signal_log.csv
           
           if ! git diff-index --quiet HEAD; then
-            git commit -m "Auto: Update daily market data, market_breadth.csv, and treasury rates"
+            git commit -m "Auto: Update daily market data, reflexivity alpha model, and treasury rates"
             git push
           else
             echo "No changes to commit."
