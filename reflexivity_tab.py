@@ -269,11 +269,11 @@ def render_reflexivity_tab():
         }
         st.table(pd.DataFrame(perf_data))
         
-        # Excel 底稿下载 (本地优先，云端 fallback)
+        # 交付物下载 (Excel底稿 + 数学白皮书 Word/MD)
         if os.path.exists(EXCEL_DELIVERABLE_LOCAL):
             with open(EXCEL_DELIVERABLE_LOCAL, "rb") as f:
                 st.download_button(
-                    label="📥 下载官方 6 表真实对账全证据 Excel 底稿 (.xlsx)",
+                    label="📊 下载官方 6 表真实对账全证据 Excel 底稿 (.xlsx)",
                     data=f.read(),
                     file_name="宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -281,4 +281,28 @@ def render_reflexivity_tab():
                 )
         else:
             st.markdown(f"📥 [点击从 GitHub 下载官方 Excel 底稿]({GITHUB_RAW_EXCEL})")
+
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            docx_path = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_数学公式与量化建模全白皮书.docx")
+            if os.path.exists(docx_path):
+                with open(docx_path, "rb") as f:
+                    st.download_button(
+                        label="📄 下载模型数学公式白皮书 (.docx Word版)",
+                        data=f.read(),
+                        file_name="宏观反身性阿尔法模型_数学公式与量化建模全白皮书.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True
+                    )
+        with col_d2:
+            md_path = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_数学公式与量化建模全白皮书.md")
+            if os.path.exists(md_path):
+                with open(md_path, "rb") as f:
+                    st.download_button(
+                        label="📝 下载模型公式白皮书 (.md Markdown版)",
+                        data=f.read(),
+                        file_name="宏观反身性阿尔法模型_数学公式与量化建模全白皮书.md",
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
 
