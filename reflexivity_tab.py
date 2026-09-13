@@ -64,6 +64,21 @@ def load_market_data_cross_platform():
     return pd.DataFrame(), "无可用数据源"
 
 
+# 导入交互式图谱生成模块
+try:
+    from reflexivity_interactive_chart import run_reflexivity_simulation, build_interactive_4layer_chart
+except ImportError:
+    run_reflexivity_simulation = None
+    build_interactive_4layer_chart = None
+
+
+@st.cache_data(show_spinner=False)
+def get_cached_simulation(df, ticker):
+    if run_reflexivity_simulation is not None and not df.empty:
+        return run_reflexivity_simulation(df, ticker)
+    return None
+
+
 def render_reflexivity_tab():
     st.header("🦅 索罗斯宏观反身性阿尔法模型 (双轨制雷达看板版)")
     st.caption("【机构级纯现货大类资产配置】信用先导熊市出清 · 动态扩展分位数自适应 · 0~100分宏观过热预警雷达")
@@ -174,19 +189,70 @@ def render_reflexivity_tab():
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 3. 高清 4 层双轨制决策图谱展示 (支持本地与云端直链)
+    # 3. 动态可缩放 4 层双轨制决策交互图谱 (支持滚轮缩放与一键聚焦)
     # -------------------------------------------------------------
-    st.subheader("📈 17.6 年全历史买卖信号与净值全景图谱")
-    tab_chart_q, tab_chart_s, tab_audit = st.tabs(["💻 QQQ 全景图谱 (4层对齐)", "🇺🇸 SPY 全景图谱 (4层对齐)", "📊 官方全周期对账数据"])
+    st.subheader("📈 4 层双轨制决策与净值动态全景图谱 (可自由缩放 / 聚焦任意时段)")
+    st.caption("💡 **交互指引**：支持鼠标滚轮放大/缩小、按住左键拖拽框选、底部时间滑块拉伸；点击右上角一键聚焦最近几个月或几年，鼠标悬停可穿透查看该日全部指标。")
 
+    col_ctrl1, col_ctrl2 = st.columns([3, 4])
+    with col_ctrl1:
+        default_range_choice = st.selectbox(
+            "⏱️ 初始默认聚焦时间视野:",
+            options=["近 6 个月 (最新细节)", "近 3 个月", "近 1 年", "近 3 年", "近 5 年", "全历史 17.6 年全景"],
+            index=0,
+            help="设定图表初始加载时的时间范围，进入后仍可使用图表内按钮或滑块任意调节"
+        )
+    range_map = {
+        "近 3 个月": "3M",
+        "近 6 个月 (最新细节)": "6M",
+        "近 1 年": "1Y",
+        "近 3 年": "3Y",
+        "近 5 年": "5Y",
+        "全历史 17.6 年全景": "ALL"
+    }
+    selected_range = range_map[default_range_choice]
+
+    tab_chart_q, tab_chart_s, tab_audit = st.tabs([
+        "💻 QQQ 动态交互全景图谱",
+        "🇺🇸 SPY 动态交互全景图谱",
+        "📊 官方全周期对账数据与审计"
+    ])
+
+    # QQQ 交互图
     with tab_chart_q:
-        chart_src_q = QQQ_CHART_LOCAL if os.path.exists(QQQ_CHART_LOCAL) else GITHUB_RAW_QQQ_CHART
-        st.image(chart_src_q, caption="QQQ 宏观反身性双轨制雷达看板（顶层黄色过热预警散点 + 第3层过热雷达能量带）", use_container_width=True)
+        if not df_data.empty and build_interactive_4layer_chart is not None:
+            sim_q = get_cached_simulation(df_data, 'QQQ')
+            if sim_q:
+                fig_q = build_interactive_4layer_chart(
+                    sim_q['df'], sim_q['trades'], ticker='QQQ', default_range=selected_range
+                )
+                st.plotly_chart(fig_q, use_container_width=True)
+            
+            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图 (长图版)"):
+                chart_src_q = QQQ_CHART_LOCAL if os.path.exists(QQQ_CHART_LOCAL) else GITHUB_RAW_QQQ_CHART
+                st.image(chart_src_q, caption="QQQ 宏观反身性双轨制雷达看板出版级高清长图", use_container_width=True)
+        else:
+            chart_src_q = QQQ_CHART_LOCAL if os.path.exists(QQQ_CHART_LOCAL) else GITHUB_RAW_QQQ_CHART
+            st.image(chart_src_q, caption="QQQ 宏观反身性双轨制雷达看板", use_container_width=True)
 
+    # SPY 交互图
     with tab_chart_s:
-        chart_src_s = SPY_CHART_LOCAL if os.path.exists(SPY_CHART_LOCAL) else GITHUB_RAW_SPY_CHART
-        st.image(chart_src_s, caption="SPY 宏观反身性双轨制雷达看板（顶层黄色过热预警散点 + 第3层过热雷达能量带）", use_container_width=True)
+        if not df_data.empty and build_interactive_4layer_chart is not None:
+            sim_s = get_cached_simulation(df_data, 'SPY')
+            if sim_s:
+                fig_s = build_interactive_4layer_chart(
+                    sim_s['df'], sim_s['trades'], ticker='SPY', default_range=selected_range
+                )
+                st.plotly_chart(fig_s, use_container_width=True)
+            
+            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图 (长图版)"):
+                chart_src_s = SPY_CHART_LOCAL if os.path.exists(SPY_CHART_LOCAL) else GITHUB_RAW_SPY_CHART
+                st.image(chart_src_s, caption="SPY 宏观反身性双轨制雷达看板出版级高清长图", use_container_width=True)
+        else:
+            chart_src_s = SPY_CHART_LOCAL if os.path.exists(SPY_CHART_LOCAL) else GITHUB_RAW_SPY_CHART
+            st.image(chart_src_s, caption="SPY 宏观反身性双轨制雷达看板", use_container_width=True)
 
+    # 对账审计
     with tab_audit:
         st.markdown("#### 17.6 年全周期定投绩效审计总表 (纯现货 1.0x 真实券商记账)")
         perf_data = {
@@ -214,3 +280,4 @@ def render_reflexivity_tab():
                 )
         else:
             st.markdown(f"📥 [点击从 GitHub 下载官方 Excel 底稿]({GITHUB_RAW_EXCEL})")
+
