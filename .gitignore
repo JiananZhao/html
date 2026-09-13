@@ -1,3 +1,4 @@
+# Python bytecode and environments
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,3 +9,26 @@ env/
 venv/
 ENV/
 *.log
+
+# Scratch and intermediate experimentation scripts
+scratch/
+scratch_*
+explore_crashes.py
+test_monthly_regime.py
+print_regime_summary.py
+print_summary.py
+rebuild_6factor_app.py
+run_10yr_sandbox.py
+run_regime_sandbox.py
+export_alpha_model_deliverables.py
+export_excel_audit.py
+export_regime_audit_excel.py
+macro_alpha_audit.xlsx
+macro_reflexivity_audit.xlsx
+macro_regime_audit.xlsx
+宏观反身性模型_买卖信号与逐日计算全证据.xlsx
+宏观反身性阿尔法模型_QQQ买卖信号与净值对比图.png
+宏观反身性阿尔法模型_SPY买卖信号与净值对比图.png
+宏观反身性阿尔法模型_真实对账与买卖信号全证据.xlsx
+宏观四象限平滑仓位模型_全证据.xlsx
+.streamlit/

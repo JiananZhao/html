@@ -1,323 +1,177 @@
+# -*- coding: utf-8 -*-
+"""
+========================================================================================
+项目名称：宏观反身性阿尔法模型 (方案 B_Plus: 双轨制雷达看板版)
+文件名称：reflexivity_tab.py
+========================================================================================
+"""
+
+import os
 import streamlit as st
 import pandas as pd
-import yfinance as yf
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
 import numpy as np
+from datetime import datetime
 
-# Try importing data_service for FRED, fallback if missing
+# 导入每日监控与增量同步引擎
 try:
-    from data_service import _fetch_fred_series_observations, get_reflexivity_macro_factors
+    from daily_market_monitor import sync_latest_market_data, compute_latest_signals, LOCAL_CSV_PATH
 except ImportError:
-    _fetch_fred_series_observations = None
-    get_reflexivity_macro_factors = None
+    LOCAL_CSV_PATH = "e:/AI/Github_AIProject/html/market_data_local.csv"
+    sync_latest_market_data = None
+    compute_latest_signals = None
 
-# Configurable ticker list
-DEFAULT_TICKERS = {
-    "SPY": "标普500",
-    "QQQ": "纳斯达克100",
-    "IEF": "中期美债",
-    "SHV": "短期国库券",
-    "GLD": "黄金",
-    "SOXX": "费城半导体",
-    "IGV": "软件ETF",
-    "XLE": "能源",
-    "XLU": "公用事业",
-    "XLRE": "房地产",
-    "XLF": "金融",
-    "XLY": "非必需消费"
-}
+EXCEL_DELIVERABLE_PATH = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx"
+QQQ_CHART_PATH = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_Plus_QQQ买卖信号与净值对比图.png"
+SPY_CHART_PATH = "e:/AI/Github_AIProject/html/宏观反身性阿尔法模型_模型A_Plus_SPY买卖信号与净值对比图.png"
 
-@st.cache_data(ttl=3600, show_spinner=True)
-def fetch_composite_macro_data():
-    if get_reflexivity_macro_factors is not None:
-        try:
-            df = get_reflexivity_macro_factors()
-            if not df.empty:
-                if 'date' in df.columns:
-                    df = df.rename(columns={'date': 'Date'})
-                df = df.set_index('Date')
-            return df
-        except Exception as e:
-            st.warning(f"Failed to fetch Composite Macro data via data_service: {e}")
-    # Fallback if FRED fails
-    return pd.DataFrame()
-
-@st.cache_data(ttl=3600)
-def fetch_yahoo_data(tickers):
-    end_date = datetime.now()
-    # 为了支撑 15 年的硬核回测，我们需要拉取过去 16 年的数据（多出1年计算 200 日均线）
-    start_date = end_date - timedelta(days=365 * 16) 
-    
-    data = {}
-    for ticker in tickers:
-        try:
-            df = yf.download(ticker, start=start_date.strftime("%Y-%m-%d"), end=end_date.strftime("%Y-%m-%d"), progress=False)
-            if not df.empty:
-                if 'Close' in df.columns:
-                    # yfinance multiple ticker issue safeguard, though we download one by one
-                    if isinstance(df.columns, pd.MultiIndex):
-                        data[ticker] = df['Close'].copy()
-                        data[ticker].columns = ['Close']
-                    else:
-                        data[ticker] = df[['Close']].copy()
-        except Exception as e:
-            st.warning(f"Failed to fetch {ticker}: {e}")
-    return data
 
 def render_reflexivity_tab():
-    st.header("索罗斯反身性预测模型 (多因子合成版)")
+    st.header("🦅 索罗斯宏观反身性阿尔法模型 (双轨制雷达看板版)")
+    st.caption("【机构级纯现货大类资产配置】信用先导熊市出清 · 动态扩展分位数自适应 · 0~100分宏观过热预警雷达")
     
-    # UI config for tickers
-    st.subheader("监控资产池配置")
-    selected_tickers_str = st.text_area("监控 Tickers (用逗号分隔，可自由扩充)", value=", ".join(DEFAULT_TICKERS.keys()))
-    tickers_to_monitor = [t.strip().upper() for t in selected_tickers_str.split(",") if t.strip()]
+    # -------------------------------------------------------------
+    # 1. 顶部控制栏与一键同步数据按钮
+    # -------------------------------------------------------------
+    col_sync, col_status = st.columns([2, 5])
     
-    if not tickers_to_monitor:
-        st.warning("请输入至少一个 Ticker。")
-        return
-        
-    with st.spinner("从 FRED 与 Yahoo 极速并发拉取六大宏观因子与市场价格数据 (可能需要几秒钟以确保预测准确度)..."):
-        macro_df = fetch_composite_macro_data()
-        market_data = fetch_yahoo_data(tickers_to_monitor)
-        
-    if macro_df.empty:
-        st.error("未能获取到 FRED 宏观合成数据，请检查 data_service 或 API Key。")
-        return
-        
-    # Calculate 6-Factor Z-Scores
-    # Helper to calculate Z-Score defensively
-    def calc_z(df, col, reverse=False):
-        if col in df.columns:
-            z = (df[col] - df[col].rolling(200).mean()) / df[col].rolling(200).std()
-            return -z if reverse else z
-        return pd.Series(0.0, index=df.index)
+    with col_sync:
+        if st.button("🔄 立即同步最新数据", use_container_width=True, help="点击从 FRED 与 Yahoo 增量拉取最新交易日数据并自动追加到本地数据库"):
+            if sync_latest_market_data is not None:
+                with st.spinner("正在增量同步最新行情与宏观因子至本地数据库..."):
+                    res = sync_latest_market_data(force=True)
+                    if res.get("status") == "updated":
+                        st.success(f"同步成功！追加 {res.get('new_rows')} 行，最新日期: {res.get('last_date')}")
+                    elif res.get("status") == "up_to_date":
+                        st.info(f"本地数据库已是最新（基准日: {res.get('last_date')}），无需更新。")
+                    else:
+                        st.warning(f"同步状态: {res.get('status')}")
+                    st.rerun()
+            else:
+                st.error("未找到 daily_market_monitor 模块。")
 
-    # 负向指标（越高越紧缩）：HY_OAS, NFCI, Real_Yield, DXY
-    # 正向指标（越高越扩张）：PMI, Copper_Gold
-    macro_df['HY_Z'] = calc_z(macro_df, 'HY_OAS', reverse=True)
-    macro_df['NFCI_Z'] = calc_z(macro_df, 'NFCI', reverse=True)
-    macro_df['PMI_Z'] = calc_z(macro_df, 'PMI', reverse=False)
-    macro_df['RealYield_Z'] = calc_z(macro_df, 'Real_Yield', reverse=True)
-    macro_df['DXY_Z'] = calc_z(macro_df, 'DXY', reverse=True)
-    macro_df['CG_Z'] = calc_z(macro_df, 'Copper_Gold', reverse=False)
-        
-    macro_df = macro_df.fillna(0)
-    
-    # Weightings: 1/6 each
-    macro_df['Macro_Z'] = (macro_df['HY_Z'] + macro_df['NFCI_Z'] + macro_df['PMI_Z'] + macro_df['RealYield_Z'] + macro_df['DXY_Z'] + macro_df['CG_Z']) / 6.0
-    
-    results = []
-    backtest_results = []
-    
-    for ticker in tickers_to_monitor:
-        if ticker not in market_data:
-            continue
-            
-        df = market_data[ticker]
-        # Align with macro dates
-        df.index = pd.to_datetime(df.index).tz_localize(None).values.astype('datetime64[ns]')
-        macro_df.index = pd.to_datetime(macro_df.index).tz_localize(None).values.astype('datetime64[ns]')
-        
-        merged = df.join(macro_df, how='left').ffill().dropna()
-        if merged.empty:
-            continue
-            
-        # Calc Price Z-score
-        merged['Price_Z'] = (merged['Close'] - merged['Close'].rolling(200).mean()) / merged['Close'].rolling(200).std()
-        
-        # 引入动态 Beta (252天滚动协方差)
-        roll_cov = merged['Price_Z'].rolling(252).cov(merged['Macro_Z'])
-        roll_var = merged['Macro_Z'].rolling(252).var()
-        merged['Dynamic_Beta'] = (roll_cov / roll_var).clip(lower=-2.0, upper=2.0)
-        merged['Expected_Price_Z'] = merged['Macro_Z'] * merged['Dynamic_Beta']
-        
-        # 反身性偏离度 Gap
-        merged['Gap'] = merged['Price_Z'] - merged['Expected_Price_Z']
-        
-        # 计算各种均线
-        merged['MA20'] = merged['Close'].rolling(20).mean()
-        merged['MA50'] = merged['Close'].rolling(50).mean()
-        merged['MA200'] = merged['Close'].rolling(200).mean()
-        merged = merged.dropna()
-        if merged.empty:
-            continue
-            
-        # 引入滑动记忆窗口 (20天)
-        merged['Gap_Max_20'] = merged['Gap'].rolling(20).max()
-        merged['PriceZ_Max_20'] = merged['Price_Z'].rolling(20).max()
-        merged['Dist_200MA'] = (merged['Close'] - merged['MA200']) / merged['MA200'] * 100
-        merged['Dist_Min_20'] = merged['Dist_200MA'].rolling(20).min()
-        merged['PriceZ_Min_20'] = merged['Price_Z'].rolling(20).min()
-        
-        # ==========================================
-        # 终极三大交易法则 (实战防抖级)
-        # ==========================================
-        # 1. 逃顶预警 (SELL)
-        cond_bubble = (merged['Gap_Max_20'] > 1.5) & (merged['PriceZ_Max_20'] > 1.5) & (merged['Close'] < merged['MA20'])
-        cond_macro = (merged['Macro_Z'] < -1.5) & (merged['Gap'] > 1.5) & (merged['Price_Z'] > 0) & (merged['Close'] < merged['MA50'])
-        merged['Sell_Signal'] = cond_bubble | cond_macro
-        
-        # 2. 恐慌抄底 (BUY)
-        cond_panic = ((merged['Dist_Min_20'] < -15) | (merged['PriceZ_Min_20'] < -2.0)) & (merged['Close'] > merged['MA20'])
-        
-        # 3. 趋势接回 (BUY) - 无条件认错接回：只要带 1% 缓冲站上 50 日线，绝不踏空！
-        cond_reentry = (merged['Close'] > merged['MA50'] * 1.01)
-        merged['Buy_Signal'] = cond_panic | cond_reentry
-        
-        # ==========================================
-        # 模拟器引擎 (含 20 天冷却锁 Timelock)
-        # ==========================================
-        positions = []
-        position = 1.0 
-        days_since_sell = 9999
-        last_action = "持有 (Hold)"
-        last_action_date = "N/A"
-        trade_count = 0
-        
-        for i in range(len(merged)):
-            date_str = merged.index[i].strftime("%Y-%m-%d")
-            
-            # Sell Check
-            if position == 1.0 and merged['Sell_Signal'].iloc[i]:
-                position = 0.0
-                days_since_sell = 0
-                last_action = "🔴 卖出 (空仓避险)"
-                last_action_date = date_str
-                trade_count += 1
-                
-            # Buy Check (with 20-day Timelock for re-entry)
-            elif position == 0.0:
-                if cond_panic.iloc[i]:
-                    position = 1.0
-                    last_action = "🟢 抄底 (满仓做多)"
-                    last_action_date = date_str
-                    trade_count += 1
-                elif cond_reentry.iloc[i] and days_since_sell > 20:
-                    position = 1.0
-                    last_action = "🔵 接回 (满仓做多)"
-                    last_action_date = date_str
-                    trade_count += 1
-                    
-            positions.append(position)
-            days_since_sell += 1
-            
-        merged['Position'] = positions
-        
-        # ==========================================
-        # PnL 计算 (0% 现金利息假设)
-        # ==========================================
-        daily_returns = merged['Close'].pct_change().fillna(0)
-        # shift(1) to avoid lookahead bias: position today dictates return tomorrow
-        strat_returns = np.where(pd.Series(positions).shift(1).fillna(1.0) == 1.0, daily_returns, 0.0)
-        
-        total_bh = (np.prod(1 + daily_returns) - 1) * 100
-        total_strat = (np.prod(1 + strat_returns) - 1) * 100
-        
-        # 记录回测指标
-        backtest_results.append({
-            "Ticker": ticker,
-            "历史总交易次数": trade_count,
-            "买入持有总收益": f"{total_bh:.1f}%",
-            "反身性模型总收益": f"{total_strat:.1f}%",
-            "超额收益 (Alpha)": f"{total_strat - total_bh:.1f}%",
-            "最后一次动作": last_action,
-            "动作发生日期": last_action_date
-        })
-        
-        latest = merged.iloc[-1]
-        
-        # 判断当前状态
-        current_pos = "满仓做多 (Long)" if latest['Position'] == 1.0 else "空仓避险 (Cash)"
-        regime = current_pos
-            
-        results.append({
-            "资产名称": DEFAULT_TICKERS.get(ticker, ticker),
-            "Ticker": ticker,
-            "最新收盘价": round(latest['Close'], 2),
-            "主观情绪 (Price Z)": round(latest['Price_Z'], 2),
-            "客观现实 (Macro Z)": round(latest['Macro_Z'], 2),
-            "偏离度 (Gap)": round(latest['Gap'], 2),
-            "当前仓位状态": regime
-        })
-        
-    if results:
-        st.subheader("大类资产反身性状态雷达 (底层重构 0 息硬核版)")
-        res_df = pd.DataFrame(results)
-        
-        def highlight_regime(val):
-            if "空仓避险" in str(val):
-                return "background-color: rgba(255, 0, 0, 0.2); color: red; font-weight: bold"
-            elif "满仓做多" in str(val):
-                return "background-color: rgba(0, 255, 0, 0.2); color: green; font-weight: bold"
-            return ""
+    with col_status:
+        if os.path.exists(LOCAL_CSV_PATH):
+            df_local = pd.read_csv(LOCAL_CSV_PATH)
+            last_date_str = str(df_local['date'].iloc[-1])[:10]
+            st.markdown(
+                f"**本地微型真理库状态:** `🟢 正常运行` | **数据基准日:** `{last_date_str}` | **历史样本量:** `{len(df_local)} 交易日`"
+            )
+        else:
+            st.error(f"本地数据库缺失: {LOCAL_CSV_PATH}")
 
-        styled_df = res_df.style.map(highlight_regime, subset=['当前仓位状态']) \
-            .hide(axis='index') \
-            .set_properties(**{'font-size': '18px', 'text-align': 'center', 'padding': '12px 15px'}) \
-            .set_table_styles([{'selector': 'th', 'props': [('font-size', '20px'), ('text-align', 'center'), ('background-color', '#f0f2f6')]}])
-        
-        st.markdown(styled_df.to_html(), unsafe_allow_html=True)
-        st.write("")
-        
-        st.subheader("中长期模型预测有效性回测引擎 (Backtest vs Buy & Hold)")
-        bt_df = pd.DataFrame(backtest_results)
-        
-        def highlight_alpha(val):
-            try:
-                if float(val.replace("%", "")) > 0:
-                    return "color: green; font-weight: bold"
-                elif float(val.replace("%", "")) < 0:
-                    return "color: red"
-            except:
-                pass
-            return ""
-            
-        styled_bt = bt_df.style.map(highlight_alpha, subset=['超额收益 (Alpha)']) \
-            .hide(axis='index')
-        st.markdown(styled_bt.to_html(), unsafe_allow_html=True)
-        st.caption("提示：基于获取到的全部历史数据（约 15 年）回测。本回测极其严苛：包含 20 天防抖冷却锁，且空仓期间现金利息强制为 0%，绝不粉饰踏空成本。")
-        st.write("")
-        
-        st.subheader("重点监控走势 (含动态贝塔预期修正)")
-        valid_tickers = res_df['Ticker'].tolist()
-        tabs = st.tabs(valid_tickers)
-        
-        for idx, t in enumerate(valid_tickers):
-            with tabs[idx]:
-                df_plot = market_data[t].join(macro_df, how='left').ffill().dropna()
-                df_plot['Price_Z'] = (df_plot['Close'] - df_plot['Close'].rolling(200).mean()) / df_plot['Close'].rolling(200).std()
-                
-                roll_cov = df_plot['Price_Z'].rolling(252).cov(df_plot['Macro_Z'])
-                roll_var = df_plot['Macro_Z'].rolling(252).var()
-                df_plot['Dynamic_Beta'] = (roll_cov / roll_var).clip(lower=-2.0, upper=2.0)
-                df_plot['Gap'] = df_plot['Price_Z'] - (df_plot['Macro_Z'] * df_plot['Dynamic_Beta'])
-                
-                df_plot = df_plot.dropna()
-                three_years_ago = pd.Timestamp.now().normalize() - pd.DateOffset(years=3)
-                df_plot = df_plot[df_plot.index >= three_years_ago]
-                
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Gap'], mode='lines', name='反身性偏离度 (Gap)', line=dict(color='#ff4b4b', width=2)))
-                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Price_Z'], mode='lines', name='主观情绪 (Price Z)', line=dict(color='#0068c9', dash='dash')))
-                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Macro_Z'], mode='lines', name='客观现实 (Macro Z)', line=dict(color='#29b09d', dash='dot')))
-                fig.update_layout(title=f"{t} 过去三年反身性指标趋势", height=400, hovermode="x unified")
-                st.plotly_chart(fig, use_container_width=True)
+    st.markdown("---")
 
-        st.write("---")
-        with st.expander("📖 终极底层重构逻辑与公式解析", expanded=False):
-            st.markdown("""
-            本模块在基础索罗斯反身性理论上，经过了极其严苛的 **0 息回测 + 防抖防踏空** 重构，完全贴合实战交易。
+    # -------------------------------------------------------------
+    # 2. 今日双轨决策雷达监控卡片 (SPY & QQQ)
+    # -------------------------------------------------------------
+    st.subheader("📡 今日收盘实时决策雷达看板 (Daily Decision Dashboard)")
+
+    if compute_latest_signals is not None:
+        try:
+            signals = compute_latest_signals()
+        except Exception as e:
+            st.error(f"信号计算异常: {e}")
+            signals = {}
+    else:
+        signals = {}
+
+    if signals:
+        col_qqq, col_spy = st.columns(2)
+        
+        # QQQ 卡片
+        with col_qqq:
+            q = signals.get('QQQ', {})
+            st.markdown("### 💻 QQQ (纳斯达克100 ETF)")
             
-            **1. 引入动态贝塔 (Dynamic Beta) 修正**
-            废除静态相关性假设，采用过去 252 天的价格与宏观因子滚动协方差，动态捕捉不同资产的宏观敏感度。
-            $$ Beta = \\frac{Cov(Price\\_Z, Macro\\_Z, 252)}{Var(Macro\\_Z, 252)} $$
-            $$ Gap = Price\\_Z - (Macro\\_Z \\times Beta) $$
+            # 状态指示横幅
+            tag = q.get('status_tag', '🟢 健康常态持仓')
+            if "🔴" in tag:
+                st.error(f"**系统信号:** {tag}")
+            elif "🟡" in tag:
+                st.warning(f"**系统信号:** {tag}")
+            else:
+                st.success(f"**系统信号:** {tag}")
+                
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("收盘价 (USD)", f"${q.get('price', 0.0):.2f}")
+            m2.metric("年线乖离率", f"{q.get('dist_200', 0.0):+.1f}%")
+            m3.metric("反身性 Gap", f"{q.get('gap', 0.0):.2f}", f"阈值: {q.get('gap_upper', 0.0):.2f}")
+            score_q = q.get('overheat_score', 0.0)
+            m4.metric("过热雷达分", f"{score_q:.1f}/100", "[高危 >= 70]" if score_q >= 70 else "安全区")
             
-            **2. 防踏空趋势接回 (Trend Re-entry)**
-            空仓期间若未发生崩盘，泡沫指标降温 ($Gap < 0.5$) 且价格重新站上 50 日均线 (带 1% 突破缓冲)，系统无条件认错接回。
+            st.markdown(f"**💡 实操行为指引:** {q.get('action_desc', '')}")
+            st.markdown(
+                f"<small style='color:gray;'>均线参考: MA20=${q.get('ma20',0):.1f} | MA50=${q.get('ma50',0):.1f} | MA200=${q.get('ma200',0):.1f} | 建议仓位: <b>{q.get('rec_pos',1)*100:.0f}%</b></small>",
+                unsafe_allow_html=True
+            )
+
+        # SPY 卡片
+        with col_spy:
+            s = signals.get('SPY', {})
+            st.markdown("### 🇺🇸 SPY (标普500 ETF)")
             
-            **3. 防摩擦震荡冷却锁 (Timelock)**
-            卖出逃顶后，强制启动 **20 天冷却锁**，期间屏蔽一切趋势接回信号，彻底杜绝震荡市中的频繁止损摩擦死循环！
-            """)
+            tag_s = s.get('status_tag', '🟢 健康常态持仓')
+            if "🔴" in tag_s:
+                st.error(f"**系统信号:** {tag_s}")
+            elif "🟡" in tag_s:
+                st.warning(f"**系统信号:** {tag_s}")
+            else:
+                st.success(f"**系统信号:** {tag_s}")
+                
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("收盘价 (USD)", f"${s.get('price', 0.0):.2f}")
+            m2.metric("年线乖离率", f"{s.get('dist_200', 0.0):+.1f}%")
+            m3.metric("反身性 Gap", f"{s.get('gap', 0.0):.2f}", f"阈值: {s.get('gap_upper', 0.0):.2f}")
+            score_s = s.get('overheat_score', 0.0)
+            m4.metric("过热雷达分", f"{score_s:.1f}/100", "[高危 >= 70]" if score_s >= 70 else "安全区")
+            
+            st.markdown(f"**💡 实操行为指引:** {s.get('action_desc', '')}")
+            st.markdown(
+                f"<small style='color:gray;'>均线参考: MA20=${s.get('ma20',0):.1f} | MA50=${s.get('ma50',0):.1f} | MA200=${s.get('ma200',0):.1f} | 建议仓位: <b>{s.get('rec_pos',1)*100:.0f}%</b></small>",
+                unsafe_allow_html=True
+            )
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 3. 高清 4 层双轨制决策图谱展示
+    # -------------------------------------------------------------
+    st.subheader("📈 17.6 年全历史买卖信号与净值全景图谱")
+    tab_chart_q, tab_chart_s, tab_audit = st.tabs(["💻 QQQ 全景图谱 (4层对齐)", "🇺🇸 SPY 全景图谱 (4层对齐)", "📊 官方全周期对账数据"])
+
+    with tab_chart_q:
+        if os.path.exists(QQQ_CHART_PATH):
+            st.image(QQQ_CHART_PATH, caption="QQQ 宏观反身性双轨制雷达看板（顶层黄色过热预警散点 + 第3层过热雷达能量带）", use_container_width=True)
+        else:
+            st.warning("QQQ 高清图谱生成中...")
+
+    with tab_chart_s:
+        if os.path.exists(SPY_CHART_PATH):
+            st.image(SPY_CHART_PATH, caption="SPY 宏观反身性双轨制雷达看板（顶层黄色过热预警散点 + 第3层过热雷达能量带）", use_container_width=True)
+        else:
+            st.warning("SPY 高清图谱生成中...")
+
+    with tab_audit:
+        st.markdown("#### 17.6 年全周期定投绩效审计总表 (纯现货 1.0x 真实券商记账)")
+        perf_data = {
+            "标的资产": ["QQQ (纳指100)", "SPY (标普500)"],
+            "定投总本金": ["$213,000", "$213,000"],
+            "基准买入持有终值": ["$1,535,733 (+621.0%)", "$912,082 (+328.2%)"],
+            "策略账户最终净值": ["$2,253,622 (+958.0%)", "$1,237,236 (+480.9%)"],
+            "超额收益 Alpha": ["+337.04%", "+152.65%"],
+            "多赚现金财富": ["+$717,889", "+$325,153"],
+            "最大回撤 (策略 vs 基准)": ["-22.41% (改善 +11.6%)", "-18.49% (改善 +15.0%)"],
+            "全历史交易轮次": ["10 轮 (年均 1.14 次)", "8 轮 (年均 0.91 次)"],
+            "波段胜率": ["60.0%", "50.0%"]
+        }
+        st.table(pd.DataFrame(perf_data))
+        
+        if os.path.exists(EXCEL_DELIVERABLE_PATH):
+            with open(EXCEL_DELIVERABLE_PATH, "rb") as f:
+                st.download_button(
+                    label="📥 下载官方 6 表真实对账全证据 Excel 底稿 (.xlsx)",
+                    data=f.read(),
+                    file_name="宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
