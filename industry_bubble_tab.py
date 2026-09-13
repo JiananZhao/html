@@ -162,10 +162,10 @@ def build_layer2_radar_chart(df, default_range="1Y"):
         start_date = dates.iloc[0]
 
     fig.update_layout(
-        title=dict(text="<b>【Layer 2】0~100 综合微观雷达分与 4 大独立分项演变全景</b>", font=dict(size=15)),
         xaxis=dict(
             range=[start_date, end_date],
-            rangeslider=dict(visible=True),
+            rangeslider=dict(visible=True, thickness=0.04, bgcolor="#f1f2f6"),
+            # 🌟 独立层级 1 (Top: y=1.14): 时间快捷缩放按钮组
             rangeselector=dict(
                 buttons=[
                     dict(count=1, label="1月", step="month", stepmode="backward"),
@@ -174,7 +174,15 @@ def build_layer2_radar_chart(df, default_range="1Y"):
                     dict(count=1, label="1年", step="year", stepmode="backward"),
                     dict(count=3, label="3年", step="year", stepmode="backward"),
                     dict(step="all", label="全部")
-                ]
+                ],
+                x=0.0,
+                y=1.14,
+                xanchor="left",
+                yanchor="bottom",
+                bgcolor="#f5f6fa",
+                bordercolor="#dcdde1",
+                borderwidth=1,
+                font=dict(color="#2f3542", size=11)
             ),
             type="date"
         ),
@@ -184,23 +192,23 @@ def build_layer2_radar_chart(df, default_range="1Y"):
             autorange=False,
             gridcolor="#E5E5E5"
         ),
-        # 遵循用户规范：legend 白色底色，黑色文字，清晰醒目
+        # 🌟 独立层级 2 (Middle: y=1.02): 白底黑字图例卡片，零重叠
         legend=dict(
             bgcolor="rgba(255, 255, 255, 0.95)",
-            bordercolor="#D3D3D3",
-            borderwidth=1,
-            font=dict(color="#000000", size=11),
+            bordercolor="#dcdde1",
+            borderwidth=1.2,
+            font=dict(color="#111111", size=11),
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="left",
-            x=0
+            x=0.0
         ),
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
         hovermode="x unified",
-        margin=dict(l=50, r=30, t=90, b=50),
-        height=520
+        margin=dict(l=50, r=30, t=105, b=45),
+        height=530
     )
 
     return fig
@@ -261,10 +269,10 @@ def build_layer3_breadth_chart(df, default_range="1Y"):
         start_date = dates.iloc[0]
 
     fig.update_layout(
-        title=dict(text="<b>【Layer 3】内部 15 大核心成分股 50MA 广度演变与价格顶背离直观对比</b>", font=dict(size=15)),
         xaxis=dict(
             range=[start_date, end_date],
-            rangeslider=dict(visible=True),
+            rangeslider=dict(visible=True, thickness=0.04, bgcolor="#f1f2f6"),
+            # 🌟 独立层级 1 (Top: y=1.14): 时间快捷缩放按钮组
             rangeselector=dict(
                 buttons=[
                     dict(count=1, label="1月", step="month", stepmode="backward"),
@@ -273,7 +281,15 @@ def build_layer3_breadth_chart(df, default_range="1Y"):
                     dict(count=1, label="1年", step="year", stepmode="backward"),
                     dict(count=3, label="3年", step="year", stepmode="backward"),
                     dict(step="all", label="全部")
-                ]
+                ],
+                x=0.0,
+                y=1.14,
+                xanchor="left",
+                yanchor="bottom",
+                bgcolor="#f5f6fa",
+                bordercolor="#dcdde1",
+                borderwidth=1,
+                font=dict(color="#2f3542", size=11)
             ),
             type="date"
         ),
@@ -288,22 +304,23 @@ def build_layer3_breadth_chart(df, default_range="1Y"):
             autorange=True,
             showgrid=False
         ),
+        # 🌟 独立层级 2 (Middle: y=1.02): 白底黑字图例卡片，零重叠
         legend=dict(
             bgcolor="rgba(255, 255, 255, 0.95)",
-            bordercolor="#D3D3D3",
-            borderwidth=1,
-            font=dict(color="#000000", size=11),
+            bordercolor="#dcdde1",
+            borderwidth=1.2,
+            font=dict(color="#111111", size=11),
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="left",
-            x=0
+            x=0.0
         ),
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
         hovermode="x unified",
-        margin=dict(l=50, r=50, t=90, b=50),
-        height=520
+        margin=dict(l=50, r=50, t=105, b=45),
+        height=530
     )
 
     return fig
@@ -400,7 +417,7 @@ def render_industry_bubble_tab():
     # 核心展示区 1: Layer 2 综合与 4 大独立分项演变图
     # ------------------------------------------------------------------
     st.subheader("📊 Layer 2: 0~100 综合与 4 维度独立雷达演变全景 (交互式)")
-    st.caption("💡 **交互技巧**：可点击右侧图例任意勾选/隐藏分项，单独审查某一个单项指标的独立走势；鼠标悬停可查看逐日精确数值。")
+    st.caption("💡 **交互技巧**：可点击上方图例任意勾选/隐藏分项，单独审查某一个单项指标的独立走势；鼠标悬停可查看逐日精确数值。")
     fig_layer2 = build_layer2_radar_chart(df, default_range=sel_range)
     st.plotly_chart(fig_layer2, use_container_width=True)
 
