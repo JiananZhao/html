@@ -188,17 +188,17 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     return {'df': sub, 'trades': trades, 'total_invested': total_invested}
 
 
-def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'):
+def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'):
     """
-    构建 4 层上下严格对齐、时间轴联动缩放的 Plotly 交互图表
-    default_range: '3M', '6M', '1Y', '3Y', '5Y', 'ALL'
+    构建 4 层上下严格对齐、时间轴联动缩放、Y 轴自适应价格极值的 Plotly 交互图表
+    default_range: '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'
     """
-    color_accent = '#00d2ff' if ticker == 'QQQ' else '#2ecc71'
+    color_accent = '#0984e3' if ticker == 'QQQ' else '#00b894'
     
     fig = make_subplots(
         rows=4, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.035,
+        vertical_spacing=0.038,
         row_heights=[0.44, 0.18, 0.18, 0.20],
         subplot_titles=[
             f"<b>① {ticker} 价格走势、关键均线体系与双轨决策信号 (买点 🟢 / 卖点 🔴 / 过热预警 🟡)</b>",
@@ -209,7 +209,7 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
     )
 
     # =========================================================================
-    # ROW 1: 价格走势 + 均线体系 + 买卖点 + 过热散点
+    # ROW 1: 价格走势 + 均线体系 + 买卖点 + 过热散点 (高对比度精美配色)
     # =========================================================================
     # 标的收盘价
     fig.add_trace(
@@ -226,7 +226,7 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['MA20'],
             mode='lines', name='MA20 短线',
-            line=dict(color='#ffeaa7', width=1.1, dash='dash'),
+            line=dict(color='#e67e22', width=1.3, dash='dash'),
             hovertemplate="MA20: $%{y:.2f}<extra></extra>"
         ), row=1, col=1
     )
@@ -234,7 +234,7 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['MA50'],
             mode='lines', name='MA50 生命线',
-            line=dict(color='#fab1a0', width=1.3),
+            line=dict(color='#e74c3c', width=1.4),
             hovertemplate="MA50: $%{y:.2f}<extra></extra>"
         ), row=1, col=1
     )
@@ -242,19 +242,19 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['MA200'],
             mode='lines', name='MA200 牛熊分界',
-            line=dict(color='#a29bfe', width=1.6),
+            line=dict(color='#8e44ad', width=1.8),
             hovertemplate="MA200: $%{y:.2f}<extra></extra>"
         ), row=1, col=1
     )
 
-    # 🟡 宏观过热预警散点 (Score >= 70)
+    # 🟡 宏观过热预警散点 (Score >= 70, 带深色轮廓更醒目)
     alerts = sub[sub['Overheat_Alert']]
     if not alerts.empty:
         fig.add_trace(
             go.Scatter(
                 x=alerts['date'], y=alerts[ticker],
-                mode='markers', name='🟡 过热黄色预警 (Score>=70)',
-                marker=dict(symbol='circle', size=6, color='#ffd32a', opacity=0.9),
+                mode='markers', name='🟡 过热黄色预警',
+                marker=dict(symbol='circle', size=6.5, color='#f1c40f', line=dict(width=1, color='#2c3e50'), opacity=0.9),
                 customdata=alerts[['Overheat_Score', 'Gap', 'Dist_200MA']],
                 hovertemplate="<b>[🟡 过热预警]</b><br>价格: $%{y:.2f}<br>雷达分: %{customdata[0]:.1f}<br>Gap: %{customdata[1]:.2f}<br>乖离率: %{customdata[2]:+.1f}%<extra></extra>"
             ), row=1, col=1
@@ -273,8 +273,8 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
                 mode='markers+text', name='🟢 买入/增殖接回',
                 text=[f"买入 ${p:.1f}" for p in b_df['price']],
                 textposition="bottom center",
-                textfont=dict(color="#00E676", size=10, family="Arial Black"),
-                marker=dict(symbol='triangle-up', size=13, color='#00E676', line=dict(width=1.5, color='#ffffff')),
+                textfont=dict(color="#00b894", size=10, family="Arial Black"),
+                marker=dict(symbol='triangle-up', size=13, color='#00b894', line=dict(width=1.5, color='#ffffff')),
                 customdata=b_df['reason'],
                 hovertemplate="<b>🟢 [系统买入]</b><br>成交价: $%{y:.2f}<br>归因: %{customdata}<extra></extra>"
             ), row=1, col=1
@@ -289,8 +289,8 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
                 mode='markers+text', name='🔴 避险清仓卖出',
                 text=[f"卖出 ${p:.1f}" for p in s_df['price']],
                 textposition="top center",
-                textfont=dict(color="#FF1744", size=10, family="Arial Black"),
-                marker=dict(symbol='triangle-down', size=13, color='#FF1744', line=dict(width=1.5, color='#ffffff')),
+                textfont=dict(color="#d63031", size=10, family="Arial Black"),
+                marker=dict(symbol='triangle-down', size=13, color='#d63031', line=dict(width=1.5, color='#ffffff')),
                 customdata=s_df['reason'],
                 hovertemplate="<b>🔴 [避险卖出]</b><br>成交价: $%{y:.2f}<br>归因: %{customdata}<extra></extra>"
             ), row=1, col=1
@@ -303,19 +303,19 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['Gap'],
             mode='lines', name='反身性 Gap',
-            line=dict(color='#ff7675', width=1.5),
+            line=dict(color='#e84393', width=1.6),
             hovertemplate="反身性偏离 Gap: %{y:.2f}<extra></extra>"
         ), row=2, col=1
     )
     fig.add_trace(
         go.Scatter(
             x=sub['date'], y=sub['Gap_Upper'],
-            mode='lines', name='自适应 85% 泡沫上限',
-            line=dict(color='#fdcb6e', width=1.3, dash='dot'),
+            mode='lines', name='自适应 85% 阈值',
+            line=dict(color='#d35400', width=1.4, dash='dot'),
             hovertemplate="自适应 85% 阈值: %{y:.2f}<extra></extra>"
         ), row=2, col=1
     )
-    fig.add_hline(y=0.0, line_dash="solid", line_color="#57606f", line_width=0.8, row=2, col=1)
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#b2bec3", line_width=0.8, row=2, col=1)
 
     # =========================================================================
     # ROW 3: 0~100 宏观过热雷达能量带
@@ -324,18 +324,18 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['Overheat_Score'],
             mode='lines', name='过热雷达分',
-            line=dict(color='#fd79a8', width=1.6),
+            line=dict(color='#6c5ce7', width=1.7),
             hovertemplate="过热雷达评分: %{y:.1f} / 100<extra></extra>"
         ), row=3, col=1
     )
     fig.add_hline(
-        y=70.0, line_dash="dash", line_color="#ff4757", line_width=1.2,
+        y=70.0, line_dash="dash", line_color="#d63031", line_width=1.3,
         annotation_text="70分 高危过热警戒红线", annotation_position="top left",
-        annotation_font=dict(color="#ff4757", size=10),
+        annotation_font=dict(color="#d63031", size=10),
         row=3, col=1
     )
     fig.add_hrect(
-        y0=70.0, y1=100.0, fillcolor="#ff4757", opacity=0.12, line_width=0,
+        y0=70.0, y1=100.0, fillcolor="#d63031", opacity=0.10, line_width=0,
         row=3, col=1
     )
 
@@ -346,84 +346,150 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='1Y'
         go.Scatter(
             x=sub['date'], y=sub['Strat_Equity'],
             mode='lines', name='策略真实净值',
-            line=dict(color='#00cec9', width=2.2),
+            line=dict(color='#00b894', width=2.4),
             hovertemplate="策略净值: $%{y:,.0f}<extra></extra>"
         ), row=4, col=1
     )
     fig.add_trace(
         go.Scatter(
             x=sub['date'], y=sub['Bench_Equity'],
-            mode='lines', name='Buy & Hold 基准净值',
-            line=dict(color='#747d8c', width=1.2, dash='dash'),
+            mode='lines', name='Buy & Hold 基准',
+            line=dict(color='#7f8c8d', width=1.3, dash='dash'),
             hovertemplate="基准净值: $%{y:,.0f}<extra></extra>"
         ), row=4, col=1
     )
 
     # =========================================================================
-    # 动态范围聚焦计算与时间滑块 (Range Selector & Range Slider)
+    # 动态自适应 Y 轴与双轴联动按钮计算 (解决 Y 轴空白过大问题)
     # =========================================================================
     last_dt = sub['date'].iloc[-1]
+    end_str = (last_dt + pd.DateOffset(days=5)).strftime('%Y-%m-%d')
     
-    if default_range == '1M':
-        start_focus = last_dt - pd.DateOffset(months=1)
-    elif default_range == '3M':
-        start_focus = last_dt - pd.DateOffset(months=3)
-    elif default_range == '6M':
-        start_focus = last_dt - pd.DateOffset(months=6)
-    elif default_range == '1Y':
-        start_focus = last_dt - pd.DateOffset(years=1)
-    elif default_range == '3Y':
-        start_focus = last_dt - pd.DateOffset(years=3)
-    elif default_range == '5Y':
-        start_focus = last_dt - pd.DateOffset(years=5)
-    else:
-        start_focus = sub['date'].iloc[0]
+    # 预先计算各预设周期的 X 轴范围与对应可见切片的 Y 轴极值 (带 6% 视觉呼吸边距)
+    time_windows = [
+        ("近1月", 1),
+        ("近3月", 3),
+        ("近6月", 6),
+        ("近1年", 12),
+        ("近3年", 36),
+        ("近5年", 60),
+        ("全部 (17.6年)", None)
+    ]
+    
+    updatemenu_buttons = []
+    
+    # 记录当前 default_range 的初始边界
+    initial_x_start = sub['date'].iloc[0]
+    initial_y_p_min = sub[ticker].min()
+    initial_y_p_max = sub[ticker].max()
+    initial_y_eq_min = sub['Bench_Equity'].min()
+    initial_y_eq_max = sub['Strat_Equity'].max()
 
-    # 配置顶部一键时间切换快捷按钮 (1M, 3M, 6M, 1Y, 3Y, 5Y, 全部)
-    fig.update_xaxes(
-        rangeselector=dict(
-            buttons=list([
-                dict(count=1, label="近1月", step="month", stepmode="backward"),
-                dict(count=3, label="近3月", step="month", stepmode="backward"),
-                dict(count=6, label="近6月", step="month", stepmode="backward"),
-                dict(count=1, label="近1年", step="year", stepmode="backward"),
-                dict(count=3, label="近3年", step="year", stepmode="backward"),
-                dict(count=5, label="近5年", step="year", stepmode="backward"),
-                dict(step="all", label="全部 (17.6年)")
-            ]),
-            bgcolor="#1e272e",
-            activecolor="#0984e3",
-            font=dict(color="#dfe6e9", size=11),
-            x=0.0, y=1.09, xanchor="left", yanchor="bottom"
-        ),
-        rangeslider=dict(visible=True, thickness=0.035, bgcolor="#1e272e"),
-        range=[start_focus.strftime('%Y-%m-%d'), (last_dt + pd.DateOffset(days=5)).strftime('%Y-%m-%d')],
-        row=4, col=1
-    )
+    for label, months in time_windows:
+        if months is not None:
+            s_dt = last_dt - pd.DateOffset(months=months)
+            s_slice = sub[sub['date'] >= s_dt]
+        else:
+            s_dt = sub['date'].iloc[0]
+            s_slice = sub
 
-    # 布局外观与深色极客风主题 (加大顶部边距，确保图例与时间选择按钮完美错落)
+        s_str = s_dt.strftime('%Y-%m-%d')
+        
+        # 价格切片极值
+        p_min = s_slice[[ticker, 'MA20', 'MA50', 'MA200']].min().min()
+        p_max = s_slice[[ticker, 'MA20', 'MA50', 'MA200']].max().max()
+        p_pad = (p_max - p_min) * 0.06
+        y_p_min = max(0, p_min - p_pad)
+        y_p_max = p_max + p_pad
+        
+        # 净值切片极值
+        eq_min = s_slice['Bench_Equity'].min()
+        eq_max = s_slice['Strat_Equity'].max()
+        eq_pad = (eq_max - eq_min) * 0.06
+        y_eq_min = max(0, eq_min - eq_pad)
+        y_eq_max = eq_max + eq_pad
+        
+        # 匹配初始视野
+        key_tag = f"{months}M" if months in [1, 3, 6] else (f"{months//12}Y" if months else "ALL")
+        if default_range == key_tag or (default_range == '6M' and months == 6):
+            initial_x_start = s_dt
+            initial_y_p_min = y_p_min
+            initial_y_p_max = y_p_max
+            initial_y_eq_min = y_eq_min
+            initial_y_eq_max = y_eq_max
+
+        # 构造 Plotly Relayout 联动按钮：点击同时精准更新 X 轴与 Y 轴范围！
+        updatemenu_buttons.append(dict(
+            label=label,
+            method='relayout',
+            args=[{
+                'xaxis4.range': [s_str, end_str],
+                'yaxis.range': [y_p_min, y_p_max],
+                'yaxis4.range': [y_eq_min, y_eq_max]
+            }]
+        ))
+
+    # =========================================================================
+    # 图例配置 (白底黑字清晰可辨) 与布局排版
+    # =========================================================================
     fig.update_layout(
-        template='plotly_dark',
-        height=1050,
+        template='plotly_white',
+        height=1060,
         hovermode='x unified',
-        margin=dict(l=60, r=40, t=120, b=40),
+        margin=dict(l=65, r=35, t=140, b=40),
+        
+        # 🌟 优化项 1: 白底黑字、浅灰外边框的高清晰图例
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.04,
             xanchor="center",
             x=0.5,
-            bgcolor="rgba(20, 24, 33, 0.85)",
-            bordercolor="rgba(255,255,255,0.15)",
-            borderwidth=1,
-            font=dict(size=10.5)
-        )
+            bgcolor="#ffffff",                      # 纯白底色
+            bordercolor="#b2bec3",                  # 浅灰精致边框
+            borderwidth=1.5,
+            font=dict(color="#111111", size=11, family="sans-serif") # 纯黑高清晰文字！
+        ),
+
+        # 🌟 优化项 2: 内置双轴联动切换按钮组 (点击同时自适应调整 Y 轴与 X 轴)
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="right",
+                x=0.0,
+                y=1.17,
+                xanchor="left",
+                yanchor="bottom",
+                bgcolor="#f5f6fa",
+                bordercolor="#dcdde1",
+                borderwidth=1,
+                font=dict(color="#2f3542", size=11, family="sans-serif"),
+                buttons=updatemenu_buttons
+            )
+        ]
     )
 
-    # Y轴格式化
-    fig.update_yaxes(title_text="价格 (USD)", tickprefix="$", row=1, col=1)
-    fig.update_yaxes(title_text="Gap 偏离度", row=2, col=1)
-    fig.update_yaxes(title_text="雷达评分", range=[0, 105], row=3, col=1)
-    fig.update_yaxes(title_text="账户净值", tickprefix="$", row=4, col=1)
+    # 关联底部滑块
+    fig.update_xaxes(
+        rangeslider=dict(visible=True, thickness=0.035, bgcolor="#f1f2f6"),
+        range=[initial_x_start.strftime('%Y-%m-%d'), end_str],
+        row=4, col=1
+    )
+
+    # 🌟 优化项 2 (初始加载自适应): 将 Y 轴初始化为该时间窗口切片的精准极值区间 (拒绝留白)
+    fig.update_yaxes(
+        range=[initial_y_p_min, initial_y_p_max],
+        title_text="价格 (USD)", tickprefix="$",
+        gridcolor="#f1f2f6", zerolinecolor="#dcdde1",
+        row=1, col=1
+    )
+    fig.update_yaxes(title_text="Gap 偏离度", gridcolor="#f1f2f6", zerolinecolor="#dcdde1", row=2, col=1)
+    fig.update_yaxes(title_text="雷达评分", range=[0, 105], gridcolor="#f1f2f6", zerolinecolor="#dcdde1", row=3, col=1)
+    fig.update_yaxes(
+        range=[initial_y_eq_min, initial_y_eq_max],
+        title_text="账户净值", tickprefix="$",
+        gridcolor="#f1f2f6", zerolinecolor="#dcdde1",
+        row=4, col=1
+    )
 
     return fig
