@@ -58,6 +58,18 @@ ASSET_CONFIG = {
         "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_Energy%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
         "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_Energy%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
         "constituents": ['XOM', 'CVX', 'SHEL', 'TTE', 'BP', 'COP', 'EOG', 'OXY', 'FANG', 'DVN', 'SLB', 'HAL', 'BKR', 'PSX', 'VLO']
+    },
+    "🏦 KRE (区域银行与金融)": {
+        "ticker": "KRE",
+        "name": "SPDR S&P Regional Banking ETF (区域银行与金融微观雷达)",
+        "local_radar": os.path.join(BASE_DIR, "kre_radar_local.csv"),
+        "local_const": os.path.join(BASE_DIR, "financial_constituents_local.csv"),
+        "local_excel": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_KRE微观雷达全周期对账表.xlsx"),
+        "local_png": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_KRE微观雷达4层全景图谱.png"),
+        "github_radar": "https://raw.githubusercontent.com/JiananZhao/html/master/kre_radar_local.csv",
+        "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_KRE%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
+        "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_KRE%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
+        "constituents": ['KRE', 'USB', 'TFC', 'PNC', 'KEY', 'CFG', 'FITB', 'MTB', 'HBAN', 'ZION', 'WAL', 'EWBC', 'JPM', 'BAC', 'WFC', 'C', 'MS', 'GS', 'SCHW', 'BLK', 'BRK-B', 'V', 'MA', 'AXP']
     }
 }
 
@@ -98,6 +110,9 @@ def load_radar_data(asset_key):
         elif config['ticker'] == 'SMH':
             from smh_bubble_radar import SMHBubbleRadar
             radar = SMHBubbleRadar()
+        elif config['ticker'] == 'KRE':
+            from kre_bubble_radar import KREBubbleRadar
+            radar = KREBubbleRadar()
         else:
             from energy_bubble_radar import EnergyBubbleRadar
             radar = EnergyBubbleRadar()
@@ -291,6 +306,23 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
             hovertemplate='勘探开采广度: %{y:.1f}%<extra></extra>'
         ), secondary_y=False)
 
+    # 金融专属：区域银行 vs G-SIB 巨头银行挤兑压力剪刀差透视
+    if ticker == 'KRE' and 'Breadth_Regional_Banks' in df.columns and 'Breadth_GSIBs' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_Regional_Banks'] * 100.0,
+            name='🏛️ 区域银行广度 (Regional Banks %)',
+            line=dict(color='#DC143C', width=1.4, dash='dash'),
+            hovertemplate='区域银行广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_GSIBs'] * 100.0,
+            name='🏦 大型投行/G-SIBs广度 (G-SIBs %)',
+            line=dict(color='#1E90FF', width=1.4, dash='dot'),
+            hovertemplate='G-SIBs广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+
     # 2. 价格走势 (右 Y 轴，用于肉眼直接比对顶背离)
     fig.add_trace(go.Scatter(
         x=dates,
@@ -348,7 +380,7 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
             type="date"
         ),
         yaxis=dict(
-            title="前15大站上50MA比例 (%)",
+            title="分层综合站上50MA比例 (%)" if ticker in ['XLE', 'KRE'] else "前15大站上50MA比例 (%)",
             range=[-2, 105],
             autorange=False,
             gridcolor="#E5E5E5"
@@ -493,15 +525,29 @@ def render_industry_bubble_tab():
     # ------------------------------------------------------------------
     # 核心展示区 2: Layer 3 内部核心成分股 50MA 广度与顶背离图
     # ------------------------------------------------------------------
-    breadth_title = f"📉 Layer 3: 内部 41 大全产业链成分股 50MA 分层等权广度与顶背离 ({ticker})" if ticker == 'XLE' else f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})"
+    if ticker == 'XLE':
+        breadth_title = "📉 Layer 3: 内部 41 大全产业链成分股 50MA 分层等权广度与顶背离 (XLE)"
+    elif ticker == 'KRE':
+        breadth_title = "📉 Layer 3: 内部 38 家核心金融机构 50MA 分层综合广度与银行压力轮动 (KRE)"
+    else:
+        breadth_title = f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})"
+
     st.subheader(breadth_title)
-    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！" + ("（能源专属：可同步比对油服设备 Services vs 上游勘探 E&P 资本开支剪刀差）" if ticker == 'XLE' else ""))
+    xle_note = "（能源专属：可同步比对油服设备 Services vs 上游勘探 E&P 资本开支剪刀差）" if ticker == 'XLE' else ""
+    kre_note = "（金融专属：可同步比对区域银行 Regional Banks vs 巨头银行 G-SIBs 存款挤兑压力剪刀差）" if ticker == 'KRE' else ""
+    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！{xle_note}{kre_note}")
 
     fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
     st.plotly_chart(fig_layer3, use_container_width=True)
 
     # 核心成分股最新穿透透视表
-    exp_title = f"🔍 展开穿透查看：全产业链 41 大核心成分股 50MA 多空分布矩阵 ({ticker})" if ticker == 'XLE' else f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})"
+    if ticker == 'XLE':
+        exp_title = f"🔍 展开穿透查看：全产业链 41 大核心成分股 50MA 多空分布矩阵 ({ticker})"
+    elif ticker == 'KRE':
+        exp_title = f"🔍 展开穿透查看：金融 38 家核心机构最新 50MA 多空分布矩阵 ({ticker})"
+    else:
+        exp_title = f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})"
+
     with st.expander(exp_title, expanded=False):
         if ticker == 'XLE':
             energy_subsectors = {
@@ -518,6 +564,21 @@ def render_industry_bubble_tab():
             }
             sub_choice = st.selectbox("📂 细分子行业板块筛选:", options=list(energy_subsectors.keys()))
             active_consts = energy_subsectors[sub_choice]
+        elif ticker == 'KRE':
+            financial_subsectors = {
+                "全部 38 家金融各领域机构": [
+                    'KRE', 'USB', 'TFC', 'PNC', 'KEY', 'CFG', 'FITB', 'MTB', 'HBAN', 'ZION', 'WAL', 'EWBC',
+                    'JPM', 'BAC', 'WFC', 'C',
+                    'MS', 'GS', 'SCHW', 'BLK', 'BX', 'KKR', 'APO', 'BEN',
+                    'BRK-B', 'PGR', 'TRV', 'AIG', 'MET', 'ALL', 'V', 'MA', 'AXP', 'COF'
+                ],
+                "🏛️ 区域性银行 (Regional Banks, 12家)": ['KRE', 'USB', 'TFC', 'PNC', 'KEY', 'CFG', 'FITB', 'MTB', 'HBAN', 'ZION', 'WAL', 'EWBC'],
+                "🏦 全球系统重要性银行 (G-SIBs, 4家)": ['JPM', 'BAC', 'WFC', 'C'],
+                "💼 投行与另类资管 (Brokers & AM, 8家)": ['MS', 'GS', 'SCHW', 'BLK', 'BX', 'KKR', 'APO', 'BEN'],
+                "🛡️ 保险与金融科技/支付 (Insurance & Payments, 10家)": ['BRK-B', 'PGR', 'TRV', 'AIG', 'MET', 'ALL', 'V', 'MA', 'AXP', 'COF']
+            }
+            sub_choice = st.selectbox("📂 细分子行业板块筛选:", options=list(financial_subsectors.keys()))
+            active_consts = financial_subsectors[sub_choice]
         else:
             active_consts = config['constituents']
 
