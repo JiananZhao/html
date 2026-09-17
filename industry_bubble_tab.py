@@ -20,35 +20,51 @@ from datetime import datetime
 
 # 基础目录与相对路径定义 (杜绝绝对路径 e:/ 硬编码)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCAL_RADAR_CSV = os.path.join(BASE_DIR, "igv_radar_local.csv")
-LOCAL_CONST_CSV = os.path.join(BASE_DIR, "igv_constituents_local.csv")
-LOCAL_EXCEL_PATH = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_IGV微观雷达全周期对账表.xlsx")
-LOCAL_CHART_PNG = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_IGV微观雷达4层全景图谱.png")
 
-# GitHub Raw 备用 URL
-GITHUB_RAW_RADAR_CSV = "https://raw.githubusercontent.com/JiananZhao/html/master/igv_radar_local.csv"
-GITHUB_RAW_EXCEL = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_IGV%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx"
-GITHUB_RAW_PNG = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_IGV%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png"
-
-# 15 大核心成分股列表
-CORE_CONSTITUENTS = [
-    'MSFT', 'CRM', 'ORCL', 'ADBE', 'NOW',
-    'INTU', 'PLTR', 'PANW', 'CRWD', 'SNOW',
-    'WDAY', 'FTNT', 'DDOG', 'CDNS', 'SNPS'
-]
+# 资产配置字典
+ASSET_CONFIG = {
+    "IGV (云计算与企业软件)": {
+        "ticker": "IGV",
+        "name": "iShares 扩展科技软件与云计算 ETF",
+        "local_radar": os.path.join(BASE_DIR, "igv_radar_local.csv"),
+        "local_const": os.path.join(BASE_DIR, "igv_constituents_local.csv"),
+        "local_excel": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_IGV微观雷达全周期对账表.xlsx"),
+        "local_png": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_IGV微观雷达4层全景图谱.png"),
+        "github_radar": "https://raw.githubusercontent.com/JiananZhao/html/master/igv_radar_local.csv",
+        "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_IGV%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
+        "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_IGV%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
+        "constituents": ['MSFT', 'CRM', 'ORCL', 'ADBE', 'NOW', 'INTU', 'PLTR', 'PANW', 'CRWD', 'SNOW', 'WDAY', 'FTNT', 'DDOG', 'CDNS', 'SNPS']
+    },
+    "SMH (半导体与芯片)": {
+        "ticker": "SMH",
+        "name": "VanEck 半导体 ETF",
+        "local_radar": os.path.join(BASE_DIR, "smh_radar_local.csv"),
+        "local_const": os.path.join(BASE_DIR, "smh_constituents_local.csv"),
+        "local_excel": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_SMH微观雷达全周期对账表.xlsx"),
+        "local_png": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_SMH微观雷达4层全景图谱.png"),
+        "github_radar": "https://raw.githubusercontent.com/JiananZhao/html/master/smh_radar_local.csv",
+        "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_SMH%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
+        "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_SMH%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
+        "constituents": ['ADI', 'AMAT', 'AMD', 'ASML', 'AVGO', 'INTC', 'KLAC', 'LRCX', 'MRVL', 'MU', 'NVDA', 'NXPI', 'QCOM', 'TSM', 'TXN']
+    }
+}
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def load_igv_radar_data():
+def load_radar_data(asset_key):
     """
     跨平台双模数据加载器：
-    1. 优先从本地仓库读取预计算的 igv_radar_local.csv；
+    1. 优先从本地仓库读取预计算的 _radar_local.csv；
     2. 若不存在，尝试从 GitHub Raw 直读；
-    3. 若仍无，调用 micro_bubble_radar 引擎重新计算并缓存。
+    3. 若仍无，调用引擎重新计算并缓存。
     """
-    if os.path.exists(LOCAL_RADAR_CSV):
+    config = ASSET_CONFIG[asset_key]
+    local_csv = config['local_radar']
+    github_csv = config['github_radar']
+
+    if os.path.exists(local_csv):
         try:
-            df = pd.read_csv(LOCAL_RADAR_CSV)
+            df = pd.read_csv(local_csv)
             if not df.empty and 'date' in df.columns:
                 return df, "本地文件直读"
         except Exception:
@@ -56,7 +72,7 @@ def load_igv_radar_data():
 
     # 尝试 GitHub Raw
     try:
-        df = pd.read_csv(GITHUB_RAW_RADAR_CSV)
+        df = pd.read_csv(github_csv)
         if not df.empty and 'date' in df.columns:
             return df, "GitHub Raw 远端直读"
     except Exception:
@@ -64,12 +80,17 @@ def load_igv_radar_data():
 
     # 本地动态重算 fallback
     try:
-        from micro_bubble_radar import MicroBubbleRadar
-        radar = MicroBubbleRadar()
+        if config['ticker'] == 'IGV':
+            from micro_bubble_radar import MicroBubbleRadar
+            radar = MicroBubbleRadar()
+        else:
+            from smh_bubble_radar import SMHBubbleRadar
+            radar = SMHBubbleRadar()
+            
         df = radar.load_and_preprocess()
         df = radar.compute_all_dimensions()
         try:
-            df.to_csv(LOCAL_RADAR_CSV, index=False)
+            df.to_csv(local_csv, index=False)
         except Exception:
             pass
         return df, "引擎动态运算"
@@ -214,12 +235,12 @@ def build_layer2_radar_chart(df, default_range="1Y"):
     return fig
 
 
-def build_layer3_breadth_chart(df, default_range="1Y"):
+def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
     """
     绘制 Layer 3: 前 15 大核心成分股 50MA 内部广度与标的价格顶背离监控图
     双 Y 轴架构：
     - 左 Y 轴：站上 50MA 比例 (0~100%)
-    - 右 Y 轴：IGV 标的收盘价 (自适应缩放)
+    - 右 Y 轴：标的收盘价 (自适应缩放)
     """
     dates = pd.to_datetime(df['date'])
 
@@ -237,13 +258,13 @@ def build_layer3_breadth_chart(df, default_range="1Y"):
         hovertemplate='站上50MA比例: %{y:.1f}%<extra></extra>'
     ), secondary_y=False)
 
-    # 2. IGV 价格走势 (右 Y 轴，用于肉眼直接比对顶背离)
+    # 2. 价格走势 (右 Y 轴，用于肉眼直接比对顶背离)
     fig.add_trace(go.Scatter(
         x=dates,
-        y=df['IGV'],
-        name='💻 IGV 收盘价格 (USD)',
+        y=df[ticker],
+        name=f'💻 {ticker} 收盘价格 (USD)',
         line=dict(color='#1E90FF', width=1.8, dash='solid'),
-        hovertemplate='IGV 价格: $%{y:.2f}<extra></extra>'
+        hovertemplate=ticker + ' 价格: $%{y:.2f}<extra></extra>'
     ), secondary_y=True)
 
     # 广度参考线 (左轴)
@@ -300,7 +321,7 @@ def build_layer3_breadth_chart(df, default_range="1Y"):
             gridcolor="#E5E5E5"
         ),
         yaxis2=dict(
-            title="IGV 价格 (USD)",
+            title=f"{ticker} 价格 (USD)",
             autorange=True,
             showgrid=False
         ),
@@ -330,14 +351,20 @@ def render_industry_bubble_tab():
     """
     行业微观内生泡沫雷达看板的主渲染入口
     """
-    st.header("📡 行业微观内生泡沫雷达监控看板 —— IGV (云计算与企业软件)")
+    st.header("📡 行业微观内生泡沫雷达监控看板")
     st.caption("【首发先行标的】聚焦展示 **Layer 2 (0~100 综合与4维度分项雷达)** 与 **Layer 3 (15大核心成分股50MA内部广度与顶背离)**")
+    
+    # 资产选择器
+    asset_keys = list(ASSET_CONFIG.keys())
+    selected_asset = st.selectbox("🚀 选择监控行业板块:", options=asset_keys, index=0)
+    config = ASSET_CONFIG[selected_asset]
+    ticker = config['ticker']
 
     # 1. 加载数据
-    df, source_tag = load_igv_radar_data()
+    df, source_tag = load_radar_data(selected_asset)
 
     if df.empty:
-        st.error("❌ 无法加载 IGV 微观雷达数据，请检查本地数据集或网络。")
+        st.error(f"❌ 无法加载 {ticker} 微观雷达数据，请检查本地数据集或网络。")
         return
 
     # 2. 顶部时间范围筛选栏
@@ -426,17 +453,17 @@ def render_industry_bubble_tab():
     # ------------------------------------------------------------------
     # 核心展示区 2: Layer 3 内部 15 大核心成分股 50MA 广度与顶背离图
     # ------------------------------------------------------------------
-    st.subheader("📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析")
-    st.caption("💡 **顶背离第一性原理**：当 IGV 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！")
+    st.subheader(f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})")
+    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！")
 
-    fig_layer3 = build_layer3_breadth_chart(df, default_range=sel_range)
+    fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
     st.plotly_chart(fig_layer3, use_container_width=True)
 
     # 15 大核心成分股最新穿透透视表
-    with st.expander("🔍 展开穿透查看：前 15 大核心软件成分股最新 50MA 多空分布矩阵", expanded=False):
-        st.markdown("下表实时展示 IGV 权重前 15 大核心成分股相对自身 50MA 的多空位置：")
+    with st.expander(f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})", expanded=False):
+        st.markdown(f"下表实时展示 {ticker} 权重前 15 大核心成分股相对自身 50MA 的多空位置：")
         const_rows = []
-        for c in CORE_CONSTITUENTS:
+        for c in config['constituents']:
             if c in df.columns:
                 p_cur = df[c].iloc[-1]
                 ma50_cur = df[c].rolling(50).mean().iloc[-1]
@@ -460,14 +487,14 @@ def render_industry_bubble_tab():
     # ------------------------------------------------------------------
     # 辅助参考区: Layer 1 标的价格与均线生命线 (折叠展示)
     # ------------------------------------------------------------------
-    with st.expander("📈 辅助参考：Layer 1 标的价格决策与均线系统 (MA20 / MA50 / MA200)", expanded=False):
+    with st.expander(f"📈 辅助参考：Layer 1 标的价格决策与均线系统 (MA20 / MA50 / MA200) - {ticker}", expanded=False):
         dates = pd.to_datetime(df['date'])
         fig_l1 = go.Figure()
-        fig_l1.add_trace(go.Scatter(x=dates, y=df['IGV'], name='IGV 价格', line=dict(color='#1f77b4', width=2.0)))
+        fig_l1.add_trace(go.Scatter(x=dates, y=df[ticker], name=f'{ticker} 价格', line=dict(color='#1f77b4', width=2.0)))
         fig_l1.add_trace(go.Scatter(x=dates, y=df['MA50'], name='MA50 生命周期线', line=dict(color='#ff7f0e', width=1.2, dash='dash')))
         fig_l1.add_trace(go.Scatter(x=dates, y=df['MA200'], name='MA200 长期牛熊线', line=dict(color='#2ca02c', width=1.2, dash='dot')))
         fig_l1.update_layout(
-            title="IGV 标的价格与均线系统",
+            title=f"{ticker} 标的价格与均线系统",
             xaxis=dict(type="date"),
             yaxis=dict(title="价格 (USD)", autorange=True),
             legend=dict(bgcolor="rgba(255, 255, 255, 0.95)", font=dict(color="#000000")),
@@ -484,27 +511,27 @@ def render_industry_bubble_tab():
     col_d1, col_d2 = st.columns(2)
 
     with col_d1:
-        if os.path.exists(LOCAL_EXCEL_PATH):
-            with open(LOCAL_EXCEL_PATH, "rb") as f:
+        if os.path.exists(config['local_excel']):
+            with open(config['local_excel'], "rb") as f:
                 st.download_button(
-                    label="📊 下载 IGV 微观雷达全周期对账工作簿 (.xlsx)",
+                    label=f"📊 下载 {ticker} 微观雷达全周期对账工作簿 (.xlsx)",
                     data=f.read(),
-                    file_name="宏观反身性阿尔法模型_IGV微观雷达全周期对账表.xlsx",
+                    file_name=os.path.basename(config['local_excel']),
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
         else:
-            st.markdown(f"📥 [点击从 GitHub 下载 Excel 底稿]({GITHUB_RAW_EXCEL})")
+            st.markdown(f"📥 [点击从 GitHub 下载 Excel 底稿]({config['github_excel']})")
 
     with col_d2:
-        if os.path.exists(LOCAL_CHART_PNG):
-            with open(LOCAL_CHART_PNG, "rb") as f:
+        if os.path.exists(config['local_png']):
+            with open(config['local_png'], "rb") as f:
                 st.download_button(
-                    label="🖼️ 下载出版级 4 层全景高清图谱 (.png)",
+                    label=f"🖼️ 下载出版级 4 层全景高清图谱 ({ticker} .png)",
                     data=f.read(),
-                    file_name="宏观反身性阿尔法模型_IGV微观雷达4层全景图谱.png",
+                    file_name=os.path.basename(config['local_png']),
                     mime="image/png",
                     use_container_width=True
                 )
         else:
-            st.markdown(f"🖼️ [点击从 GitHub 查看高清图谱]({GITHUB_RAW_PNG})")
+            st.markdown(f"🖼️ [点击从 GitHub 查看高清图谱]({config['github_png']})")
