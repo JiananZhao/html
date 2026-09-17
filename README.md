@@ -137,13 +137,22 @@ streamlit run rd_data.py
 ├── daily_market_monitor.py                      # 每日收盘监控与增量数据库维护引擎
 ├── run_daily_monitor.bat                        # Windows 一键收盘监控批处理脚本
 ├── market_data_local.csv                        # 本地微型宏观行情真理库 (Local-First 脱机闭环)
+├── energy_bubble_radar.py                       # 能源全产业链专属微观内生泡沫雷达量化引擎
+├── energy_radar_local.csv                        # 能源全产业链 5,072 行预计算高频微观雷达指标库
+├── energy_constituents_local.csv                 # 能源 41 大全产业链核心龙头脱机行情库
 ├── igv_radar_local.csv                          # IGV 4,198 行预计算高频微观雷达指标库
 ├── igv_constituents_local.csv                   # IGV 前 15 大权重股脱机行情库
+├── smh_radar_local.csv                          # SMH 4,198 行预计算高频微观雷达指标库
+├── smh_constituents_local.csv                   # SMH 前 15 大权重股脱机行情库
 ├── daily_signal_log.csv                         # 每日收盘决策与预警历史流水归档
 ├── 宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx # 官方 6 表逐笔波段穿透 Excel 审计底稿
 ├── 宏观反身性阿尔法模型_IGV微观雷达全周期对账表.xlsx   # IGV 行业微观雷达全周期审计底稿
+├── 宏观反身性阿尔法模型_SMH微观雷达全周期对账表.xlsx   # SMH 行业微观雷达全周期审计底稿
+├── 宏观反身性阿尔法模型_Energy微观雷达全周期对账表.xlsx# Energy 能源全产业链微观雷达全周期审计底稿
 ├── 宏观反身性阿尔法模型_多资产全周期对账总表.xlsx     # 覆盖 QQQ/SPY/SMH/SOXX/IGV/XLE 6大资产的对账总表
 ├── 宏观反身性阿尔法模型_IGV微观雷达4层全景图谱.png     # IGV 4层微观雷达高清全景图
+├── 宏观反身性阿尔法模型_SMH微观雷达4层全景图谱.png     # SMH 4层微观雷达高清全景图
+├── 宏观反身性阿尔法模型_Energy微观雷达4层全景图谱.png  # Energy 4层微观雷达高清全景图
 ├── 宏观反身性阿尔法模型_IGV买卖信号与净值对比图.png
 ├── 宏观反身性阿尔法模型_SMH买卖信号与净值对比图.png
 ├── 宏观反身性阿尔法模型_SOXX买卖信号与净值对比图.png

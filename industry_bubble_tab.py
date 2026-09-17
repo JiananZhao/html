@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 资产配置字典
 ASSET_CONFIG = {
-    "IGV (云计算与企业软件)": {
+    "💻 IGV (云计算与软件)": {
         "ticker": "IGV",
         "name": "iShares 扩展科技软件与云计算 ETF",
         "local_radar": os.path.join(BASE_DIR, "igv_radar_local.csv"),
@@ -35,7 +35,7 @@ ASSET_CONFIG = {
         "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_IGV%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
         "constituents": ['MSFT', 'CRM', 'ORCL', 'ADBE', 'NOW', 'INTU', 'PLTR', 'PANW', 'CRWD', 'SNOW', 'WDAY', 'FTNT', 'DDOG', 'CDNS', 'SNPS']
     },
-    "SMH (半导体与芯片)": {
+    "⚡ SMH (芯片与半导体)": {
         "ticker": "SMH",
         "name": "VanEck 半导体 ETF",
         "local_radar": os.path.join(BASE_DIR, "smh_radar_local.csv"),
@@ -46,6 +46,18 @@ ASSET_CONFIG = {
         "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_SMH%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
         "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_SMH%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
         "constituents": ['ADI', 'AMAT', 'AMD', 'ASML', 'AVGO', 'INTC', 'KLAC', 'LRCX', 'MRVL', 'MU', 'NVDA', 'NXPI', 'QCOM', 'TSM', 'TXN']
+    },
+    "🛢️ XLE (能源全产业链)": {
+        "ticker": "XLE",
+        "name": "Energy Select Sector SPDR (全产业链监控)",
+        "local_radar": os.path.join(BASE_DIR, "energy_radar_local.csv"),
+        "local_const": os.path.join(BASE_DIR, "energy_constituents_local.csv"),
+        "local_excel": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_Energy微观雷达全周期对账表.xlsx"),
+        "local_png": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_Energy微观雷达4层全景图谱.png"),
+        "github_radar": "https://raw.githubusercontent.com/JiananZhao/html/master/energy_radar_local.csv",
+        "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_Energy%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
+        "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_Energy%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
+        "constituents": ['XOM', 'CVX', 'SHEL', 'TTE', 'BP', 'COP', 'EOG', 'OXY', 'FANG', 'DVN', 'SLB', 'HAL', 'BKR', 'PSX', 'VLO']
     }
 }
 
@@ -83,9 +95,12 @@ def load_radar_data(asset_key):
         if config['ticker'] == 'IGV':
             from micro_bubble_radar import MicroBubbleRadar
             radar = MicroBubbleRadar()
-        else:
+        elif config['ticker'] == 'SMH':
             from smh_bubble_radar import SMHBubbleRadar
             radar = SMHBubbleRadar()
+        else:
+            from energy_bubble_radar import EnergyBubbleRadar
+            radar = EnergyBubbleRadar()
             
         df = radar.load_and_preprocess()
         df = radar.compute_all_dimensions()
@@ -247,16 +262,34 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # 1. 广度曲线 (左 Y 轴)
-    breadth_pct = df['Breadth_50'] * 100.0
+    breadth_pct = df['Breadth_50']    # 广度参考线 (左轴)
+    # 对于能源，由于我们使用了分层广度，名字叫 Breadth_50，不再是具体的 ticker。
     fig.add_trace(go.Scatter(
         x=dates,
-        y=breadth_pct,
-        name='<b>📊 15大成分股站上50MA比例 (%)</b>',
-        line=dict(color='#8B4513', width=2.2),
+        y=df['Breadth_50'] * 100.0,
+        name='🔥 分层等权广度 (%)' if ticker == 'XLE' else '🔥 站上 50MA 比例 (%)',
+        line=dict(color='#FF4500', width=2.2),
         fill='tozeroy',
-        fillcolor='rgba(139, 69, 19, 0.06)',
-        hovertemplate='站上50MA比例: %{y:.1f}%<extra></extra>'
+        fillcolor='rgba(255, 69, 0, 0.08)',
+        hovertemplate='全产业链综合广度: %{y:.1f}%<extra></extra>'
     ), secondary_y=False)
+
+    # 能源专属：油服设备 vs 上游勘探早晚期 CapEx 剪刀差透视
+    if ticker == 'XLE' and 'Breadth_Services' in df.columns and 'Breadth_E&P' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_Services'] * 100.0,
+            name='🛠️ 油服设备广度 (Services - 晚周期CapEx)',
+            line=dict(color='#9932CC', width=1.4, dash='dot'),
+            hovertemplate='油服设备广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_E&P'] * 100.0,
+            name='🛢️ 上游勘探广度 (E&P - 早周期先导)',
+            line=dict(color='#2E8B57', width=1.4, dash='dash'),
+            hovertemplate='勘探开采广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
 
     # 2. 价格走势 (右 Y 轴，用于肉眼直接比对顶背离)
     fig.add_trace(go.Scatter(
@@ -354,9 +387,14 @@ def render_industry_bubble_tab():
     st.header("📡 行业微观内生泡沫雷达监控看板")
     st.caption("【首发先行标的】聚焦展示 **Layer 2 (0~100 综合与4维度分项雷达)** 与 **Layer 3 (15大核心成分股50MA内部广度与顶背离)**")
     
-    # 资产选择器
+    # 资产选择器：并列三板块切换 (IGV, SMH, XLE)
     asset_keys = list(ASSET_CONFIG.keys())
-    selected_asset = st.selectbox("🚀 选择监控行业板块:", options=asset_keys, index=0)
+    selected_asset = st.radio(
+        "🚀 行业微观内生泡沫雷达标的 (点击并列切换):",
+        options=asset_keys,
+        index=0,
+        horizontal=True
+    )
     config = ASSET_CONFIG[selected_asset]
     ticker = config['ticker']
 
@@ -432,10 +470,12 @@ def render_industry_bubble_tab():
     )
 
     c1, c2, c3, c4, c5 = st.columns(5)
+    w_dyn = "30%" if ticker == 'XLE' else "35%"
+    w_brd = "30%" if ticker == 'XLE' else "25%"
     c1.metric("🎯 综合雷达总分", f"{score_comp:.1f} / 100", "高危线 >= 70" if score_comp >= 70 else ("偏热 >= 55" if score_comp >= 55 else "中立区"))
-    c2.metric("⚡ 动力学分位数", f"{score_dyn:.1f} 分", f"权重 35%")
+    c2.metric("⚡ 动力学分位数", f"{score_dyn:.1f} 分", f"权重 {w_dyn}")
     c3.metric("💎 估值分位数", f"{score_val:.1f} 分", f"权重 25%")
-    c4.metric("📉 广度顶背离", f"{score_brd:.1f} 分", f"权重 25%")
+    c4.metric("📉 广度顶背离", f"{score_brd:.1f} 分", f"权重 {w_brd}")
     c5.metric("🚀 相对溢价偏离", f"{score_rel:.1f} 分", f"权重 15%")
 
     st.markdown("---")
@@ -451,19 +491,38 @@ def render_industry_bubble_tab():
     st.markdown("---")
 
     # ------------------------------------------------------------------
-    # 核心展示区 2: Layer 3 内部 15 大核心成分股 50MA 广度与顶背离图
+    # 核心展示区 2: Layer 3 内部核心成分股 50MA 广度与顶背离图
     # ------------------------------------------------------------------
-    st.subheader(f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})")
-    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！")
+    breadth_title = f"📉 Layer 3: 内部 41 大全产业链成分股 50MA 分层等权广度与顶背离 ({ticker})" if ticker == 'XLE' else f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})"
+    st.subheader(breadth_title)
+    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！" + ("（能源专属：可同步比对油服设备 Services vs 上游勘探 E&P 资本开支剪刀差）" if ticker == 'XLE' else ""))
 
     fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
     st.plotly_chart(fig_layer3, use_container_width=True)
 
-    # 15 大核心成分股最新穿透透视表
-    with st.expander(f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})", expanded=False):
-        st.markdown(f"下表实时展示 {ticker} 权重前 15 大核心成分股相对自身 50MA 的多空位置：")
+    # 核心成分股最新穿透透视表
+    exp_title = f"🔍 展开穿透查看：全产业链 41 大核心成分股 50MA 多空分布矩阵 ({ticker})" if ticker == 'XLE' else f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})"
+    with st.expander(exp_title, expanded=False):
+        if ticker == 'XLE':
+            energy_subsectors = {
+                "全部 41 家全产业链龙头": [
+                    'XOM', 'CVX', 'SHEL', 'TTE', 'BP', 'EQNR',
+                    'COP', 'EOG', 'OXY', 'FANG', 'DVN', 'HES', 'MRO', 'CTRA', 'APA', 'EQT', 'AR', 'OVV', 'MUR', 'SM', 'CHK',
+                    'SLB', 'HAL', 'BKR', 'NOV', 'WHD', 'CHX', 'FTI', 'RIG', 'PTEN', 'NBR',
+                    'PSX', 'VLO', 'MPC', 'KMI', 'WMB', 'EPD', 'ET', 'OKE', 'TRGP', 'MPLX'
+                ],
+                "🛢️ 上游勘探与生产 (E&P, 15家)": ['COP', 'EOG', 'OXY', 'FANG', 'DVN', 'HES', 'MRO', 'CTRA', 'APA', 'EQT', 'AR', 'OVV', 'MUR', 'SM', 'CHK'],
+                "🛠️ 油服设备与工程 (Services, 10家)": ['SLB', 'HAL', 'BKR', 'NOV', 'WHD', 'CHX', 'FTI', 'RIG', 'PTEN', 'NBR'],
+                "🏭 炼化与中游管网 (Refining & Midstream, 10家)": ['PSX', 'VLO', 'MPC', 'KMI', 'WMB', 'EPD', 'ET', 'OKE', 'TRGP', 'MPLX'],
+                "🏛️ 综合石油石化巨头 (Integrated, 6家)": ['XOM', 'CVX', 'SHEL', 'TTE', 'BP', 'EQNR']
+            }
+            sub_choice = st.selectbox("📂 细分子行业板块筛选:", options=list(energy_subsectors.keys()))
+            active_consts = energy_subsectors[sub_choice]
+        else:
+            active_consts = config['constituents']
+
         const_rows = []
-        for c in config['constituents']:
+        for c in active_consts:
             if c in df.columns:
                 p_cur = df[c].iloc[-1]
                 ma50_cur = df[c].rolling(50).mean().iloc[-1]
@@ -480,7 +539,7 @@ def render_industry_bubble_tab():
             df_const_table = pd.DataFrame(const_rows)
             st.dataframe(df_const_table, use_container_width=True)
             above_count = sum(1 for r in const_rows if "🟢" in r["多空状态"])
-            st.info(f"📌 **当前广度概况**：前 15 大成分股中，共有 **{above_count} / {len(const_rows)}** 家公司站上 50MA（占比 **{above_count/len(const_rows)*100:.1f}%**）。")
+            st.info(f"📌 **当前筛选成分股多空概况**：共有 **{above_count} / {len(const_rows)}** 家公司站上 50MA（占比 **{above_count/len(const_rows)*100:.1f}%**）。")
 
     st.markdown("---")
 
