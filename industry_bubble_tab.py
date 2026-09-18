@@ -70,6 +70,18 @@ ASSET_CONFIG = {
         "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_KRE%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
         "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_KRE%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
         "constituents": ['KRE', 'USB', 'TFC', 'PNC', 'KEY', 'CFG', 'FITB', 'MTB', 'HBAN', 'ZION', 'WAL', 'EWBC', 'JPM', 'BAC', 'WFC', 'C', 'MS', 'GS', 'SCHW', 'BLK', 'BRK-B', 'V', 'MA', 'AXP']
+    },
+    "🏢 VNQ (房地产与REITs)": {
+        "ticker": "VNQ",
+        "name": "Vanguard Real Estate ETF (房地产与REITs信贷流动性微观雷达)",
+        "local_radar": os.path.join(BASE_DIR, "vnq_radar_local.csv"),
+        "local_const": os.path.join(BASE_DIR, "real_estate_constituents_local.csv"),
+        "local_excel": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_VNQ微观雷达全周期对账表.xlsx"),
+        "local_png": os.path.join(BASE_DIR, "宏观反身性阿尔法模型_VNQ微观雷达4层全景图谱.png"),
+        "github_radar": "https://raw.githubusercontent.com/JiananZhao/html/master/vnq_radar_local.csv",
+        "github_excel": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_VNQ%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE%E5%85%A8%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%83%80%E8%A1%A8.xlsx",
+        "github_png": "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_VNQ%E5%BE%AE%E8%A7%82%E9%9B%B7%E8%BE%BE4%E5%B1%82%E5%85%A8%E6%99%AF%E5%9B%BE%E8%B0%B1.png",
+        "constituents": ['VNQ', 'PLD', 'AMT', 'EQIX', 'CCI', 'PSA', 'SPG', 'O', 'WELL', 'DLR', 'AVB', 'EQR', 'WY', 'VICI', 'SBAC', 'CBRE', 'DHI', 'LEN', 'BXP']
     }
 }
 
@@ -113,6 +125,9 @@ def load_radar_data(asset_key):
         elif config['ticker'] == 'KRE':
             from kre_bubble_radar import KREBubbleRadar
             radar = KREBubbleRadar()
+        elif config['ticker'] == 'VNQ':
+            from vnq_bubble_radar import VNQBubbleRadar
+            radar = VNQBubbleRadar()
         else:
             from energy_bubble_radar import EnergyBubbleRadar
             radar = EnergyBubbleRadar()
@@ -323,6 +338,23 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
             hovertemplate='G-SIBs广度: %{y:.1f}%<extra></extra>'
         ), secondary_y=False)
 
+    # 房地产专属：住宅建筑商 vs 商业写字楼/CRE 信贷与空置剪刀差透视
+    if ticker == 'VNQ' and 'Breadth_Homebuilders' in df.columns and 'Breadth_Office_CRE' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_Homebuilders'] * 100.0,
+            name='🏡 住宅建筑商广度 (Homebuilders %)',
+            line=dict(color='#2E8B57', width=1.4, dash='dash'),
+            hovertemplate='住宅建筑商广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=df['Breadth_Office_CRE'] * 100.0,
+            name='🏢 商业写字楼广度 (Office/CRE %)',
+            line=dict(color='#DC143C', width=1.4, dash='dot'),
+            hovertemplate='商业写字楼广度: %{y:.1f}%<extra></extra>'
+        ), secondary_y=False)
+
     # 2. 价格走势 (右 Y 轴，用于肉眼直接比对顶背离)
     fig.add_trace(go.Scatter(
         x=dates,
@@ -380,7 +412,7 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
             type="date"
         ),
         yaxis=dict(
-            title="分层综合站上50MA比例 (%)" if ticker in ['XLE', 'KRE'] else "前15大站上50MA比例 (%)",
+            title="分层综合站上50MA比例 (%)" if ticker in ['XLE', 'KRE', 'VNQ'] else "前15大站上50MA比例 (%)",
             range=[-2, 105],
             autorange=False,
             gridcolor="#E5E5E5"
@@ -529,13 +561,16 @@ def render_industry_bubble_tab():
         breadth_title = "📉 Layer 3: 内部 41 大全产业链成分股 50MA 分层等权广度与顶背离 (XLE)"
     elif ticker == 'KRE':
         breadth_title = "📉 Layer 3: 内部 38 家核心金融机构 50MA 分层综合广度与银行压力轮动 (KRE)"
+    elif ticker == 'VNQ':
+        breadth_title = "📉 Layer 3: 内部 34 家核心地产/REITs机构 50MA 分层综合广度与信贷轮动 (VNQ)"
     else:
         breadth_title = f"📉 Layer 3: 内部 15 大核心成分股 50MA 广度与顶背离深度剖析 ({ticker})"
 
     st.subheader(breadth_title)
     xle_note = "（能源专属：可同步比对油服设备 Services vs 上游勘探 E&P 资本开支剪刀差）" if ticker == 'XLE' else ""
     kre_note = "（金融专属：可同步比对区域银行 Regional Banks vs 巨头银行 G-SIBs 存款挤兑压力剪刀差）" if ticker == 'KRE' else ""
-    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！{xle_note}{kre_note}")
+    vnq_note = "（地产专属：可同步比对住宅建筑商 Homebuilders vs 商业写字楼 Office/CRE 剪刀差）" if ticker == 'VNQ' else ""
+    st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！{xle_note}{kre_note}{vnq_note}")
 
     fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
     st.plotly_chart(fig_layer3, use_container_width=True)
@@ -545,6 +580,8 @@ def render_industry_bubble_tab():
         exp_title = f"🔍 展开穿透查看：全产业链 41 大核心成分股 50MA 多空分布矩阵 ({ticker})"
     elif ticker == 'KRE':
         exp_title = f"🔍 展开穿透查看：金融 38 家核心机构最新 50MA 多空分布矩阵 ({ticker})"
+    elif ticker == 'VNQ':
+        exp_title = f"🔍 展开穿透查看：房地产 34 家核心机构最新 50MA 多空分布矩阵 ({ticker})"
     else:
         exp_title = f"🔍 展开穿透查看：前 15 大核心成分股最新 50MA 多空分布矩阵 ({ticker})"
 
@@ -579,6 +616,25 @@ def render_industry_bubble_tab():
             }
             sub_choice = st.selectbox("📂 细分子行业板块筛选:", options=list(financial_subsectors.keys()))
             active_consts = financial_subsectors[sub_choice]
+        elif ticker == 'VNQ':
+            real_estate_subsectors = {
+                "全部 34 家房地产与REITs龙头": [
+                    'VNQ', 'AMT', 'CCI', 'EQIX', 'DLR', 'SBAC',
+                    'PLD', 'PSA', 'EXR', 'CUBE',
+                    'SPG', 'O', 'NNN', 'KIM', 'REG', 'WELL', 'VTR',
+                    'EQR', 'AVB', 'CPT', 'MAA', 'INVH', 'AMH',
+                    'DHI', 'LEN', 'NVR', 'PHM', 'TOL',
+                    'BXP', 'VNO', 'SLG', 'CBRE', 'CWK', 'JLL'
+                ],
+                "📶 通信与算力数据中心 (Telecom & Data Centers, 5家)": ['AMT', 'CCI', 'EQIX', 'DLR', 'SBAC'],
+                "🏭 工业物流与自主仓储 (Industrial & Storage, 4家)": ['PLD', 'PSA', 'EXR', 'CUBE'],
+                "🛍️ 商业零售与医疗养老 (Retail & Healthcare, 7家)": ['SPG', 'O', 'NNN', 'KIM', 'REG', 'WELL', 'VTR'],
+                "🏘️ 住宅长租公寓 (Residential Rentals, 6家)": ['EQR', 'AVB', 'CPT', 'MAA', 'INVH', 'AMH'],
+                "🏡 住宅建筑商与开发商 (Homebuilders, 5家)": ['DHI', 'LEN', 'NVR', 'PHM', 'TOL'],
+                "🏢 商业写字楼与房产服务 (Office & Real Estate Services, 6家)": ['BXP', 'VNO', 'SLG', 'CBRE', 'CWK', 'JLL']
+            }
+            sub_choice = st.selectbox("📂 细分子行业板块筛选:", options=list(real_estate_subsectors.keys()))
+            active_consts = real_estate_subsectors[sub_choice]
         else:
             active_consts = config['constituents']
 
