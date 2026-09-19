@@ -245,56 +245,96 @@ class NOWReflexivityRadar:
         recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
         raw_sell = (cond_bubble | cond_bear) & (~recently_crashed)
 
-        # 4. 买入与回补信号条件：
-        #    - 恐慌探底回升：深度超跌 (Dist_200MA < -15%) + 收复 10 日均线 + 动能转正 (q1_dot > 0)
-        #    - 趋势右侧确认：连续 3 日站稳 50 日均线
-        #    - 极限超跌反转：年线偏离低于 -25% 且动能拐点转正
+        # 4. 券商实盘买卖条件 (Execution Layer)
         cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
         cond_trend = (df_bt['close'] > df_bt['MA50']).rolling(3).sum() == 3
-        cond_deep = (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0)
-        raw_buy = cond_panic | cond_trend | cond_deep
+        raw_buy = cond_panic | cond_trend
 
         # -------------------------------------------------------------
-        # 核心解耦：客观雷达信号层 (Pure Observational Signals)
-        # 无论账户当前持仓如何（满仓、半仓或空仓），只要指标触发，均客观输出信号！
+        # 核心解耦：客观雷达高信噪比观测信号层 (Pure High-SNR Observational Signals)
+        # 第一性原理设计：
+        # 1. 严格状态门禁 (Regime Gating): 彻底杜绝在牛市高位打“抄底”，杜绝在熊市深渊打“逃顶”！
+        # 2. 动能拐点精确识别 (Inflection Trigger): 仅在相空间导数初次转正/转负时打点，拒绝缠绕！
+        # 3. 迟滞波段去噪 (Hysteresis & Cooldown): 消除微观日线级别的高频假信号，提供真正机构级指导！
         # -------------------------------------------------------------
-        # A. 客观超卖 / 抄底预警信号
-        signal_oversold = raw_buy
-        trigger_oversold = signal_oversold & (~signal_oversold.shift(1).fillna(False))
+        df_bt['MA20'] = df_bt['close'].rolling(20).mean()
 
-        # B. 客观超买 / 过热警戒信号
-        cond_tech_exhaustion = (df_bt['Dist_200MA'] > 15.0) & (df_bt['q1_dot'] < 0) & (df_bt['close'] < df_bt['MA10']) & (df_bt['q1_dot'].shift(1) >= 0)
-        cond_overheat_extreme = (df_bt['Composite_Score'] >= 70.0) & (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0)
-        signal_overbought = cond_bubble | cond_bear | cond_tech_exhaustion | cond_overheat_extreme
-        trigger_overbought = signal_overbought & (~signal_overbought.shift(1).fillna(False))
+        # 【A. 客观超卖 / 恐慌耗竭抄底信号】
+        # 门禁：必须处于真实超跌环境 (近期下杀<-15% 或 偏离<-10% 或 综合得分<32)，且绝对不能在年线上方追高打抄底 (Dist_200MA <= -2%)
+        regime_bottom = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
+        gate_bottom = df_bt['Dist_200MA'] <= -2.0
 
-        df_bt['Signal_Oversold'] = signal_oversold
-        df_bt['Trigger_Oversold'] = trigger_oversold
-        df_bt['Signal_Overbought'] = signal_overbought
-        df_bt['Trigger_Overbought'] = trigger_overbought
+        # 拐点：收复10MA且动能初次转正，或极限超跌区初次向上拐头
+        inflection_bottom = (
+            (df_bt['close'] > df_bt['MA10']) & 
+            (df_bt['q1_dot'] > 0) & 
+            (df_bt['q1_dot'].shift(1) <= 0)
+        ) | (
+            (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
+        )
+        raw_oversold = regime_bottom & gate_bottom & inflection_bottom
+
+        # 【B. 客观超买 / 泡沫过热预警信号】
+        # 门禁：必须处于真实泡沫极值或高位过热扩张期 (Composite>=70 或 偏离>22%)，且绝对门禁 Dist_200MA >= 10% (熊市严禁报高位逃顶)
+        regime_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
+        gate_top = df_bt['Dist_200MA'] >= 10.0
+
+        # 拐点：反身性相变破位跌破50MA(第四象限)，或极端暴拉跌破20MA机构月线动能加速转负
+        inflection_top = (
+            (df_bt['close'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
+        ) | (
+            (df_bt['Dist_200MA'] > 20.0) & (df_bt['close'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['close'].shift(1) >= df_bt['MA20'].shift(1))
+        )
+        raw_overbought = regime_top & gate_top & inflection_top
+
+        # 【C. 迟滞波段去噪滤波 (Hysteresis & Cooldown)】
+        final_os = []
+        final_ob = []
+        last_os_date = None
+        last_os_price = 999999
+        last_ob_date = None
+        last_ob_price = -1
+
+        for i in range(len(df_bt)):
+            dt = df_bt['date'].iloc[i]
+            p = df_bt['close'].iloc[i]
+            is_os = raw_oversold.iloc[i]
+            is_ob = raw_overbought.iloc[i]
+            
+            os_f = False
+            ob_f = False
+            
+            if is_os:
+                days = (dt - last_os_date).days if last_os_date else 999
+                if days > 18 or p < last_os_price * 0.93:
+                    os_f = True
+                    last_os_date = dt
+                    last_os_price = p
+            elif is_ob:
+                days = (dt - last_ob_date).days if last_ob_date else 999
+                if days > 25 or p > last_ob_price * 1.08:
+                    ob_f = True
+                    last_ob_date = dt
+                    last_ob_price = p
+                    
+            final_os.append(os_f)
+            final_ob.append(ob_f)
+
+        df_bt['Signal_Oversold'] = regime_bottom & gate_bottom
+        df_bt['Trigger_Oversold'] = pd.Series(final_os, index=df_bt.index)
+        df_bt['Signal_Overbought'] = regime_top & gate_top
+        df_bt['Trigger_Overbought'] = pd.Series(final_ob, index=df_bt.index)
 
         # 详细记录客观雷达预警诱因
         alert_types = []
         alert_reasons = []
         for i in range(len(df_bt)):
-            if trigger_oversold.iloc[i]:
+            if df_bt['Trigger_Oversold'].iloc[i]:
                 alert_types.append("超卖抄底拐点")
-                if cond_deep.iloc[i]:
-                    alert_reasons.append(f"极限超跌(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)且相空间动能拐点转正(q1_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-                elif cond_panic.iloc[i]:
-                    alert_reasons.append(f"恐慌抛压耗竭+收复10MA+动能转正(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)")
-                else:
-                    alert_reasons.append("右侧突破50日均线生命线确认")
-            elif trigger_overbought.iloc[i]:
+                alert_reasons.append(f"真实超跌耗竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)且相空间动能初次转正(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+            elif df_bt['Trigger_Overbought'].iloc[i]:
                 alert_types.append("超买过热预警")
-                if cond_bubble.iloc[i]:
-                    alert_reasons.append(f"反身性高位泡沫破裂(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%且转入第4象限)")
-                elif cond_bear.iloc[i]:
-                    alert_reasons.append("宏观信用危机防守(HYG破位+真实利率飙升)")
-                elif cond_overheat_extreme.iloc[i]:
-                    alert_reasons.append(f"综合过热得分极值({df_bt['Composite_Score'].iloc[i]:.1f}分)且动能高位衰竭")
-                else:
-                    alert_reasons.append(f"高位年线偏离+{df_bt['Dist_200MA'].iloc[i]:.1f}%且跌破10MA动能转负")
+                alert_reasons.append(f"高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭")
             else:
                 alert_types.append("无")
                 alert_reasons.append("正常跟踪中")
@@ -582,28 +622,28 @@ class NOWReflexivityRadar:
         ax1.plot(dates, df_bt['MA50'], label='50 日机构均线 (MA50)', color='#ff7f0e', lw=1.2, ls='--', zorder=2)
         ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':', zorder=2)
 
-        # 1. 客观雷达信号标记 (不受仓位和现金限制)
+        # 1. 客观雷达信号标记 (不受仓位和现金限制，高信噪比)
         # 超卖/抄底拐点信号 (亮青色钻石点)
         os_pts = df_bt[df_bt['Trigger_Oversold']]
-        ax1.scatter(os_pts['date'], os_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=55, alpha=0.95, zorder=5, label=f'[客观抄底拐点] 恐慌超跌耗竭信号 (共 {len(os_pts)} 次)')
+        ax1.scatter(os_pts['date'], os_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观抄底拐点] 恐慌超跌耗竭 (共 {len(os_pts)} 次)')
 
         # 超买/过热警戒信号 (亮橙色钻石点)
         ob_pts = df_bt[df_bt['Trigger_Overbought']]
-        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=55, alpha=0.95, zorder=5, label=f'[客观过热预警] 泡沫衰竭防守信号 (共 {len(ob_pts)} 次)')
+        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观过热预警] 泡沫衰竭防守 (共 {len(ob_pts)} 次)')
 
         # 2. 策略实盘记账买卖点 (真实账户交易变动)
         sells = df_bt[df_bt['action'] == 'SELL']
         buys = df_bt[df_bt['action'] == 'BUY']
-        ax1.scatter(sells['date'], sells['close'], color='#d62728', marker='v', s=130, zorder=7, label=f'[实盘卖出] 策略减仓变现 (共 {len(sells)} 次, 仓位清零)')
-        ax1.scatter(buys['date'], buys['close'], color='#00c853', marker='^', s=130, zorder=7, label=f'[实盘买入] 策略低位建仓 (共 {len(buys)} 次, 满仓买入)')
+        ax1.scatter(sells['date'], sells['close'], color='#d62728', marker='v', s=140, zorder=7, label=f'[实盘卖出] 策略减仓变现 (共 {len(sells)} 次, 仓位清零)')
+        ax1.scatter(buys['date'], buys['close'], color='#00c853', marker='^', s=140, zorder=7, label=f'[实盘买入] 策略低位建仓 (共 {len(buys)} 次, 满仓买入)')
 
-        # 3. 背景超卖区间微弱高亮 (使底部特征极其醒目)
-        ax1.fill_between(dates, df_bt['close'].min()*0.85, df_bt['close'].max()*1.1, where=df_bt['Signal_Oversold'], color='#00e5ff', alpha=0.06, label='雷达超卖抄底活跃区间')
+        # 3. 背景真实深度超跌体制区间微弱高亮
+        ax1.fill_between(dates, df_bt['close'].min()*0.85, df_bt['close'].max()*1.1, where=(df_bt['Dist_200MA'] <= -10.0), color='#00e5ff', alpha=0.06, label='深度超跌体制区 (Dist_200MA <= -10%)')
 
-        ax1.set_title("Layer 1: 股价微观雷达双层信号图谱 (客观超买超卖预警 vs 账户实盘买卖执行)", fontsize=13, fontweight='bold')
+        ax1.set_title("Layer 1: 股价微观雷达双层信号图谱 (高信噪比客观预警 vs 账户实盘买卖执行)", fontsize=13, fontweight='bold')
         ax1.set_ylabel("价格 (USD)", fontsize=11)
         ax1.grid(True, alpha=0.3)
-        ax1.legend(loc='upper left', frameon=True, fontsize=9, ncol=2)
+        ax1.legend(loc='upper left', frameon=True, fontsize=9.5, ncol=2)
 
         # -------------------------------------------------------------
         # 第 2 层：相空间动力学 (速度 q_dot, 加速度 q_ddot, 能量导数 V_dot)
