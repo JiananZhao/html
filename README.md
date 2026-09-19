@@ -123,12 +123,13 @@ streamlit run rd_data.py
 ```
 * **Tab 5「索罗斯反身性大类配置」**：大盘宽基（SPY & QQQ）宏观流动性与双轨制图谱；
 * **Tab 6「📡 行业微观内生泡沫雷达 (聚焦 Layer 2 & 3)」**：
-  * **5 大核心行业横向并列无缝切换**：💻 IGV (云计算与软件) / ⚡ SMH (芯片与半导体) / 🛢️ XLE (能源全产业链) / 🏦 KRE (区域银行与金融) / 🏢 VNQ (房地产与REITs)；
-  * **实时雷达状态横幅**：即时输出今日综合雷达得分、当前所处健康/警戒/泡沫区间；
-  * **5 核心量化指标卡**：综合雷达分、超指数动力学分、估值分、内部广度分、相对动量分；
-  * **Layer 2 交互图谱**：Plotly 矢量渲染，支持动态时间框缩放、自适应 Y 轴、白底高对比度图例；
-  * **Layer 3 内部广度双轴图谱**：直观展示行业价格走势与成分股 50MA 广度走势的背离关系，并支持子行业先导剪刀差透视（油服 vs 勘探、区域银行 vs G-SIBs、住宅建筑商 vs 商业写字楼）；
-  * **核心成分股多空穿透矩阵**：支持细分子板块筛选（如地产板块涵盖通信算力数据中心、工业仓储、商业零售养老、住宅长租公寓、住宅建筑商、商业写字楼房产服务 6 大子板块）并穿透查看 50MA 攻防状态。
+  * **6 大核心板块与个股横向并列无缝切换**：💻 IGV (云计算与软件) / ⚡ SMH (芯片与半导体) / 🛢️ XLE (能源全产业链) / 🏦 KRE (区域银行与金融) / 🏢 VNQ (房地产与REITs) / 🦅 NOW (ServiceNow 单股反身性相空间动力学雷达)；
+  * **黄文政拉格朗日相空间动力学相图 (NOW 专属)**：将状态空间升维至涵盖状态变化率的 $(q, \dot{q})$ 相平面，支持 2D 交互相轨迹、四象限动力学分界（正反身性主升浪 Q1 ➜ 动能衰竭相变逃顶 Q4 ➜ 死亡螺旋 Q3 ➜ 底部蓄势确认回补 Q2）与历史分岔拐点穿透；
+  * **实时雷达状态横幅**：即时输出今日综合雷达得分、当前所处健康/警戒/泡沫区间或相平面象限；
+  * **6 大独立解耦分项与雷达总分**：势能位置分、动能速度分、李氏稳定性分、资本稀释分、筹码资金流分、宏观引力分；
+  * **Layer 2 交互图谱**：Plotly 矢量渲染，支持动态时间框缩放、自适应 Y 轴、白底高对比度图例、全维度独立勾选复核；
+  * **Layer 3 内部广度与相图**：行业 ETF 支持成分股 50MA 分层广度与子行业剪刀差（油服 vs 勘探、区域银行 vs G-SIBs、建筑商 vs 写字楼）；单股支持拉格朗日相空间相图；
+  * **Layer 4 券商实测对账**：真实两状态记账（追踪真实股数与现金），拒绝虚假连乘。NOW 回测 13.3 年仅 12 次交易（6 轮配对），最终资产战胜基准 +40.25%（净增超额财富 +$382,874）！
 
 ---
 
@@ -137,13 +138,21 @@ streamlit run rd_data.py
 ```text
 ├── rd_data.py                                   # Streamlit 交互投研 Web 应用入口
 ├── reflexivity_tab.py                           # Streamlit Tab 5 双轨制宏观看板模块
-├── industry_bubble_tab.py                       # Streamlit Tab 6 行业微观泡沫雷达模块 (IGV/SMH/XLE/KRE/VNQ 5板块并列)
+├── industry_bubble_tab.py                       # Streamlit Tab 6 行业微观泡沫雷达模块 (IGV/SMH/XLE/KRE/VNQ/NOW 并列)
+├── now_reflexivity_radar.py                     # NOW 单股反身性相空间动力学引擎 (黄文政形式同源理论落地)
+├── scripts/fetch_now_sec_via_gemini.py          # Gemini API 结构化抓取 SEC Form 4 与股本脚本 (含离线自愈备选)
+├── scripts/fetch_now_fundamentals_free.py       # 免 Key 开源快速抓取 NOW 基本面脚本
+├── now_ohlcv_local.csv                          # NOW 14年日线高精度行情脱机库 (3,571 行)
+├── now_sec_fundamentals_local.csv               # NOW 历史稀释股本、SBC与高管减持全历史脱机库
+├── now_radar_local.csv                          # NOW 预计算高频相空间动力学与 6 维解耦分位数库
+├── 宏观反身性阿尔法模型_NOW单股微观雷达全周期对账表.xlsx # NOW 单股微观雷达全周期审计底稿 (总体/逐笔/逐日三底稿)
+├── 宏观反身性阿尔法模型_NOW微观雷达4层全景图谱.png     # NOW 4层微观雷达高清全景图谱 (价量、相空间物理量、6维分位数、净值)
+├── 宏观反身性阿尔法模型_NOW相空间动力学相图.png         # NOW 二维拉格朗日相空间动力学相图 (q vs q_dot 四象限相轨迹)
 ├── micro_bubble_radar.py                        # IGV 行业微观内生泡沫雷达量化回测与图谱引擎
 ├── smh_bubble_radar.py                          # SMH 半导体专属微观内生泡沫雷达引擎
 ├── energy_bubble_radar.py                       # XLE 能源全产业链专属微观内生泡沫雷达量化引擎
 ├── kre_bubble_radar.py                          # KRE 区域性银行与金融专属微观雷达量化回测引擎
 ├── vnq_bubble_radar.py                          # VNQ 房地产与REITs专属微观雷达量化回测引擎
-├── scripts/fetch_real_estate_constituents.py    # 地产 34 家核心龙头离线行情更新脚本
 ├── real_estate_constituents_local.csv           # 地产 34 家核心龙头 5,209 行脱机行情库
 ├── vnq_radar_local.csv                          # VNQ 4,891 行预计算高频微观雷达指标库
 ├── energy_radar_local.csv                        # 能源全产业链 5,072 行预计算高频微观雷达指标库
