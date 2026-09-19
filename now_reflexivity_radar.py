@@ -258,83 +258,95 @@ class NOWReflexivityRadar:
         # 3. 迟滞波段去噪 (Hysteresis & Cooldown): 消除微观日线级别的高频假信号，提供真正机构级指导！
         # -------------------------------------------------------------
         df_bt['MA20'] = df_bt['close'].rolling(20).mean()
+        df_bt['Dist_50MA'] = (df_bt['close'] - df_bt['MA50']) / df_bt['MA50'] * 100.0
+        df_bt['MA200_Slope'] = (df_bt['MA200'] - df_bt['MA200'].shift(10)) / df_bt['MA200'].shift(10) * 100.0
 
-        # 【A. 客观超卖 / 恐慌耗竭抄底信号】
-        # 门禁：必须处于真实超跌环境 (近期下杀<-15% 或 偏离<-10% 或 综合得分<32)，且绝对不能在年线上方追高打抄底 (Dist_200MA <= -2%)
-        regime_bottom = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
-        gate_bottom = df_bt['Dist_200MA'] <= -2.0
-
-        # 拐点：收复10MA且动能初次转正，或极限超跌区初次向上拐头
-        inflection_bottom = (
-            (df_bt['close'] > df_bt['MA10']) & 
-            (df_bt['q1_dot'] > 0) & 
-            (df_bt['q1_dot'].shift(1) <= 0)
+        # -------------------------------------------------------------
+        # 核心解耦：客观雷达高信噪比观测信号层 (3-Type Reflexive Dynamic Signals)
+        # 第一性原理设计 (严格基于索罗斯反身性理论与黄文政相空间动力学)：
+        #
+        # 【类型一：反身性极度恐慌底 (Type A: Panic Crash Bottom)】
+        # 经济学机理：自由落体式崩盘、流动性践踏危机、负偏离远场极值区 (Dist_200MA < -10% 或 Score < 32)。
+        # 状态约束：处于真实折价状态 (Dist_200MA <= 0% 或 close < MA50)，且相空间速度 q1_dot 初次由负转正。
+        regime_panic = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
+        gate_panic = (df_bt['Dist_200MA'] <= 0.0) | (df_bt['close'] < df_bt['MA50'])
+        inflection_panic = (
+            (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         ) | (
             (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         )
-        raw_oversold = regime_bottom & gate_bottom & inflection_bottom
+        raw_panic = regime_panic & gate_panic & inflection_panic
 
-        # 【B. 客观超买 / 泡沫过热预警信号】
-        # 门禁：必须处于真实泡沫极值或高位过热扩张期 (Composite>=70 或 偏离>22%)，且绝对门禁 Dist_200MA >= 10% (熊市严禁报高位逃顶)
+        # 【类型二：反身性牛市阶段蓄势底 / 均衡考验确认 (Type B: Stage Consolidation Bottom)】
+        # 经济学机理：索罗斯“考验期 (Period of Testing)”。
+        # 宏观结构：处于上升或平稳牛市结构 (MA200斜率 >= -0.1%, MA50 >= MA200 * 0.95)。
+        # 中枢回踩：股价回踩中长期均衡中枢带 (Dist_200MA 在 -12% ~ +8% 或回踩 50MA 附近)。
+        # 能量冷却：李雅普诺夫过热能量宣泄完毕 (Composite Score <= 60 或近期低点 <= 50)。
+        # 动能重启：相空间广义动能由负转正 (q1_dot > 0 且前一日 <= 0)。
+        # 彻底杜绝在年线上方 +29% 的历史大顶触发，完美捕获牛市洗盘蓄势拐点！
+        bull_structure = (df_bt['MA200_Slope'] >= -0.1) & (df_bt['MA50'] >= df_bt['MA200'] * 0.95)
+        equilibrium_test = ((df_bt['Dist_200MA'] >= -12.0) & (df_bt['Dist_200MA'] <= 8.0)) | ((df_bt['Dist_50MA'].abs() <= 3.5) & (df_bt['Dist_200MA'] <= 12.0))
+        cool_score = (df_bt['Composite_Score'].rolling(10).min() <= 50.0) | (df_bt['Composite_Score'] <= 60.0)
+        inflection_stage = (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
+        raw_stage = bull_structure & equilibrium_test & cool_score & inflection_stage & (~raw_panic)
+
+        # 【类型三：反身性极度泡沫顶预警 (Type C: Bubble Climax & Phase Exhaustion Top)】
+        # 经济学机理：正反馈认知偏离极峰 (Climax)。Composite >= 70 或偏离年线 > 22%，
+        # 且处于高位真实区间 (Dist_200MA >= 10%)，相空间跨入第四象限破位或跌破20MA月线动能加速转负。
         regime_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
         gate_top = df_bt['Dist_200MA'] >= 10.0
-
-        # 拐点：反身性相变破位跌破50MA(第四象限)，或极端暴拉跌破20MA机构月线动能加速转负
         inflection_top = (
             (df_bt['close'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
         ) | (
             (df_bt['Dist_200MA'] > 20.0) & (df_bt['close'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['close'].shift(1) >= df_bt['MA20'].shift(1))
         )
-        raw_overbought = regime_top & gate_top & inflection_top
+        raw_top = regime_top & gate_top & inflection_top
 
-        # 【C. 迟滞波段去噪滤波 (Hysteresis & Cooldown)】
-        final_os = []
-        final_ob = []
-        last_os_date = None
-        last_os_price = 999999
-        last_ob_date = None
-        last_ob_price = -1
+        # 迟滞去噪滤波 (Hysteresis & Cooldown)
+        def apply_hys(df_sub, raw_flags, min_days, price_step, is_top=False):
+            final_flags = []
+            last_dt = None
+            last_p = -1 if is_top else 999999
+            for i in range(len(df_sub)):
+                dt = df_sub['date'].iloc[i]
+                p = df_sub['close'].iloc[i]
+                flg = raw_flags.iloc[i]
+                act = False
+                if flg:
+                    days = (dt - last_dt).days if last_dt else 999
+                    if is_top:
+                        if days > min_days or p > last_p * (1 + price_step):
+                            act = True
+                            last_dt = dt
+                            last_p = p
+                    else:
+                        if days > min_days or p < last_p * (1 - price_step):
+                            act = True
+                            last_dt = dt
+                            last_p = p
+                final_flags.append(act)
+            return pd.Series(final_flags, index=df_sub.index)
 
-        for i in range(len(df_bt)):
-            dt = df_bt['date'].iloc[i]
-            p = df_bt['close'].iloc[i]
-            is_os = raw_oversold.iloc[i]
-            is_ob = raw_overbought.iloc[i]
-            
-            os_f = False
-            ob_f = False
-            
-            if is_os:
-                days = (dt - last_os_date).days if last_os_date else 999
-                if days > 18 or p < last_os_price * 0.93:
-                    os_f = True
-                    last_os_date = dt
-                    last_os_price = p
-            elif is_ob:
-                days = (dt - last_ob_date).days if last_ob_date else 999
-                if days > 25 or p > last_ob_price * 1.08:
-                    ob_f = True
-                    last_ob_date = dt
-                    last_ob_price = p
-                    
-            final_os.append(os_f)
-            final_ob.append(ob_f)
-
-        df_bt['Signal_Oversold'] = regime_bottom & gate_bottom
-        df_bt['Trigger_Oversold'] = pd.Series(final_os, index=df_bt.index)
+        df_bt['Trigger_Panic'] = apply_hys(df_bt, raw_panic, min_days=15, price_step=0.07, is_top=False)
+        df_bt['Trigger_Stage'] = apply_hys(df_bt, raw_stage, min_days=20, price_step=0.06, is_top=False)
+        df_bt['Trigger_Overbought'] = apply_hys(df_bt, raw_top, min_days=25, price_step=0.08, is_top=True)
+        df_bt['Trigger_Oversold'] = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage']
+        df_bt['Signal_Oversold'] = regime_panic | (bull_structure & equilibrium_test & cool_score)
         df_bt['Signal_Overbought'] = regime_top & gate_top
-        df_bt['Trigger_Overbought'] = pd.Series(final_ob, index=df_bt.index)
 
         # 详细记录客观雷达预警诱因
         alert_types = []
         alert_reasons = []
         for i in range(len(df_bt)):
-            if df_bt['Trigger_Oversold'].iloc[i]:
-                alert_types.append("超卖抄底拐点")
-                alert_reasons.append(f"真实超跌耗竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)且相空间动能初次转正(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+            if df_bt['Trigger_Panic'].iloc[i]:
+                alert_types.append("极度恐慌底")
+                alert_reasons.append(f"熊市崩盘超跌耗竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能初次转正(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+            elif df_bt['Trigger_Stage'].iloc[i]:
+                alert_types.append("阶段蓄势底")
+                alert_reasons.append(f"牛市中枢考验确认(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能重启(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
             elif df_bt['Trigger_Overbought'].iloc[i]:
-                alert_types.append("超买过热预警")
-                alert_reasons.append(f"高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭")
+                alert_types.append("极度泡沫顶")
+                alert_reasons.append(f"高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
             else:
                 alert_types.append("无")
                 alert_reasons.append("正常跟踪中")
@@ -541,7 +553,7 @@ class NOWReflexivityRadar:
         df_pairs = pd.DataFrame(pairs)
 
         # 3. 雷达客观全信号观测明细表 (解耦于仓位与现金，记录全历史超买超卖预警)
-        signals_mask = df_bt['Trigger_Oversold'] | df_bt['Trigger_Overbought']
+        signals_mask = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage'] | df_bt['Trigger_Overbought']
         export_sig_cols = [
             'date', 'close', 'Dist_200MA', 'q1_dot', 'v_dot', 'Quadrant',
             'Score_Dim1_Pos', 'Score_Dim2_Vel', 'Score_Dim3_Lyapunov',
@@ -594,10 +606,12 @@ class NOWReflexivityRadar:
         # 将回测客观信号合并回 self.df 中
         df_merged = self.df.copy()
         if hasattr(self, 'df_bt') and self.df_bt is not None:
-            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Signal_Overbought', 'Trigger_Overbought', 'Radar_Alert_Type', 'Radar_Alert_Reason']
+            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Trigger_Panic', 'Trigger_Stage', 'Signal_Overbought', 'Trigger_Overbought', 'Radar_Alert_Type', 'Radar_Alert_Reason']
             df_merged = df_merged.merge(self.df_bt[sig_cols], on='date', how='left')
             df_merged['Signal_Oversold'] = df_merged['Signal_Oversold'].fillna(False)
             df_merged['Trigger_Oversold'] = df_merged['Trigger_Oversold'].fillna(False)
+            df_merged['Trigger_Panic'] = df_merged['Trigger_Panic'].fillna(False)
+            df_merged['Trigger_Stage'] = df_merged['Trigger_Stage'].fillna(False)
             df_merged['Signal_Overbought'] = df_merged['Signal_Overbought'].fillna(False)
             df_merged['Trigger_Overbought'] = df_merged['Trigger_Overbought'].fillna(False)
             df_merged['Radar_Alert_Type'] = df_merged['Radar_Alert_Type'].fillna('无')
@@ -623,13 +637,17 @@ class NOWReflexivityRadar:
         ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':', zorder=2)
 
         # 1. 客观雷达信号标记 (不受仓位和现金限制，高信噪比)
-        # 超卖/抄底拐点信号 (亮青色钻石点)
-        os_pts = df_bt[df_bt['Trigger_Oversold']]
-        ax1.scatter(os_pts['date'], os_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观抄底拐点] 恐慌超跌耗竭 (共 {len(os_pts)} 次)')
+        # 类型一：极度恐慌底 (亮青色钻石点)
+        panic_pts = df_bt[df_bt['Trigger_Panic']]
+        ax1.scatter(panic_pts['date'], panic_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度恐慌底] 崩盘超卖耗竭 (共 {len(panic_pts)} 次)')
 
-        # 超买/过热警戒信号 (亮橙色钻石点)
+        # 类型二：阶段蓄势底 (宝蓝色钻石点)
+        stage_pts = df_bt[df_bt['Trigger_Stage']]
+        ax1.scatter(stage_pts['date'], stage_pts['close'], color='#2979ff', edgecolors='#1a237e', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观阶段蓄势底] 均衡回踩确认 (共 {len(stage_pts)} 次)')
+
+        # 类型三：极度泡沫顶 (亮橙红色钻石点)
         ob_pts = df_bt[df_bt['Trigger_Overbought']]
-        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观过热预警] 泡沫衰竭防守 (共 {len(ob_pts)} 次)')
+        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度泡沫顶] 泡沫衰竭防守 (共 {len(ob_pts)} 次)')
 
         # 2. 策略实盘记账买卖点 (真实账户交易变动)
         sells = df_bt[df_bt['action'] == 'SELL']
