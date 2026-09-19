@@ -262,10 +262,10 @@ class NOWReflexivityRadar:
         df_bt['MA200_Slope'] = (df_bt['MA200'] - df_bt['MA200'].shift(10)) / df_bt['MA200'].shift(10) * 100.0
 
         # -------------------------------------------------------------
-        # 核心解耦：客观雷达高信噪比观测信号层 (3-Type Reflexive Dynamic Signals)
+        # 核心解耦：客观雷达高信噪比观测信号层 (4-Quadrant Symmetric Reflexive System)
         # 第一性原理设计 (严格基于索罗斯反身性理论与黄文政相空间动力学)：
         #
-        # 【类型一：反身性极度恐慌底 (Type A: Panic Crash Bottom)】
+        # 【象限 I：反身性极度恐慌底 (Type A: Panic Crash Bottom)】
         # 经济学机理：自由落体式崩盘、流动性践踏危机、负偏离远场极值区 (Dist_200MA < -10% 或 Score < 32)。
         # 状态约束：处于真实折价状态 (Dist_200MA <= 0% 或 close < MA50)，且相空间速度 q1_dot 初次由负转正。
         regime_panic = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
@@ -277,30 +277,44 @@ class NOWReflexivityRadar:
         )
         raw_panic = regime_panic & gate_panic & inflection_panic
 
-        # 【类型二：反身性牛市阶段蓄势底 / 均衡考验确认 (Type B: Stage Consolidation Bottom)】
+        # 宏观信用危机/承压：高收益债跌破年线且金融条件紧缩 (NFCI > -0.40 或 RY_Surge)
+        macro_crisis_regime = (df_bt['HYG'] < df_bt['Macro_MA200']) & ((df_bt['NFCI'] > -0.40) | df_bt['RY_Surge'])
+
+        # 【象限 II：反身性牛市阶段蓄势底 / 均衡考验确认 (Type B: Stage Consolidation Bottom)】
         # 经济学机理：索罗斯“考验期 (Period of Testing)”。
-        # 宏观结构：处于上升或平稳牛市结构 (MA200斜率 >= -0.1%, MA50 >= MA200 * 0.95)。
+        # 宏观结构：处于上升或平稳牛市结构 (MA200斜率 >= -0.05%, MA50 >= MA200 * 0.96)，绝非宏观信用危机期 (~macro_crisis_regime)。
+        # 几何物理约束：必须是从上方回踩中枢均线，绝不能是从深渊崩盘向上反抽阻力位的“死猫跳” (not_rebounding_from_crash)。
         # 中枢回踩：股价回踩中长期均衡中枢带 (Dist_200MA 在 -12% ~ +8% 或回踩 50MA 附近)。
         # 能量冷却：李雅普诺夫过热能量宣泄完毕 (Composite Score <= 60 或近期低点 <= 50)。
         # 动能重启：相空间广义动能由负转正 (q1_dot > 0 且前一日 <= 0)。
-        # 彻底杜绝在年线上方 +29% 的历史大顶触发，完美捕获牛市洗盘蓄势拐点！
-        bull_structure = (df_bt['MA200_Slope'] >= -0.1) & (df_bt['MA50'] >= df_bt['MA200'] * 0.95)
-        equilibrium_test = ((df_bt['Dist_200MA'] >= -12.0) & (df_bt['Dist_200MA'] <= 8.0)) | ((df_bt['Dist_50MA'].abs() <= 3.5) & (df_bt['Dist_200MA'] <= 12.0))
+        not_rebounding_from_crash = df_bt['Dist_200MA'].rolling(90).min() >= -12.0
+        bull_structure = (df_bt['MA200_Slope'] >= -0.05) & (df_bt['MA50'] >= df_bt['MA200'] * 0.96) & (~macro_crisis_regime) & not_rebounding_from_crash
+        equilibrium_test = ((df_bt['Dist_200MA'] >= -12.0) & (df_bt['Dist_200MA'] <= 8.0)) | ((df_bt['Dist_50MA'].abs() <= 3.5) & (df_bt['Dist_200MA'] <= 10.0))
         cool_score = (df_bt['Composite_Score'].rolling(10).min() <= 50.0) | (df_bt['Composite_Score'] <= 60.0)
         inflection_stage = (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         raw_stage = bull_structure & equilibrium_test & cool_score & inflection_stage & (~raw_panic)
 
-        # 【类型三：反身性极度泡沫顶预警 (Type C: Bubble Climax & Phase Exhaustion Top)】
+        # 【象限 III：反身性牛市极度泡沫顶 (Type C1: Bull Bubble Climax Top)】
         # 经济学机理：正反馈认知偏离极峰 (Climax)。Composite >= 70 或偏离年线 > 22%，
         # 且处于高位真实区间 (Dist_200MA >= 10%)，相空间跨入第四象限破位或跌破20MA月线动能加速转负。
-        regime_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
-        gate_top = df_bt['Dist_200MA'] >= 10.0
-        inflection_top = (
+        regime_bubble_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
+        gate_bubble_top = df_bt['Dist_200MA'] >= 10.0
+        inflection_bubble_top = (
             (df_bt['close'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
         ) | (
             (df_bt['Dist_200MA'] > 20.0) & (df_bt['close'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['close'].shift(1) >= df_bt['MA20'].shift(1))
         )
-        raw_top = regime_top & gate_top & inflection_top
+        raw_bubble_top = regime_bubble_top & gate_bubble_top & inflection_bubble_top
+
+        # 【象限 IV：反身性熊市反弹衰竭顶 (Type C2: Bear Rebound Exhaustion Top)】
+        # 经济学机理：索罗斯“犹豫期假复苏 (False Dawn)”。
+        # 熊市/宏观信用破位格局下 (close < MA200 或 宏观危机 或 刚经历严重崩盘)，
+        # 经历过超跌反弹后遇阻，相空间广义动能由正转负 (q1_dot < 0 且前一日 >= 0)，价格跌破短期均线支撑。
+        # 彻底补齐熊市中“毫无黄色防守预警点”的盲区！
+        bear_regime = (df_bt['close'] < df_bt['MA200']) | macro_crisis_regime | (df_bt['Dist_200MA'].rolling(60).min() < -12.0)
+        recently_bounced = df_bt['Dist_200MA'].rolling(15).min() < -8.0
+        exhaustion_inflection = (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0) & ((df_bt['close'] < df_bt['MA10']) | (df_bt['close'] < df_bt['MA50']))
+        raw_bear_top = bear_regime & recently_bounced & exhaustion_inflection & (df_bt['Dist_200MA'] < 8.0)
 
         # 迟滞去噪滤波 (Hysteresis & Cooldown)
         def apply_hys(df_sub, raw_flags, min_days, price_step, is_top=False):
@@ -329,10 +343,13 @@ class NOWReflexivityRadar:
 
         df_bt['Trigger_Panic'] = apply_hys(df_bt, raw_panic, min_days=15, price_step=0.07, is_top=False)
         df_bt['Trigger_Stage'] = apply_hys(df_bt, raw_stage, min_days=20, price_step=0.06, is_top=False)
-        df_bt['Trigger_Overbought'] = apply_hys(df_bt, raw_top, min_days=25, price_step=0.08, is_top=True)
+        df_bt['Trigger_Bubble_Top'] = apply_hys(df_bt, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
+        df_bt['Trigger_Bear_Top'] = apply_hys(df_bt, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
+        df_bt['Trigger_Top'] = df_bt['Trigger_Bubble_Top'] | df_bt['Trigger_Bear_Top']
+        df_bt['Trigger_Overbought'] = df_bt['Trigger_Top']
         df_bt['Trigger_Oversold'] = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage']
         df_bt['Signal_Oversold'] = regime_panic | (bull_structure & equilibrium_test & cool_score)
-        df_bt['Signal_Overbought'] = regime_top & gate_top
+        df_bt['Signal_Overbought'] = regime_bubble_top | bear_regime
 
         # 详细记录客观雷达预警诱因
         alert_types = []
@@ -342,11 +359,14 @@ class NOWReflexivityRadar:
                 alert_types.append("极度恐慌底")
                 alert_reasons.append(f"熊市崩盘超跌耗竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能初次转正(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
             elif df_bt['Trigger_Stage'].iloc[i]:
-                alert_types.append("阶段蓄势底")
+                alert_types.append("牛市阶段蓄势底")
                 alert_reasons.append(f"牛市中枢考验确认(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能重启(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-            elif df_bt['Trigger_Overbought'].iloc[i]:
-                alert_types.append("极度泡沫顶")
-                alert_reasons.append(f"高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+            elif df_bt['Trigger_Bubble_Top'].iloc[i]:
+                alert_types.append("牛市极度泡沫顶")
+                alert_reasons.append(f"牛市高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+            elif df_bt['Trigger_Bear_Top'].iloc[i]:
+                alert_types.append("熊市反弹衰竭顶")
+                alert_reasons.append(f"熊市反抽遇阻衰竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且动能破位转负(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
             else:
                 alert_types.append("无")
                 alert_reasons.append("正常跟踪中")
@@ -606,7 +626,7 @@ class NOWReflexivityRadar:
         # 将回测客观信号合并回 self.df 中
         df_merged = self.df.copy()
         if hasattr(self, 'df_bt') and self.df_bt is not None:
-            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Trigger_Panic', 'Trigger_Stage', 'Signal_Overbought', 'Trigger_Overbought', 'Radar_Alert_Type', 'Radar_Alert_Reason']
+            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Trigger_Panic', 'Trigger_Stage', 'Signal_Overbought', 'Trigger_Overbought', 'Trigger_Bubble_Top', 'Trigger_Bear_Top', 'Radar_Alert_Type', 'Radar_Alert_Reason']
             df_merged = df_merged.merge(self.df_bt[sig_cols], on='date', how='left')
             df_merged['Signal_Oversold'] = df_merged['Signal_Oversold'].fillna(False)
             df_merged['Trigger_Oversold'] = df_merged['Trigger_Oversold'].fillna(False)
@@ -614,6 +634,8 @@ class NOWReflexivityRadar:
             df_merged['Trigger_Stage'] = df_merged['Trigger_Stage'].fillna(False)
             df_merged['Signal_Overbought'] = df_merged['Signal_Overbought'].fillna(False)
             df_merged['Trigger_Overbought'] = df_merged['Trigger_Overbought'].fillna(False)
+            df_merged['Trigger_Bubble_Top'] = df_merged['Trigger_Bubble_Top'].fillna(False)
+            df_merged['Trigger_Bear_Top'] = df_merged['Trigger_Bear_Top'].fillna(False)
             df_merged['Radar_Alert_Type'] = df_merged['Radar_Alert_Type'].fillna('无')
             df_merged['Radar_Alert_Reason'] = df_merged['Radar_Alert_Reason'].fillna('正常跟踪中')
         df_merged.to_csv(self.output_csv, index=False)
@@ -629,25 +651,29 @@ class NOWReflexivityRadar:
         fig.suptitle("ServiceNow (NOW) 单股反身性相空间微观雷达全景图谱 (2013-2026)", fontsize=18, fontweight='bold', y=0.995)
 
         # -------------------------------------------------------------
-        # 第 1 层：价格与买卖点标记 (双层结构：客观雷达预警 + 账户实盘交易)
+        # 第 1 层：价格与买卖点标记 (四象限对称客观预警 vs 账户实盘交易)
         # -------------------------------------------------------------
         ax1 = axes[0]
         ax1.plot(dates, df_bt['close'], label='NOW 收盘价 (USD)', color='#1f77b4', lw=1.8, zorder=2)
         ax1.plot(dates, df_bt['MA50'], label='50 日机构均线 (MA50)', color='#ff7f0e', lw=1.2, ls='--', zorder=2)
         ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':', zorder=2)
 
-        # 1. 客观雷达信号标记 (不受仓位和现金限制，高信噪比)
-        # 类型一：极度恐慌底 (亮青色钻石点)
+        # 1. 客观雷达信号标记 (不受仓位和现金限制，高信噪比四象限体系)
+        # 象限 I：极度恐慌底 (亮青色钻石点)
         panic_pts = df_bt[df_bt['Trigger_Panic']]
         ax1.scatter(panic_pts['date'], panic_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度恐慌底] 崩盘超卖耗竭 (共 {len(panic_pts)} 次)')
 
-        # 类型二：阶段蓄势底 (宝蓝色钻石点)
+        # 象限 II：牛市阶段蓄势底 (宝蓝色钻石点)
         stage_pts = df_bt[df_bt['Trigger_Stage']]
         ax1.scatter(stage_pts['date'], stage_pts['close'], color='#2979ff', edgecolors='#1a237e', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观阶段蓄势底] 均衡回踩确认 (共 {len(stage_pts)} 次)')
 
-        # 类型三：极度泡沫顶 (亮橙红色钻石点)
-        ob_pts = df_bt[df_bt['Trigger_Overbought']]
-        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度泡沫顶] 泡沫衰竭防守 (共 {len(ob_pts)} 次)')
+        # 象限 III：牛市极度泡沫顶 (亮橙红色钻石点)
+        bubble_pts = df_bt[df_bt['Trigger_Bubble_Top']]
+        ax1.scatter(bubble_pts['date'], bubble_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=75, alpha=0.95, zorder=5, label=f'[客观极度泡沫顶] 泡沫衰竭防守 (共 {len(bubble_pts)} 次)')
+
+        # 象限 IV：熊市反弹衰竭顶 (亮黄色钻石点)
+        bear_top_pts = df_bt[df_bt['Trigger_Bear_Top']]
+        ax1.scatter(bear_top_pts['date'], bear_top_pts['close'], color='#ffd600', edgecolors='#e65100', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观熊市衰竭顶] 诱多破位防守 (共 {len(bear_top_pts)} 次)')
 
         # 2. 策略实盘记账买卖点 (真实账户交易变动)
         sells = df_bt[df_bt['action'] == 'SELL']
