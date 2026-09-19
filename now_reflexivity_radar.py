@@ -245,12 +245,62 @@ class NOWReflexivityRadar:
         recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
         raw_sell = (cond_bubble | cond_bear) & (~recently_crashed)
 
-        # 4. 买入与回补信号：
+        # 4. 买入与回补信号条件：
         #    - 恐慌探底回升：深度超跌 (Dist_200MA < -15%) + 收复 10 日均线 + 动能转正 (q1_dot > 0)
         #    - 趋势右侧确认：连续 3 日站稳 50 日均线
+        #    - 极限超跌反转：年线偏离低于 -25% 且动能拐点转正
         cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
         cond_trend = (df_bt['close'] > df_bt['MA50']).rolling(3).sum() == 3
-        raw_buy = cond_panic | cond_trend
+        cond_deep = (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0)
+        raw_buy = cond_panic | cond_trend | cond_deep
+
+        # -------------------------------------------------------------
+        # 核心解耦：客观雷达信号层 (Pure Observational Signals)
+        # 无论账户当前持仓如何（满仓、半仓或空仓），只要指标触发，均客观输出信号！
+        # -------------------------------------------------------------
+        # A. 客观超卖 / 抄底预警信号
+        signal_oversold = raw_buy
+        trigger_oversold = signal_oversold & (~signal_oversold.shift(1).fillna(False))
+
+        # B. 客观超买 / 过热警戒信号
+        cond_tech_exhaustion = (df_bt['Dist_200MA'] > 15.0) & (df_bt['q1_dot'] < 0) & (df_bt['close'] < df_bt['MA10']) & (df_bt['q1_dot'].shift(1) >= 0)
+        cond_overheat_extreme = (df_bt['Composite_Score'] >= 70.0) & (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0)
+        signal_overbought = cond_bubble | cond_bear | cond_tech_exhaustion | cond_overheat_extreme
+        trigger_overbought = signal_overbought & (~signal_overbought.shift(1).fillna(False))
+
+        df_bt['Signal_Oversold'] = signal_oversold
+        df_bt['Trigger_Oversold'] = trigger_oversold
+        df_bt['Signal_Overbought'] = signal_overbought
+        df_bt['Trigger_Overbought'] = trigger_overbought
+
+        # 详细记录客观雷达预警诱因
+        alert_types = []
+        alert_reasons = []
+        for i in range(len(df_bt)):
+            if trigger_oversold.iloc[i]:
+                alert_types.append("超卖抄底拐点")
+                if cond_deep.iloc[i]:
+                    alert_reasons.append(f"极限超跌(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)且相空间动能拐点转正(q1_dot={df_bt['q1_dot'].iloc[i]:.2f})")
+                elif cond_panic.iloc[i]:
+                    alert_reasons.append(f"恐慌抛压耗竭+收复10MA+动能转正(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%)")
+                else:
+                    alert_reasons.append("右侧突破50日均线生命线确认")
+            elif trigger_overbought.iloc[i]:
+                alert_types.append("超买过热预警")
+                if cond_bubble.iloc[i]:
+                    alert_reasons.append(f"反身性高位泡沫破裂(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%且转入第4象限)")
+                elif cond_bear.iloc[i]:
+                    alert_reasons.append("宏观信用危机防守(HYG破位+真实利率飙升)")
+                elif cond_overheat_extreme.iloc[i]:
+                    alert_reasons.append(f"综合过热得分极值({df_bt['Composite_Score'].iloc[i]:.1f}分)且动能高位衰竭")
+                else:
+                    alert_reasons.append(f"高位年线偏离+{df_bt['Dist_200MA'].iloc[i]:.1f}%且跌破10MA动能转负")
+            else:
+                alert_types.append("无")
+                alert_reasons.append("正常跟踪中")
+
+        df_bt['Radar_Alert_Type'] = alert_types
+        df_bt['Radar_Alert_Reason'] = alert_reasons
 
         # -------------------------------------------------------------
         # 逐日记账循环
@@ -450,20 +500,41 @@ class NOWReflexivityRadar:
                 sell_t = None
         df_pairs = pd.DataFrame(pairs)
 
-        # 3. 逐日全流水表
+        # 3. 雷达客观全信号观测明细表 (解耦于仓位与现金，记录全历史超买超卖预警)
+        signals_mask = df_bt['Trigger_Oversold'] | df_bt['Trigger_Overbought']
+        export_sig_cols = [
+            'date', 'close', 'Dist_200MA', 'q1_dot', 'v_dot', 'Quadrant',
+            'Score_Dim1_Pos', 'Score_Dim2_Vel', 'Score_Dim3_Lyapunov',
+            'Score_Dim4_Capital', 'Score_Dim5_Liquidity', 'Score_Dim6_Macro',
+            'Composite_Score', 'Radar_Alert_Type', 'Radar_Alert_Reason',
+            'action', 'strat_shares', 'strat_cash'
+        ]
+        df_signals = df_bt[signals_mask][export_sig_cols].copy()
+        df_signals['date'] = df_signals['date'].dt.strftime('%Y-%m-%d')
+        df_signals.columns = [
+            '触发日期', '收盘价(USD)', '年线偏离度(%)', '相空间速度q_dot', '能量导数V_dot', '动力学相限',
+            '维度1_势能分', '维度2_速度分', '维度3_稳定性分',
+            '维度4_资本稀释分', '维度5_筹码资金流分', '维度6_宏观引力分',
+            '综合反身性过热分', '客观雷达信号类型', '信号量化诱因',
+            '实盘执行动作', '账户实盘持股数', '闲置现金池(USD)'
+        ]
+
+        # 4. 逐日全流水表
         export_cols = [
             'date', 'close', 'volume', 'MA10', 'MA50', 'MA200', 'Dist_200MA',
             'q1', 'q1_dot', 'q1_ddot', 'v_dot', 'Quadrant',
             'Score_Dim1_Pos', 'Score_Dim2_Vel', 'Score_Dim3_Lyapunov',
             'Score_Dim4_Capital', 'Score_Dim5_Liquidity', 'Score_Dim6_Macro',
-            'Composite_Score', 'action', 'strat_shares', 'strat_cash', 'strat_nav', 'bench_nav'
+            'Composite_Score', 'Radar_Alert_Type', 'Radar_Alert_Reason',
+            'action', 'strat_shares', 'strat_cash', 'strat_nav', 'bench_nav'
         ]
         col_names_cn = [
             '日期', '收盘价', '成交量', '10日均线', '50日均线', '200日均线', '年线偏离度(%)',
             '状态位置q1', '状态速度q1_dot', '广义加速度q1_ddot', '李雅普诺夫能量导数v_dot', '动力学相限',
             '维度1_势能分', '维度2_速度分', '维度3_稳定性分',
             '维度4_资本稀释分', '维度5_筹码资金流分', '维度6_宏观引力分',
-            '综合反身性过热分', '交易信号', '策略真实持股数', '策略闲置现金池', '策略总资产净值', '基准总资产净值'
+            '综合反身性过热分', '客观雷达信号类型', '信号量化诱因',
+            '实盘交易信号', '策略真实持股数', '策略闲置现金池', '策略总资产净值', '基准总资产净值'
         ]
         df_daily = df_bt[export_cols].copy()
         df_daily['date'] = df_daily['date'].dt.strftime('%Y-%m-%d')
@@ -472,6 +543,7 @@ class NOWReflexivityRadar:
         with pd.ExcelWriter(self.output_xlsx, engine='openpyxl') as writer:
             df_summary.to_excel(writer, sheet_name='总体绩效对比', index=False)
             df_pairs.to_excel(writer, sheet_name='逐笔波段买卖对账表', index=False)
+            df_signals.to_excel(writer, sheet_name='雷达客观全信号明细表', index=False)
             df_daily.to_excel(writer, sheet_name='逐日状态全流水底稿', index=False)
 
         print(f"✅ Excel 导出完毕: {self.output_xlsx}")
@@ -479,7 +551,18 @@ class NOWReflexivityRadar:
     def export_csv(self):
         """保存全历史雷达与维度数据至本地 CSV"""
         print(f"💾 正在导出本地主雷达数据表至: {self.output_csv}...")
-        self.df.to_csv(self.output_csv, index=False)
+        # 将回测客观信号合并回 self.df 中
+        df_merged = self.df.copy()
+        if hasattr(self, 'df_bt') and self.df_bt is not None:
+            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Signal_Overbought', 'Trigger_Overbought', 'Radar_Alert_Type', 'Radar_Alert_Reason']
+            df_merged = df_merged.merge(self.df_bt[sig_cols], on='date', how='left')
+            df_merged['Signal_Oversold'] = df_merged['Signal_Oversold'].fillna(False)
+            df_merged['Trigger_Oversold'] = df_merged['Trigger_Oversold'].fillna(False)
+            df_merged['Signal_Overbought'] = df_merged['Signal_Overbought'].fillna(False)
+            df_merged['Trigger_Overbought'] = df_merged['Trigger_Overbought'].fillna(False)
+            df_merged['Radar_Alert_Type'] = df_merged['Radar_Alert_Type'].fillna('无')
+            df_merged['Radar_Alert_Reason'] = df_merged['Radar_Alert_Reason'].fillna('正常跟踪中')
+        df_merged.to_csv(self.output_csv, index=False)
         print(f"✅ CSV 导出完毕: {self.output_csv}")
 
     def plot_panoramic_chart(self):
@@ -492,23 +575,35 @@ class NOWReflexivityRadar:
         fig.suptitle("ServiceNow (NOW) 单股反身性相空间微观雷达全景图谱 (2013-2026)", fontsize=18, fontweight='bold', y=0.995)
 
         # -------------------------------------------------------------
-        # 第 1 层：价格与买卖点标记
+        # 第 1 层：价格与买卖点标记 (双层结构：客观雷达预警 + 账户实盘交易)
         # -------------------------------------------------------------
         ax1 = axes[0]
-        ax1.plot(dates, df_bt['close'], label='NOW 收盘价 (USD)', color='#1f77b4', lw=1.8)
-        ax1.plot(dates, df_bt['MA50'], label='50 日机构均线 (MA50)', color='#ff7f0e', lw=1.2, ls='--')
-        ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':')
+        ax1.plot(dates, df_bt['close'], label='NOW 收盘价 (USD)', color='#1f77b4', lw=1.8, zorder=2)
+        ax1.plot(dates, df_bt['MA50'], label='50 日机构均线 (MA50)', color='#ff7f0e', lw=1.2, ls='--', zorder=2)
+        ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':', zorder=2)
 
-        # 标记买卖点
+        # 1. 客观雷达信号标记 (不受仓位和现金限制)
+        # 超卖/抄底拐点信号 (亮青色钻石点)
+        os_pts = df_bt[df_bt['Trigger_Oversold']]
+        ax1.scatter(os_pts['date'], os_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=55, alpha=0.95, zorder=5, label=f'[客观抄底拐点] 恐慌超跌耗竭信号 (共 {len(os_pts)} 次)')
+
+        # 超买/过热警戒信号 (亮橙色钻石点)
+        ob_pts = df_bt[df_bt['Trigger_Overbought']]
+        ax1.scatter(ob_pts['date'], ob_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=55, alpha=0.95, zorder=5, label=f'[客观过热预警] 泡沫衰竭防守信号 (共 {len(ob_pts)} 次)')
+
+        # 2. 策略实盘记账买卖点 (真实账户交易变动)
         sells = df_bt[df_bt['action'] == 'SELL']
         buys = df_bt[df_bt['action'] == 'BUY']
-        ax1.scatter(sells['date'], sells['close'], color='#d62728', marker='v', s=120, zorder=5, label='策略逃顶卖出')
-        ax1.scatter(buys['date'], buys['close'], color='#2ca02c', marker='^', s=120, zorder=5, label='策略低位回补')
+        ax1.scatter(sells['date'], sells['close'], color='#d62728', marker='v', s=130, zorder=7, label=f'[实盘卖出] 策略减仓变现 (共 {len(sells)} 次, 仓位清零)')
+        ax1.scatter(buys['date'], buys['close'], color='#00c853', marker='^', s=130, zorder=7, label=f'[实盘买入] 策略低位建仓 (共 {len(buys)} 次, 满仓买入)')
 
-        ax1.set_title("Layer 1: 真实股价、均线生命线与反身性相变买卖点", fontsize=13, fontweight='bold')
+        # 3. 背景超卖区间微弱高亮 (使底部特征极其醒目)
+        ax1.fill_between(dates, df_bt['close'].min()*0.85, df_bt['close'].max()*1.1, where=df_bt['Signal_Oversold'], color='#00e5ff', alpha=0.06, label='雷达超卖抄底活跃区间')
+
+        ax1.set_title("Layer 1: 股价微观雷达双层信号图谱 (客观超买超卖预警 vs 账户实盘买卖执行)", fontsize=13, fontweight='bold')
         ax1.set_ylabel("价格 (USD)", fontsize=11)
         ax1.grid(True, alpha=0.3)
-        ax1.legend(loc='upper left', frameon=True, fontsize=10)
+        ax1.legend(loc='upper left', frameon=True, fontsize=9, ncol=2)
 
         # -------------------------------------------------------------
         # 第 2 层：相空间动力学 (速度 q_dot, 加速度 q_ddot, 能量导数 V_dot)
@@ -541,6 +636,8 @@ class NOWReflexivityRadar:
 
         ax3.axhline(70, color='#d62728', ls='--', lw=1.2, label='过热临界线 (70分)')
         ax3.axhline(30, color='#2ca02c', ls='--', lw=1.2, label='恐慌超卖线 (30分)')
+        ax3.axhspan(70, 100, color='#ff7f0e', alpha=0.12, label='过热警戒区 (Score >= 70)')
+        ax3.axhspan(0, 30, color='#00e5ff', alpha=0.12, label='恐慌超卖区 (Score <= 30)')
         ax3.set_title("Layer 3: 六大解耦维度分位数 (0-100) 与反身性综合过热得分", fontsize=13, fontweight='bold')
         ax3.set_ylabel("分位数得分 (0-100)", fontsize=11)
         ax3.grid(True, alpha=0.3)
