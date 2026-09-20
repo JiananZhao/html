@@ -486,64 +486,86 @@ def create_interactive_reflexivity_radar(df, symbol: str):
     from plotly.subplots import make_subplots
     import pandas as pd
     
-    if df is None or df.empty or 'Composite_Score' not in df.columns:
+    if df is None or df.empty or 'q1' not in df.columns:
         return None
         
     date_col = 'date' if 'date' in df.columns else df.index
 
-    # Create subplots: 3 rows
-    # Row 1: Price + 4-Quadrant Signals (50% height)
-    # Row 2: Composite Score (25% height)
-    # Row 3: Gap & Macro Tension (25% height)
+    # Create subplots: 4 rows
+    # Row 1: Price + 4-Quadrant Signals (40% height)
+    # Row 2: 核心动力学 (q1 & q1_dot) (20%)
+    # Row 3: 宏观偏离与李雅普诺夫能量 (Gap & V_dot) (20%)
+    # Row 4: 宏观信用环境 (BAA10Y & NFCI) (20%)
     fig = make_subplots(
-        rows=3, cols=1, 
+        rows=4, cols=1, 
         shared_xaxes=True, 
-        vertical_spacing=0.04,
-        row_heights=[0.5, 0.25, 0.25],
-        subplot_titles=(f"[{symbol}] 反身性相空间动力学 4-Quadrant Radar", "Composite Score 综合能量得分 (0-100)", "反身性认知偏差 (Reflexive Gap)")
+        vertical_spacing=0.03,
+        row_heights=[0.4, 0.2, 0.2, 0.2],
+        subplot_titles=(
+            f"[{symbol}] 反身性相空间动力学主图 (4-Quadrant Signals)", 
+            "Layer 2: 广义位置 q1 (年线偏离度 %) 与 广义速度 q1_dot", 
+            "Layer 3: 认知偏差 (Reflexive Gap) 与 李雅普诺夫能量导数 (v_dot)",
+            "Layer 4: 宏观信用引力 (BAA10Y 利差 & NFCI 金融条件)"
+        ),
+        specs=[[{"secondary_y": False}], [{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]]
     )
     
-    # --- Layer 1: Price and Signals ---
+    # --- Row 1: Price and Signals ---
     fig.add_trace(go.Scatter(x=df[date_col], y=df['close'], mode='lines', name='Close Price', line=dict(color='black', width=1.5)), row=1, col=1)
     if 'MA50' in df.columns:
         fig.add_trace(go.Scatter(x=df[date_col], y=df['MA50'], mode='lines', name='50 MA', line=dict(color='blue', width=1, dash='dot')), row=1, col=1)
     if 'MA200' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['MA200'], mode='lines', name='200 MA', line=dict(color='red', width=1.2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['MA200'], mode='lines', name='200 MA', line=dict(color='red', width=1.5)), row=1, col=1)
 
-    # Signal points
     if 'Trigger_Panic' in df.columns:
         df_panic = df[df['Trigger_Panic'] == True]
-        fig.add_trace(go.Scatter(x=df_panic[date_col], y=df_panic['close'], mode='markers', name='I: 恐慌极值底 (Panic)', marker=dict(color='fuchsia', size=12, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
-    
+        fig.add_trace(go.Scatter(x=df_panic[date_col], y=df_panic['close'], mode='markers', name='I: 恐慌底 (Panic)', marker=dict(color='fuchsia', size=12, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Stage' in df.columns:
         df_stage = df[df['Trigger_Stage'] == True]
-        fig.add_trace(go.Scatter(x=df_stage[date_col], y=df_stage['close'], mode='markers', name='II: 蓄势确认底 (Stage)', marker=dict(color='blue', size=10, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
-
+        fig.add_trace(go.Scatter(x=df_stage[date_col], y=df_stage['close'], mode='markers', name='II: 蓄势底 (Stage)', marker=dict(color='blue', size=10, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Bubble_Top' in df.columns:
         df_bubble = df[df['Trigger_Bubble_Top'] == True]
-        fig.add_trace(go.Scatter(x=df_bubble[date_col], y=df_bubble['close'], mode='markers', name='III: 极度泡沫顶 (Bubble)', marker=dict(color='red', size=12, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
-
+        fig.add_trace(go.Scatter(x=df_bubble[date_col], y=df_bubble['close'], mode='markers', name='III: 泡沫顶 (Bubble)', marker=dict(color='red', size=12, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Bear_Top' in df.columns:
         df_bear = df[df['Trigger_Bear_Top'] == True]
-        fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: 熊市逃顶 (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: 逃顶 (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
 
-    # --- Layer 2: Composite Score ---
-    fig.add_trace(go.Scatter(x=df[date_col], y=df['Composite_Score'], mode='lines', name='Composite Score', line=dict(color='purple', width=1.5)), row=2, col=1)
-    # Thresholds
-    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1, annotation_text="Overbought 70")
-    fig.add_hline(y=35, line_dash="dash", line_color="green", row=2, col=1, annotation_text="Oversold 35")
-    
-    # --- Layer 3: Gap & Tension ---
+    # --- Row 2: 核心动力学 (q1 on primary y, q1_dot on secondary y) ---
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1'], mode='lines', name='q1 (偏离度%)', line=dict(color='#8b5cf6', width=1.5)), row=2, col=1, secondary_y=False)
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1_dot'], mode='lines', name='q1_dot (速度)', line=dict(color='#10b981', width=1.5)), row=2, col=1, secondary_y=True)
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+
+    # --- Row 3: 认知偏差与能量导数 (Gap on primary, v_dot on secondary) ---
     if 'Gap' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap'], mode='lines', fill='tozeroy', name='Reflexive Gap', line=dict(color='rgba(255,165,0,0.8)', width=1)), row=3, col=1)
-    if 'Gap_Upper' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap_Upper'], mode='lines', name='Gap Upper 85%', line=dict(color='red', width=1, dash='dot')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap'], mode='lines', fill='tozeroy', name='Reflexive Gap', line=dict(color='rgba(255,165,0,0.7)', width=1)), row=3, col=1, secondary_y=False)
+    if 'v_dot' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['v_dot'], mode='lines', name='V_dot (散逸能量)', line=dict(color='#ef4444', width=1.5)), row=3, col=1, secondary_y=True)
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", row=3, col=1)
 
+    # --- Row 4: 宏观环境 (BAA10Y on primary, NFCI on secondary) ---
+    if 'BAA10Y' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['BAA10Y'], mode='lines', name='BAA10Y 信用利差', line=dict(color='#3b82f6', width=1.5)), row=4, col=1, secondary_y=False)
+    if 'NFCI' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['NFCI'], mode='lines', name='NFCI 金融条件', line=dict(color='#f59e0b', width=1.5)), row=4, col=1, secondary_y=True)
+
+    # Add range slider to x-axis
     fig.update_layout(
-        height=800,
+        height=1000,
         hovermode="x unified",
         template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis4=dict(
+            rangeslider=dict(visible=True, thickness=0.05),
+            type="date"
+        )
     )
     
+    # Improve y-axis formatting
+    fig.update_yaxes(title_text="q1 (%)", row=2, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="q1_dot", row=2, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="Gap Z-Score", row=3, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="V_dot", row=3, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="BAA10Y (%)", row=4, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="NFCI", row=4, col=1, secondary_y=True)
+
     return fig
