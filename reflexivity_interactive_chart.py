@@ -270,9 +270,9 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'
             ), row=1, col=1
         )
 
-    # 逐笔交易标记 (买点 🟢 / 卖点 🔴)
-    buy_trades = [t for t in trades if t['action'] == 'BUY']
-    sell_trades = [t for t in trades if t['action'] == 'SELL']
+    # 逐笔交易标记 (买点 🟢 / 卖点 🔴) 过滤掉常规的每月定投订单
+    buy_trades = [t for t in trades if t['action'] == 'BUY' and 'Standing Order / DCA' not in t['reason']]
+    sell_trades = [t for t in trades if t['action'] == 'SELL' and 'Standing Order / DCA' not in t['reason']]
 
     if buy_trades:
         b_df = pd.DataFrame(buy_trades)
