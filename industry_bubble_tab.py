@@ -178,6 +178,33 @@ def load_radar_data(asset_key):
         return pd.DataFrame(), "无可用数据源"
 
 
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_backtest_data(asset_key):
+    config = ASSET_CONFIG[asset_key]
+    ticker = config['ticker'].lower()
+    
+    local_csv = os.path.join(BASE_DIR, f"{ticker}_backtest_daily_local.csv")
+    github_csv = f"https://raw.githubusercontent.com/JiananZhao/html/master/{ticker}_backtest_daily_local.csv"
+    
+    if os.path.exists(local_csv):
+        try:
+            df = pd.read_csv(local_csv)
+            if not df.empty and 'date' in df.columns:
+                return df
+        except Exception:
+            pass
+            
+    try:
+        df = pd.read_csv(github_csv)
+        if not df.empty and 'date' in df.columns:
+            return df
+    except Exception:
+        pass
+        
+    return pd.DataFrame()
+
+
 def build_layer2_radar_chart(df, default_range="1Y", ticker="IGV"):
     """
     绘制 Layer 2: 0~100 综合微观雷达分与各独立分项交互图谱 (Plotly)
@@ -592,7 +619,7 @@ def build_now_phase_portrait_plotly(df):
     return fig
 
 
-def build_now_nav_chart(df, default_range="1Y"):
+def build_nav_chart(df, ticker, default_range="1Y"):
     """
     绘制 Layer 4: 真实券商记账资产净值曲线对比 (策略 vs 买入持有)
     """
@@ -602,7 +629,7 @@ def build_now_nav_chart(df, default_range="1Y"):
         fig.add_trace(go.Scatter(
             x=dates,
             y=df['strat_nav'],
-            name='🦅 反身性相空间动力学策略 (真实券商记账)',
+            name=f'🦅 {ticker} 宏观反身性模型 (真实券商记账)',
             line=dict(color='#d62728', width=2.4),
             hovertemplate='策略净资产: $%{y:,.0f}<extra></extra>'
         ))
@@ -617,7 +644,7 @@ def build_now_nav_chart(df, default_range="1Y"):
         fig.add_trace(go.Scatter(
             x=dates,
             y=df['close'],
-            name='NOW 价格',
+            name=f'{ticker} 价格',
             line=dict(color='#1f77b4', width=2.0)
         ))
 
@@ -789,7 +816,7 @@ def render_industry_bubble_tab():
         st.markdown("---")
         st.subheader("💰 Layer 4: 真实券商记账全周期资产净值曲线 (Strategy vs Benchmark)")
         st.caption("💡 **严格券商对账标准**：初始本金 $10,000，每月定投 $1,000。严格追踪真实持股数与现金池，彻底杜绝虚假连乘。13.3 年仅触发 12 次交易（6 轮买卖配对），最终资产战胜基准 +40.25%（净增超额财富 +$382,874）！")
-        fig_nav = build_now_nav_chart(df, default_range=sel_range)
+        fig_nav = build_nav_chart(df, ticker=ticker, default_range=sel_range)
         st.plotly_chart(fig_nav, use_container_width=True)
 
         with st.expander("📋 展开查看：NOW 13.3年逐笔波段买卖配对全证据", expanded=False):
