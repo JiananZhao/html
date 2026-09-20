@@ -10,7 +10,7 @@ ServiceNow (NOW) 单股反身性相空间动力学量化模型与微观雷达全
    - 状态位置 q：相对 200MA 的结构性累积偏离（广义势能坐标）；
    - 状态速度 q_dot：10日有限差分变化率，反映认知偏差与资金加速/减速（广义动能坐标）；
    - 广义加速度 q_ddot：5日二阶差分，刻画驱动外力边际枯竭；
-   - 李雅普诺夫能量导数 V_dot：V_dot = q_dot * (q + tau * q_ddot)，刻画系统自激失稳与能量耗散分岔。
+   - 相空间能量变化率代理指标 V_dot：V_dot = q_dot * (q + tau * q_ddot)，刻画系统自激失稳与能量耗散分岔。
 2. 六大维度完全解耦（Decoupled Observables）：
    - Dim 1: 广义位置状态 (q1 偏离度)
    - Dim 2: 广义速度状态 (q1_dot 变化率)
@@ -126,7 +126,7 @@ class NOWReflexivityRadar:
         df['q1_dot'] = (df['q1'] - df['q1'].shift(10)) / 10.0
         # 广义加速度 q1_ddot: 5 天二阶有限差分 (%/day^2)
         df['q1_ddot'] = (df['q1_dot'] - df['q1_dot'].shift(5)) / 5.0
-        # 李雅普诺夫能量导数: V_dot = q1_dot * (q1 + tau * q1_ddot), 特征时间尺度 tau = 100
+        # 相空间能量变化率代理指标: V_dot = q1_dot * (q1 + tau * q1_ddot), 特征时间尺度 tau = 100
         tau = 100.0
         df['v_dot'] = df['q1_dot'] * (df['q1'] + tau * df['q1_ddot'])
 
@@ -602,7 +602,7 @@ class NOWReflexivityRadar:
         ]
         col_names_cn = [
             '日期', '收盘价', '成交量', '10日均线', '50日均线', '200日均线', '年线偏离度(%)',
-            '状态位置q1', '状态速度q1_dot', '广义加速度q1_ddot', '李雅普诺夫能量导数v_dot', '动力学相限',
+            '状态位置q1', '状态速度q1_dot', '广义加速度q1_ddot', '相空间能量变化率代理指标v_dot', '动力学相限',
             '维度1_势能分', '维度2_速度分', '维度3_稳定性分',
             '维度4_资本稀释分', '维度5_筹码资金流分', '维度6_宏观引力分',
             '综合反身性过热分', '客观雷达信号类型', '信号量化诱因',
@@ -699,7 +699,7 @@ class NOWReflexivityRadar:
         ax2.fill_between(dates, df_bt['q1_dot'], 0, where=(df_bt['q1_dot'] <= 0), color='#e377c2', alpha=0.2, label='动能衰竭区')
 
         ax2_sub = ax2.twinx()
-        ax2_sub.plot(dates, df_bt['v_dot'], label='李雅普诺夫能量导数 V_dot', color='#d62728', lw=1.0, alpha=0.7)
+        ax2_sub.plot(dates, df_bt['v_dot'], label='相空间能量变化率代理指标 V_dot', color='#d62728', lw=1.0, alpha=0.7)
         ax2_sub.set_ylabel("能量导数 V_dot", fontsize=10, color='#d62728')
 
         ax2.set_title("Layer 2: 黄文政相空间物理量 (广义动能 q1_dot 与 李雅普诺夫稳定性导数 V_dot)", fontsize=13, fontweight='bold')

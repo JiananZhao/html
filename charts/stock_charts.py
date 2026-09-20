@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from charts.theme import filter_by_timeframe, apply_chart_theme
 
 # ------------------------------------------------------------------
-# 1. 个股量化与交互式 K 线 / 均线走势图
+# 1. ???????????????????????? K ??? / ???????????????
 # ------------------------------------------------------------------
 def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: str = "Candlestick", timeframe: str = "1Y"):
     if df_stock is None or df_stock.empty:
@@ -43,7 +43,7 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
             shared_xaxes=True,
             vertical_spacing=0.03,
             row_heights=[0.75, 0.25],
-            subplot_titles=(f"{symbol} 价格与均线系统 (MA20 / MA50 / MA200)", "成交量 (Volume)")
+            subplot_titles=(f"{symbol} ????????????????????? (MA20 / MA50 / MA200)", "????????? (Volume)")
         )
     else:
         fig = make_subplots(rows=1, cols=1)
@@ -57,7 +57,7 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
                 high=df['High'],
                 low=df['Low'],
                 close=df['Close'],
-                name=f"{symbol} K线",
+                name=f"{symbol} K???",
                 increasing_line_color='#22c55e',
                 decreasing_line_color='#ef4444',
                 showlegend=True
@@ -66,7 +66,7 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
         )
     elif 'Close' in df.columns:
         fig.add_trace(
-            go.Scatter(x=df['Date'], y=df['Close'], mode='lines', name=f"{symbol} 收盘价", line=dict(color='#2563eb', width=2)),
+            go.Scatter(x=df['Date'], y=df['Close'], mode='lines', name=f"{symbol} ?????????", line=dict(color='#2563eb', width=2)),
             row=1, col=1
         )
 
@@ -80,7 +80,7 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
     if has_volume:
         colors = ['#22c55e' if c >= o else '#ef4444' for c, o in zip(df['Close'], df['Open'])] if has_ohlc else '#64748b'
         fig.add_trace(
-            go.Bar(x=df['Date'], y=df['Volume'], name="成交量", marker_color=colors, showlegend=False),
+            go.Bar(x=df['Date'], y=df['Volume'], name="?????????", marker_color=colors, showlegend=False),
             row=2, col=1
         )
 
@@ -96,7 +96,7 @@ def create_stock_price_chart(df_stock: pd.DataFrame, symbol: str, chart_type: st
 
 
 # ------------------------------------------------------------------
-# 2. 半导体产业链标的相对表现走势图 (Normalized Performance)
+# 2. ????????????????????????????????????????????? (Normalized Performance)
 # ------------------------------------------------------------------
 def create_relative_performance_chart(df_norm: pd.DataFrame, symbols: list, timeframe: str = "1Y"):
     if df_norm is None or df_norm.empty or 'Date' not in df_norm.columns:
@@ -120,8 +120,8 @@ def create_relative_performance_chart(df_norm: pd.DataFrame, symbols: list, time
         df,
         x='Date',
         y=val_cols,
-        title=f"半导体产业链龙头相对表现走势 (基准 = 100) - [{timeframe}]",
-        labels={"value": "相对表现 (以区间起点为100)", "Date": "日期", "variable": "标的代码"},
+        title=f"?????????????????????????????????????????? (?????? = 100) - [{timeframe}]",
+        labels={"value": "???????????? (??????????????????100)", "Date": "??????", "variable": "????????????"},
         template="plotly_white"
     )
     fig.add_hline(y=100, line_dash="dash", line_color="gray")
@@ -135,9 +135,9 @@ def create_relative_performance_chart(df_norm: pd.DataFrame, symbols: list, time
 
 
 # ------------------------------------------------------------------
-# 3. 多期核心财务指标趋势走势图 (Revenue, Margin, FCF)
+# 3. ??????????????????????????????????????? (Revenue, Margin, FCF)
 # ------------------------------------------------------------------
-def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", period_type: str = "季度"):
+def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", period_type: str = "??????"):
     if df_stmt is None or df_stmt.empty:
         return None
     df = df_stmt.copy()
@@ -145,38 +145,38 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", perio
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            f"营收与利润规模趋势 ($M)",
-            f"盈利能力利润率趋势 (%)",
-            f"自由现金流与资本开支 ($M)",
-            f"研发支出及占比 ($M / %)"
+            f"??????????????????????????? ($M)",
+            f"??????????????????????????? (%)",
+            f"?????????????????????????????? ($M)",
+            f"????????????????????? ($M / %)"
         )
     )
 
     if 'Revenue ($M)' in df.columns:
-        fig.add_trace(go.Bar(x=df['Period'], y=df['Revenue ($M)'], name="总营收 ($M)", marker_color='#3b82f6'), row=1, col=1)
+        fig.add_trace(go.Bar(x=df['Period'], y=df['Revenue ($M)'], name="????????? ($M)", marker_color='#3b82f6'), row=1, col=1)
     if 'Net Income ($M)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Income ($M)'], name="净利润 ($M)", line=dict(color='#22c55e', width=2.5)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Income ($M)'], name="????????? ($M)", line=dict(color='#22c55e', width=2.5)), row=1, col=1)
 
     if 'Gross Margin (%)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['Gross Margin (%)'], name="毛利率 (%)", line=dict(color='#8b5cf6', width=2)), row=1, col=2)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['Gross Margin (%)'], name="????????? (%)", line=dict(color='#8b5cf6', width=2)), row=1, col=2)
     if 'Operating Margin (%)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['Operating Margin (%)'], name="营业利润率 (%)", line=dict(color='#f59e0b', width=2)), row=1, col=2)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['Operating Margin (%)'], name="??????????????? (%)", line=dict(color='#f59e0b', width=2)), row=1, col=2)
     if 'Net Margin (%)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Margin (%)'], name="净利率 (%)", line=dict(color='#10b981', width=2)), row=1, col=2)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['Net Margin (%)'], name="????????? (%)", line=dict(color='#10b981', width=2)), row=1, col=2)
 
     if 'Operating Cash Flow ($M)' in df.columns:
-        fig.add_trace(go.Bar(x=df['Period'], y=df['Operating Cash Flow ($M)'], name="经营性现金流 ($M)", marker_color='#60a5fa'), row=2, col=1)
+        fig.add_trace(go.Bar(x=df['Period'], y=df['Operating Cash Flow ($M)'], name="?????????????????? ($M)", marker_color='#60a5fa'), row=2, col=1)
     if 'Free Cash Flow ($M)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['Free Cash Flow ($M)'], name="自由现金流 ($M)", line=dict(color='#059669', width=2.5)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['Free Cash Flow ($M)'], name="??????????????? ($M)", line=dict(color='#059669', width=2.5)), row=2, col=1)
     if 'CapEx ($M)' in df.columns:
-        fig.add_trace(go.Bar(x=df['Period'], y=df['CapEx ($M)'], name="资本开支 ($M)", marker_color='#f87171'), row=2, col=1)
+        fig.add_trace(go.Bar(x=df['Period'], y=df['CapEx ($M)'], name="???????????? ($M)", marker_color='#f87171'), row=2, col=1)
 
     if 'R&D Expenses ($M)' in df.columns:
-        fig.add_trace(go.Bar(x=df['Period'], y=df['R&D Expenses ($M)'], name="研发支出 ($M)", marker_color='#a78bfa'), row=2, col=2)
+        fig.add_trace(go.Bar(x=df['Period'], y=df['R&D Expenses ($M)'], name="???????????? ($M)", marker_color='#a78bfa'), row=2, col=2)
     if 'R&D / Rev (%)' in df.columns:
-        fig.add_trace(go.Scatter(x=df['Period'], y=df['R&D / Rev (%)'], name="研发费用率 (%)", line=dict(color='#ec4899', width=2)), row=2, col=2)
+        fig.add_trace(go.Scatter(x=df['Period'], y=df['R&D / Rev (%)'], name="??????????????? (%)", line=dict(color='#ec4899', width=2)), row=2, col=2)
 
-    title_text = f"{symbol} 核心财务趋势走势图 ({period_type})" if symbol else f"核心财务趋势走势图 ({period_type})"
+    title_text = f"{symbol} ??????????????????????????? ({period_type})" if symbol else f"??????????????????????????? ({period_type})"
     fig.update_layout(
         template="plotly_white",
         height=650,
@@ -188,7 +188,7 @@ def create_financial_trends_chart(df_stmt: pd.DataFrame, symbol: str = "", perio
 
 
 # ------------------------------------------------------------------
-# 4. PE / PS Band 动态估值通道图表
+# 4. PE / PS Band ????????????????????????
 # ------------------------------------------------------------------
 def create_pe_ps_band_chart(
     df_stock: pd.DataFrame, 
@@ -198,7 +198,7 @@ def create_pe_ps_band_chart(
     timeframe: str = "3Y"
 ):
     """
-    绘制个股历史股价与动态 PE / PS 估值带叠加走势图
+    ????????????????????????????????? PE / PS ????????????????????????
     """
     if df_stock is None or df_stock.empty or 'Close' not in df_stock.columns:
         return None
@@ -248,25 +248,25 @@ def create_pe_ps_band_chart(
             x=df['Date'],
             y=df['Close'],
             mode='lines',
-            name=f"{symbol} 真实股价",
+            name=f"{symbol} ????????????",
             line=dict(color='#1e293b', width=2.5),
-            hovertemplate=f"<b>{symbol} 股价</b>: $%{{y:.2f}}<extra></extra>"
+            hovertemplate=f"<b>{symbol} ??????</b>: $%{{y:.2f}}<extra></extra>"
         )
     )
 
     fig.update_layout(
-        title=f"{symbol} {val_type} 动态估值通道 ({val_type} Band) - [{timeframe}]",
+        title=f"{symbol} {val_type} ?????????????????? ({val_type} Band) - [{timeframe}]",
         template="plotly_white",
         height=500,
         hovermode="x unified",
-        yaxis_title="价格 ($ USD)",
+        yaxis_title="?????? ($ USD)",
         uirevision=f"{val_type.lower()}_band_{symbol}_{timeframe}"
     )
     return fig
 
 
 # ------------------------------------------------------------------
-# 5. 技术动量与超买超卖信号图表 (RSI, MACD, Bollinger Bands)
+# 5. ??????????????????????????????????????? (RSI, MACD, Bollinger Bands)
 # ------------------------------------------------------------------
 def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timeframe: str = "1Y"):
     if df_stock is None or df_stock.empty or 'Close' not in df_stock.columns:
@@ -306,18 +306,18 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
         shared_xaxes=True,
         vertical_spacing=0.04,
         row_heights=[0.55, 0.25, 0.20],
-        subplot_titles=(f"{symbol} 股价与布林带 (Bollinger Bands)", "MACD (12, 26, 9)", "RSI (14) 超买超卖")
+        subplot_titles=(f"{symbol} ?????????????????? (Bollinger Bands)", "MACD (12, 26, 9)", "RSI (14) ????????????")
     )
 
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Upper'], name="布林上轨", line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Lower'], name="布林下轨", fill='tonexty', fillcolor='rgba(241, 245, 249, 0.4)', line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Mid'], name="布林中轨 (20MA)", line=dict(color='#64748b', width=1.2)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'], name=f"{symbol} 股价", line=dict(color='#2563eb', width=2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Upper'], name="????????????", line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Lower'], name="????????????", fill='tonexty', fillcolor='rgba(241, 245, 249, 0.4)', line=dict(color='rgba(148, 163, 184, 0.5)', dash='dot')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_Mid'], name="???????????? (20MA)", line=dict(color='#64748b', width=1.2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'], name=f"{symbol} ??????", line=dict(color='#2563eb', width=2)), row=1, col=1)
 
     fig.add_trace(go.Scatter(x=df['Date'], y=df['MACD'], name="MACD", line=dict(color='#3b82f6', width=1.5)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['Signal'], name="Signal (信号线)", line=dict(color='#f97316', width=1.5)), row=2, col=1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['Signal'], name="Signal (?????????)", line=dict(color='#f97316', width=1.5)), row=2, col=1)
     hist_colors = ['#22c55e' if h >= 0 else '#ef4444' for h in df['Hist']]
-    fig.add_trace(go.Bar(x=df['Date'], y=df['Hist'], name="MACD 柱状图", marker_color=hist_colors), row=2, col=1)
+    fig.add_trace(go.Bar(x=df['Date'], y=df['Hist'], name="MACD ?????????", marker_color=hist_colors), row=2, col=1)
 
     fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], name="RSI (14)", line=dict(color='#8b5cf6', width=2)), row=3, col=1)
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
@@ -330,7 +330,7 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
         xaxis_rangeslider_visible=False,
         uirevision=f"tech_mom_{symbol}_{timeframe}"
     )
-    fig.update_yaxes(title_text="股价", row=1, col=1)
+    fig.update_yaxes(title_text="??????", row=1, col=1)
     fig.update_yaxes(title_text="MACD", row=2, col=1)
     fig.update_yaxes(title_text="RSI", range=[0, 100], row=3, col=1)
 
@@ -338,11 +338,11 @@ def create_technical_momentum_chart(df_stock: pd.DataFrame, symbol: str, timefra
 
 
 # ------------------------------------------------------------------
-# 6. 期权持仓分布与 Max Pain 最大痛点图表
+# 6. ????????????????????? Max Pain ??????????????????
 # ------------------------------------------------------------------
 def create_max_pain_chart(options_data: dict, current_price: float = None):
     """
-    绘制期权到期日各行权价的 Call / Put 未平仓量 (OI) 分布，并标注 Max Pain 最大痛点价位
+    ???????????????????????????????????? Call / Put ???????????? (OI) ?????????????????? Max Pain ??????????????????
     """
     if not options_data or "df_strikes" not in options_data:
         return None
@@ -354,7 +354,7 @@ def create_max_pain_chart(options_data: dict, current_price: float = None):
     exp_date = options_data.get("expiration", "")
     max_pain = options_data.get("max_pain_price", None)
 
-    # 聚焦当前价格上下 35% 范围内的核心行权价区间，避免被边缘深度虚值期权稀释
+    # ???????????????????????? 35% ???????????????????????????????????????????????????????????????????????????
     if current_price is not None and current_price > 0:
         low_strike = current_price * 0.65
         high_strike = current_price * 1.35
@@ -370,7 +370,7 @@ def create_max_pain_chart(options_data: dict, current_price: float = None):
         go.Bar(
             x=df_plot['strike'],
             y=df_plot['call_oi'],
-            name="Call 看涨未平仓 (OI)",
+            name="Call ??????????????? (OI)",
             marker_color='#16a34a',
             opacity=0.85
         )
@@ -380,7 +380,7 @@ def create_max_pain_chart(options_data: dict, current_price: float = None):
         go.Bar(
             x=df_plot['strike'],
             y=df_plot['put_oi'],
-            name="Put 看跌未平仓 (OI)",
+            name="Put ??????????????? (OI)",
             marker_color='#dc2626',
             opacity=0.85
         )
@@ -402,29 +402,29 @@ def create_max_pain_chart(options_data: dict, current_price: float = None):
             line_width=2,
             line_dash="dot",
             line_color="#2563eb",
-            annotation_text=f"现价: ${current_price:.2f}",
+            annotation_text=f"??????: ${current_price:.2f}",
             annotation_position="top right"
         )
 
     fig.update_layout(
-        title=f"<b>{symbol} 期权未平仓量 (OI) 分布与做市商最大痛点 (Max Pain) — 到期日: [{exp_date}]</b>",
+        title=f"<b>{symbol} ?????????????????? (OI) ?????????????????????????????? (Max Pain) ??? ?????????: [{exp_date}]</b>",
         template="plotly_white",
         height=480,
         barmode="group",
         hovermode="x unified",
-        xaxis_title="行权价 (Strike Price $)",
-        yaxis_title="未平仓合约张数 (Contracts)",
+        xaxis_title="????????? (Strike Price $)",
+        yaxis_title="????????????????????? (Contracts)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     return fig
 
 
 # ------------------------------------------------------------------
-# 7. 微观量价动量、动态吊灯止损与波动率挤压走势图
+# 7. ??????????????????????????????????????????????????????????????????
 # ------------------------------------------------------------------
 def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, timeframe: str = "1Y"):
     """
-    绘制股价与动态 Chandelier 吊灯多头追踪止损线、20D 均线偏离度 (Bias %) 及布林带带宽 (BandWidth %)
+    ????????????????????? Chandelier ??????????????????????????????20D ??????????????? (Bias %) ?????????????????? (BandWidth %)
     """
     if df_metrics is None or df_metrics.empty:
         return None
@@ -447,27 +447,27 @@ def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, time
         vertical_spacing=0.06,
         row_heights=[0.65, 0.35],
         subplot_titles=(
-            f"{symbol} 股价、20MA 与 Chandelier 动态吊灯多头追踪止损位",
-            f"20D 均线偏离度 (Bias %) 与 布林带带宽挤压 (BandWidth %)"
+            f"{symbol} ?????????20MA ??? Chandelier ?????????????????????????????????",
+            f"20D ??????????????? (Bias %) ??? ????????????????????? (BandWidth %)"
         )
     )
 
-    fig.add_trace(go.Scatter(x=df[date_col], y=df['Close'], name="收盘价", line=dict(color='#2563eb', width=2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['Close'], name="?????????", line=dict(color='#2563eb', width=2)), row=1, col=1)
 
     ma20 = df['Close'].rolling(20).mean()
     fig.add_trace(go.Scatter(x=df[date_col], y=ma20, name="20MA", line=dict(color='#f59e0b', width=1.5, dash='dash')), row=1, col=1)
 
     if 'Chandelier_Exit' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Chandelier_Exit'], name="Chandelier 动态止损线", line=dict(color='#dc2626', width=1.8, dash='dot')), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Chandelier_Exit'], name="Chandelier ???????????????", line=dict(color='#dc2626', width=1.8, dash='dot')), row=1, col=1)
 
     if 'Bias20' in df.columns:
         bias_colors = ['#16a34a' if b >= 0 else '#ef4444' for b in df['Bias20']]
-        fig.add_trace(go.Bar(x=df[date_col], y=df['Bias20'], name="20D 偏离度 (%)", marker_color=bias_colors, opacity=0.7), row=2, col=1)
-        fig.add_hline(y=8.0, line_dash="dash", line_color="#dc2626", annotation_text="+8% 冲高过热", row=2, col=1)
-        fig.add_hline(y=-8.0, line_dash="dash", line_color="#16a34a", annotation_text="-8% 超跌反弹", row=2, col=1)
+        fig.add_trace(go.Bar(x=df[date_col], y=df['Bias20'], name="20D ????????? (%)", marker_color=bias_colors, opacity=0.7), row=2, col=1)
+        fig.add_hline(y=8.0, line_dash="dash", line_color="#dc2626", annotation_text="+8% ????????????", row=2, col=1)
+        fig.add_hline(y=-8.0, line_dash="dash", line_color="#16a34a", annotation_text="-8% ????????????", row=2, col=1)
 
     if 'BandWidth' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['BandWidth'], name="布林带带宽 (BandWidth %)", line=dict(color='#8b5cf6', width=1.8)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['BandWidth'], name="??????????????? (BandWidth %)", line=dict(color='#8b5cf6', width=1.8)), row=2, col=1)
 
     fig.update_layout(
         template="plotly_white",
@@ -476,8 +476,8 @@ def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, time
         uirevision=f"vol_mom_{symbol}_{timeframe}",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
-    fig.update_yaxes(title_text="价格 ($)", row=1, col=1)
-    fig.update_yaxes(title_text="偏离度 / 带宽 (%)", row=2, col=1)
+    fig.update_yaxes(title_text="?????? ($)", row=1, col=1)
+    fig.update_yaxes(title_text="????????? / ?????? (%)", row=2, col=1)
     return fig
 
 
@@ -493,19 +493,19 @@ def create_interactive_reflexivity_radar(df, symbol: str):
 
     # Create subplots: 4 rows
     # Row 1: Price + 4-Quadrant Signals (40% height)
-    # Row 2: 核心动力学 (q1 & q1_dot) (20%)
-    # Row 3: 宏观偏离与李雅普诺夫能量 (Gap & V_dot) (20%)
-    # Row 4: 宏观信用环境 (BAA10Y & NFCI) (20%)
+    # Row 2: ??????????????? (q1 & q1_dot) (20%)
+    # Row 3: ???????????????????????????????????? (Gap & V_dot) (20%)
+    # Row 4: ?????????????????? (BAA10Y & NFCI) (20%)
     fig = make_subplots(
         rows=4, cols=1, 
         shared_xaxes=True, 
         vertical_spacing=0.03,
         row_heights=[0.4, 0.2, 0.2, 0.2],
         subplot_titles=(
-            f"[{symbol}] 反身性相空间动力学主图 (4-Quadrant Signals)", 
-            "Layer 2: 广义位置 q1 (年线偏离度 %) 与 广义速度 q1_dot", 
-            "Layer 3: 认知偏差 (Reflexive Gap) 与 李雅普诺夫能量导数 (v_dot)",
-            "Layer 4: 宏观信用引力 (BAA10Y 利差 & NFCI 金融条件)"
+            f"[{symbol}] ????????????????????????????????? (4-Quadrant Signals)", 
+            "Layer 2: ???????????? q1 (??????????????? %) ??? ???????????? q1_dot", 
+            "Layer 3: ???????????? (Reflexive Gap) ??? ??????????????????????????? (v_dot)",
+            "Layer 4: ?????????????????? (BAA10Y ?????? & NFCI ????????????)"
         ),
         specs=[[{"secondary_y": False}], [{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]]
     )
@@ -519,34 +519,34 @@ def create_interactive_reflexivity_radar(df, symbol: str):
 
     if 'Trigger_Panic' in df.columns:
         df_panic = df[df['Trigger_Panic'] == True]
-        fig.add_trace(go.Scatter(x=df_panic[date_col], y=df_panic['close'], mode='markers', name='I: 恐慌底 (Panic)', marker=dict(color='fuchsia', size=12, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_panic[date_col], y=df_panic['close'], mode='markers', name='I: ????????? (Panic)', marker=dict(color='fuchsia', size=12, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Stage' in df.columns:
         df_stage = df[df['Trigger_Stage'] == True]
-        fig.add_trace(go.Scatter(x=df_stage[date_col], y=df_stage['close'], mode='markers', name='II: 蓄势底 (Stage)', marker=dict(color='blue', size=10, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_stage[date_col], y=df_stage['close'], mode='markers', name='II: ????????? (Stage)', marker=dict(color='blue', size=10, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Bubble_Top' in df.columns:
         df_bubble = df[df['Trigger_Bubble_Top'] == True]
-        fig.add_trace(go.Scatter(x=df_bubble[date_col], y=df_bubble['close'], mode='markers', name='III: 泡沫顶 (Bubble)', marker=dict(color='red', size=12, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_bubble[date_col], y=df_bubble['close'], mode='markers', name='III: ????????? (Bubble)', marker=dict(color='red', size=12, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
     if 'Trigger_Bear_Top' in df.columns:
         df_bear = df[df['Trigger_Bear_Top'] == True]
-        fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: 逃顶 (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: ?????? (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
 
-    # --- Row 2: 核心动力学 (q1 on primary y, q1_dot on secondary y) ---
-    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1'], mode='lines', name='q1 (偏离度%)', line=dict(color='#8b5cf6', width=1.5)), row=2, col=1, secondary_y=False)
-    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1_dot'], mode='lines', name='q1_dot (速度)', line=dict(color='#10b981', width=1.5)), row=2, col=1, secondary_y=True)
+    # --- Row 2: ??????????????? (q1 on primary y, q1_dot on secondary y) ---
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1'], mode='lines', name='q1 (?????????%)', line=dict(color='#8b5cf6', width=1.5)), row=2, col=1, secondary_y=False)
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['q1_dot'], mode='lines', name='q1_dot (??????)', line=dict(color='#10b981', width=1.5)), row=2, col=1, secondary_y=True)
     fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
 
-    # --- Row 3: 认知偏差与能量导数 (Gap on primary, v_dot on secondary) ---
+    # --- Row 3: ??????????????????????????? (Gap on primary, v_dot on secondary) ---
     if 'Gap' in df.columns:
         fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap'], mode='lines', fill='tozeroy', name='Reflexive Gap', line=dict(color='rgba(255,165,0,0.7)', width=1)), row=3, col=1, secondary_y=False)
     if 'v_dot' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['v_dot'], mode='lines', name='V_dot (散逸能量)', line=dict(color='#ef4444', width=1.5)), row=3, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['v_dot'], mode='lines', name='V_dot (????????????)', line=dict(color='#ef4444', width=1.5)), row=3, col=1, secondary_y=True)
     fig.add_hline(y=0, line_dash="dash", line_color="gray", row=3, col=1)
 
-    # --- Row 4: 宏观环境 (BAA10Y on primary, NFCI on secondary) ---
+    # --- Row 4: ???????????? (BAA10Y on primary, NFCI on secondary) ---
     if 'BAA10Y' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['BAA10Y'], mode='lines', name='BAA10Y 信用利差', line=dict(color='#3b82f6', width=1.5)), row=4, col=1, secondary_y=False)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['BAA10Y'], mode='lines', name='BAA10Y ????????????', line=dict(color='#3b82f6', width=1.5)), row=4, col=1, secondary_y=False)
     if 'NFCI' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['NFCI'], mode='lines', name='NFCI 金融条件', line=dict(color='#f59e0b', width=1.5)), row=4, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['NFCI'], mode='lines', name='NFCI ????????????', line=dict(color='#f59e0b', width=1.5)), row=4, col=1, secondary_y=True)
 
     # Add range slider to x-axis
     fig.update_layout(

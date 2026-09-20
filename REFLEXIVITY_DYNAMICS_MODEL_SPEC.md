@@ -80,8 +80,8 @@ graph LR
 | 理论物理概念 | 符号 | 金融微观相空间物理量 | 业务度量公式 |
 | :--- | :---: | :--- | :--- |
 | **广义位移 (Displacement)** | $q_1$ | 价格相对于 200 日牛熊中枢的百分比偏离度 | $q_1(t) = \frac{P(t) - MA_{200}(t)}{MA_{200}(t)} \times 100\%$ |
-| **广义速度 (Velocity)** | $\dot{q}_1$ | 广义位移的时域一阶导数（动量速度） | $\dot{q}_1(t) = \frac{q_1(t) - q_1(t-5)}{5}$ |
-| **广义加速度 (Acceleration)** | $\ddot{q}_1$ | 广义动能的时域二阶导数（力作用） | $\ddot{q}_1(t) = \dot{q}_1(t) - \dot{q}_1(t-1)$ |
+| **广义速度 (Velocity)** | $\dot{q}_1$ | 广义位移的时域一阶导数（动量速度） | $\dot{q}_1(t) = \frac{q_1(t) - q_1(t-10)}{10}$ |
+| **广义加速度 (Acceleration)** | $\ddot{q}_1$ | 广义动能的时域二阶导数（力作用） | $\ddot{q}_1(t) = \frac{\dot{q}_1(t) - \dot{q}_1(t-5)}{5}$ |
 | **广义恢复力 (Restoring Force)** | $F(q_1)$ | 机构价值投资与均值回归产生的非线性拉力 | $F(q_1) = -k q_1 - \lambda q_1^3$ |
 | **流体阻尼 (Macro Drag)** | $\Gamma(\dot{q}_1)$ | 宏观流动性与信用收紧对动量的摩擦耗散 | $\Gamma(\dot{q}_1) = -\gamma \dot{q}_1$ |
 
@@ -119,8 +119,8 @@ $$\dot{V}(q_1, \dot{q}_1) = \dot{q}_1 \ddot{q}_1 + \frac{\partial U}{\partial q_
 
 2. **状态向量与导数构造**：
    $$q_1(t) = \left( \frac{P(t) - MA_{200}(t)}{MA_{200}(t)} \right) \times 100\%$$
-   $$\dot{q}_1(t) = \frac{q_1(t) - q_1(t-5)}{5}$$
-   $$\ddot{q}_1(t) = \dot{q}_1(t) - \dot{q}_1(t-1)$$
+   $$\dot{q}_1(t) = \frac{q_1(t) - q_1(t-10)}{10}$$
+   $$\ddot{q}_1(t) = \frac{\dot{q}_1(t) - \dot{q}_1(t-5)}{5}$$
 
 ---
 

@@ -13,6 +13,7 @@ import sys
 import io
 import numpy as np
 import pandas as pd
+from expanding_ols import expanding_polyfit_residual
 import matplotlib.pyplot as plt
 
 # 强制 UTF-8 输出以兼容 Windows 终端

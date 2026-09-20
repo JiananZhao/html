@@ -76,7 +76,7 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     df['q1_dot'] = (df['q1'] - df['q1'].shift(10)) / 10.0
     # 广义加速度 q1_ddot: 5 天二阶有限差分 (%/day^2)
     df['q1_ddot'] = (df['q1_dot'] - df['q1_dot'].shift(5)) / 5.0
-    # 李雅普诺夫能量导数: V_dot = q1_dot * (q1 + tau * q1_ddot)
+    # 相空间能量变化率代理指标: V_dot = q1_dot * (q1 + tau * q1_ddot)
     tau = 100.0
     df['v_dot'] = df['q1_dot'] * (df['q1'] + tau * df['q1_ddot'])
 
