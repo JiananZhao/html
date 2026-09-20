@@ -48,6 +48,7 @@ from charts.stock_charts import (
     create_technical_momentum_chart,
     create_max_pain_chart,
     create_volatility_momentum_chart,
+    create_interactive_reflexivity_radar,
 )
 
 __all__ = [
@@ -91,5 +92,6 @@ __all__ = [
     "create_technical_momentum_chart",
     "create_max_pain_chart",
     "create_volatility_momentum_chart",
+    "create_interactive_reflexivity_radar",
 ]
 

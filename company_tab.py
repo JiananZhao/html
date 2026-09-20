@@ -807,8 +807,52 @@ def render_company_deep_dive_tab():
 
     st.markdown("---")
 
+    # =====================================================================
+    # 3. 索罗斯反身性相空间动力学微观雷达 (Reflexivity Radar)
+    # =====================================================================
+    st.markdown("### 🔬 3. 索罗斯反身性相空间动力学微观雷达 (Reflexivity Radar)")
+    
+    with st.expander("点击展开：生成该股专属 4-Quadrant 动力学雷达图谱", expanded=True):
+        st.info("💡 采用本地缓存与无量纲分位数标定，自适应任何美股标的，识别恐慌极值底与泡沫衰竭顶。")
+        try:
+            import yfinance as yf
+            from reflexivity_engine import run_universal_reflexivity_radar
+            from visualization import create_interactive_reflexivity_radar
+            import os
+            
+            @st.cache_data(ttl=3600)
+            def load_and_cache_radar_data(sym):
+                df_p = yf.download(sym, period="10y", interval="1d", progress=False)
+                if isinstance(df_p.columns, pd.MultiIndex):
+                    df_p.columns = df_p.columns.droplevel(1)
+                df_p = df_p.reset_index()
+                df_p.columns = [c.lower() for c in df_p.columns]
+                if 'date' not in df_p.columns:
+                    df_p = df_p.rename(columns={'datetime': 'date', 'index': 'date'})
+                return df_p
+            
+            with st.spinner("正在加载底层相空间动力学模块与本地宏观重力数据..."):
+                df_price = load_and_cache_radar_data(active_ticker)
+                
+                macro_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data_local.csv")
+                if os.path.exists(macro_path):
+                    df_macro = pd.read_csv(macro_path)
+                    df_bt = run_universal_reflexivity_radar(active_ticker, df_price, df_macro)
+                    
+                    fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker)
+                    if fig_radar:
+                        st.plotly_chart(fig_radar, use_container_width=True)
+                    else:
+                        st.warning("数据不足，无法生成反身性雷达图谱。")
+                else:
+                    st.error(f"本地宏观信用数据集缺失: {macro_path}")
+        except Exception as e:
+            st.error(f"反身性雷达引擎计算异常: {e}")
+
+    st.markdown("---")
+
     # 4. 多季度/年度核心财务报表深度透视 (过去 4-5 期结构化总览与趋势图)
-    st.markdown("### 📑 3. 核心财务报表深度透视 (季度与年度过去 4–5 期全量明细与趋势图)")
+    st.markdown("### 📑 4. 核心财务报表深度透视 (季度与年度过去 4–5 期全量明细与趋势图)")
     st.caption("覆盖营业总收入、营收同比增速、毛利润/毛利率、营业利润 (EBIT)、净利润、稀释 EPS、经营现金流、自由现金流 (FCF) 与资产负债核心结构")
 
     if statements_dict:
@@ -849,7 +893,7 @@ def render_company_deep_dive_tab():
     st.markdown("---")
 
     # 5. 公司近期重要新闻动态 (带外链跳转)
-    st.markdown("### 📰 4. 公司近期重要新闻与重大动态 (Key News & Market Catalysts)")
+    st.markdown("### 📰 5. 公司近期重要新闻与重大动态 (Key News & Market Catalysts)")
 
     if news_list and len(news_list) > 0:
         for item in news_list[:8]:

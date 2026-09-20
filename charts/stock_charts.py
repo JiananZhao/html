@@ -480,3 +480,70 @@ def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, time
     fig.update_yaxes(title_text="偏离度 / 带宽 (%)", row=2, col=1)
     return fig
 
+
+def create_interactive_reflexivity_radar(df, symbol: str):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import pandas as pd
+    
+    if df is None or df.empty or 'Composite_Score' not in df.columns:
+        return None
+        
+    date_col = 'date' if 'date' in df.columns else df.index
+
+    # Create subplots: 3 rows
+    # Row 1: Price + 4-Quadrant Signals (50% height)
+    # Row 2: Composite Score (25% height)
+    # Row 3: Gap & Macro Tension (25% height)
+    fig = make_subplots(
+        rows=3, cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.04,
+        row_heights=[0.5, 0.25, 0.25],
+        subplot_titles=(f"[{symbol}] 反身性相空间动力学 4-Quadrant Radar", "Composite Score 综合能量得分 (0-100)", "反身性认知偏差 (Reflexive Gap)")
+    )
+    
+    # --- Layer 1: Price and Signals ---
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['close'], mode='lines', name='Close Price', line=dict(color='black', width=1.5)), row=1, col=1)
+    if 'MA50' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['MA50'], mode='lines', name='50 MA', line=dict(color='blue', width=1, dash='dot')), row=1, col=1)
+    if 'MA200' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['MA200'], mode='lines', name='200 MA', line=dict(color='red', width=1.2)), row=1, col=1)
+
+    # Signal points
+    if 'Trigger_Panic' in df.columns:
+        df_panic = df[df['Trigger_Panic'] == True]
+        fig.add_trace(go.Scatter(x=df_panic[date_col], y=df_panic['close'], mode='markers', name='I: 恐慌极值底 (Panic)', marker=dict(color='fuchsia', size=12, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
+    
+    if 'Trigger_Stage' in df.columns:
+        df_stage = df[df['Trigger_Stage'] == True]
+        fig.add_trace(go.Scatter(x=df_stage[date_col], y=df_stage['close'], mode='markers', name='II: 蓄势确认底 (Stage)', marker=dict(color='blue', size=10, symbol='triangle-up', line=dict(color='white', width=1))), row=1, col=1)
+
+    if 'Trigger_Bubble_Top' in df.columns:
+        df_bubble = df[df['Trigger_Bubble_Top'] == True]
+        fig.add_trace(go.Scatter(x=df_bubble[date_col], y=df_bubble['close'], mode='markers', name='III: 极度泡沫顶 (Bubble)', marker=dict(color='red', size=12, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
+
+    if 'Trigger_Bear_Top' in df.columns:
+        df_bear = df[df['Trigger_Bear_Top'] == True]
+        fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: 熊市逃顶 (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
+
+    # --- Layer 2: Composite Score ---
+    fig.add_trace(go.Scatter(x=df[date_col], y=df['Composite_Score'], mode='lines', name='Composite Score', line=dict(color='purple', width=1.5)), row=2, col=1)
+    # Thresholds
+    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1, annotation_text="Overbought 70")
+    fig.add_hline(y=35, line_dash="dash", line_color="green", row=2, col=1, annotation_text="Oversold 35")
+    
+    # --- Layer 3: Gap & Tension ---
+    if 'Gap' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap'], mode='lines', fill='tozeroy', name='Reflexive Gap', line=dict(color='rgba(255,165,0,0.8)', width=1)), row=3, col=1)
+    if 'Gap_Upper' in df.columns:
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Gap_Upper'], mode='lines', name='Gap Upper 85%', line=dict(color='red', width=1, dash='dot')), row=3, col=1)
+
+    fig.update_layout(
+        height=800,
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    return fig
