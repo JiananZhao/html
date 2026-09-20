@@ -226,117 +226,108 @@ class SMHBubbleRadar:
 
 
 def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthly=1000.0):
-    """
-    券商级真实两状态记账回测引擎 (追踪 strat_shares 与 strat_cash)
-    """
-    sub_bt = df[df['date'] >= start_date].reset_index(drop=True)
-    tot_inv = 0.0
-    b_sh = 0.0
-    s_sh = 0.0
-    s_cash = 0.0
-    pos = 1.0
+    from true_accounting import UnitizedAccount, calculate_xirr
+    import pandas as pd
+    
+    sub_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
+    
+    acc = UnitizedAccount()
+    bench_acc = UnitizedAccount()
+    
     curr_m = -1
     exit_reg = None
     trades = []
-
-    bench_vals = []
-    strat_vals = []
     daily_records = []
-
-    macro_anchor = 'HYG'
-
-    for i in range(len(sub_bt)):
-        p = sub_bt[ticker].iloc[i]
+    
+    pos = 1.0
+    pending_order = None # 1 for buy, -1 for sell
+    pending_reason = ""
+    
+    df_len = len(sub_bt)
+    total_invested = 0.0
+    
+    for i in range(df_len):
         d_str = sub_bt['date'].iloc[i]
-        m = int(d_str.split('-')[1])
+        p = sub_bt[ticker].iloc[i]
+        
+        try:
+            dt = pd.Timestamp(d_str)
+        except:
+            dt = pd.to_datetime(d_str)
+            
+        m = dt.month
         score = sub_bt['Composite_Radar_Score'].iloc[i]
         gap = sub_bt['Gap'].iloc[i]
         gap_med = sub_bt['Gap_Median'].iloc[i]
-
-        # 月定投注入
+        macro_anchor = 'HYG'
+        
+        # T+1 收盘时估值 (NEXT_CLOSE)
+        acc.calculate_nav(p)
+        bench_acc.calculate_nav(p)
+        
+        # 定投及买入 (按收盘价)
         if m != curr_m:
-            tot_inv += dca_monthly
-            b_sh += dca_monthly / p
-            if pos > 0:
-                s_sh += dca_monthly / p
-            else:
-                s_cash += dca_monthly
             curr_m = m
-
-        action_today = 'HOLD' if pos > 0 else 'CASH'
-
-        # 卖出判定
-        if pos > 0 and sub_bt['Sell_Signal'].iloc[i]:
-            s_cash += s_sh * p
-            is_bub = sub_bt['Cond_Bubble'].iloc[i]
-            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-            r_reason = '宏观估值泡沫高位止盈' if is_bub else '系统宏观紧缩熊市避险'
-            trades.append({
-                'action': 'SELL',
-                'date': d_str,
-                'price': p,
-                'shares': s_sh,
-                'cash': s_cash,
-                'reason': r_reason,
-                'radar_score': score,
-                'breadth': sub_bt['Breadth_50'].iloc[i]
-            })
-            action_today = 'SELL'
-            s_sh = 0.0
-            pos = 0.0
-
-        # 买入判定
-        elif pos == 0.0:
-            can_buy = False
-            b_reason = ""
-
-            if exit_reg == 'BUBBLE':
-                if sub_bt['Cond_Panic'].iloc[i]:
-                    can_buy = True
-                    b_reason = '极值黄金坑抄底'
-                elif (gap < gap_med) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '估值出清且右侧重构主升'
-                elif (p > trades[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
-            elif exit_reg == 'BEAR':
-                macro_healed = (sub_bt[macro_anchor].iloc[i] > sub_bt['Macro_MA200'].iloc[i])
-                price_healed = sub_bt['Above_MA50_Conf'].iloc[i]
-                if macro_healed and price_healed:
-                    can_buy = True
-                    b_reason = '宏观锚先导修复且趋势重构'
-
-            if can_buy:
-                s_sh = s_cash / p
+            # 兼容原逻辑，第一天算第一个月，注资不影响起步
+            acc.inject_cash(dca_monthly, dt)
+            bench_acc.inject_cash(dca_monthly, dt)
+            total_invested += dca_monthly
+            
+            bench_acc.execute_trade(p, dca_monthly / p, fee_rate=0.0)
+            if pos > 0 and pending_order != -1:
+                if acc.cash > 0:
+                    acc.execute_trade(p, acc.cash / p, fee_rate=0.0)
+                    
+        # 执行前一日遗留订单
+        if pending_order == -1:
+            if acc.shares > 0:
+                trades.append({
+                    'action': 'SELL',
+                    'date': d_str,
+                    'price': p,
+                    'shares': acc.shares,
+                    'cash': acc.cash + acc.shares * p,
+                    'reason': pending_reason,
+                    'radar_score': score,
+                    'breadth': sub_bt['Breadth_50'].iloc[i]
+                })
+                acc.execute_trade(p, -acc.shares, fee_rate=0.0)
+                pos = 0.0
+            pending_order = None
+            
+        elif pending_order == 1:
+            if acc.cash > 0:
                 trades.append({
                     'action': 'BUY',
                     'date': d_str,
                     'price': p,
-                    'shares': s_sh,
+                    'shares': acc.shares + acc.cash / p,
                     'cash': 0.0,
-                    'reason': b_reason,
+                    'reason': pending_reason,
                     'radar_score': score,
                     'breadth': sub_bt['Breadth_50'].iloc[i]
                 })
-                s_cash = 0.0
+                acc.execute_trade(p, acc.cash / p, fee_rate=0.0)
                 pos = 1.0
-                action_today = 'BUY'
-
-        b_val = b_sh * p
-        s_val = s_sh * p + s_cash
-        bench_vals.append(b_val)
-        strat_vals.append(s_val)
-
+            pending_order = None
+            
+        acc.calculate_nav(p)
+        bench_acc.calculate_nav(p)
+        acc.record_daily_state(dt, p)
+        bench_acc.record_daily_state(dt, p)
+        
+        s_val = acc.shares * p + acc.cash
+        b_val = bench_acc.shares * p + bench_acc.cash
+        
         daily_records.append({
             'date': d_str,
             ticker: p,
-            'Action': action_today,
+            'Action': 'HOLD' if pos > 0 else 'CASH',
             'Position': pos,
-            'Strat_Shares': s_sh,
-            'Strat_Cash': s_cash,
+            'Strat_Shares': acc.shares,
+            'Strat_Cash': acc.cash,
             'Strat_Equity': s_val,
-            'Bench_Shares': b_sh,
+            'Bench_Shares': bench_acc.shares,
             'Bench_Equity': b_val,
             'Composite_Radar_Score': score,
             'Breadth_50': sub_bt['Breadth_50'].iloc[i],
@@ -345,8 +336,101 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
             'Score_Breadth': sub_bt['Score_Breadth'].iloc[i],
             'Score_Relative': sub_bt['Score_Relative'].iloc[i]
         })
+        
+        # T 日收盘后产生新信号，传给 T+1
+        if i < df_len - 1:
+            if pos > 0 and sub_bt['Sell_Signal'].iloc[i]:
+                is_bub = sub_bt['Cond_Bubble'].iloc[i]
+                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+                pending_reason = '泡沫高点破位预警' if is_bub else '宏观及基本面双破位'
+                pending_order = -1
+            elif pos == 0.0:
+                can_buy = False
+                b_reason = ""
+                if exit_reg == 'BUBBLE':
+                    if sub_bt['Cond_Panic'].iloc[i]:
+                        can_buy = True
+                        b_reason = '极度恐慌修复买入'
+                    elif (gap < gap_med) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                        can_buy = True
+                        b_reason = '回踩中枢且动能恢复'
+                    elif len(trades) > 0 and (p > trades[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                        can_buy = True
+                        b_reason = '突破前高阻力重拾升势'
+                elif exit_reg == 'BEAR':
+                    macro_healed = (sub_bt[macro_anchor].iloc[i] > sub_bt['Macro_MA200'].iloc[i])
+                    price_healed = sub_bt['Above_MA50_Conf'].iloc[i]
+                    if macro_healed and price_healed:
+                        can_buy = True
+                        b_reason = '宏观修复且均线多头'
+                if can_buy:
+                    pending_order = 1
+                    pending_reason = b_reason
 
-    sub_bt['Bench_Equity'] = bench_vals
+    # 后处理提取结果
+    df_daily = pd.DataFrame(daily_records)
+    sub_bt['Bench_Equity'] = df_daily['Bench_Equity']
+    sub_bt['Strat_Equity'] = df_daily['Strat_Equity']
+    
+    b_final = sub_bt['Bench_Equity'].iloc[-1]
+    s_final = sub_bt['Strat_Equity'].iloc[-1]
+    
+    b_ret = (b_final - total_invested) / total_invested * 100.0
+    s_ret = (s_final - total_invested) / total_invested * 100.0
+    
+    final_date = pd.Timestamp(sub_bt['date'].iloc[-1])
+    b_cagr = calculate_xirr(bench_acc.cash_flows, b_final, final_date) * 100.0
+    s_cagr = calculate_xirr(acc.cash_flows, s_final, final_date) * 100.0
+    
+    alpha = s_cagr - b_cagr
+    
+    bench_df = bench_acc.get_history_df()
+    history_df = acc.get_history_df()
+    
+    b_dd = (bench_df['Unit_NAV'] / bench_df['Unit_NAV'].cummax() - 1).min() * 100.0
+    s_dd = (history_df['Unit_NAV'] / history_df['Unit_NAV'].cummax() - 1).min() * 100.0
+
+    trade_pairs = []
+    for k in range(0, len(trades) - 1, 2):
+        if trades[k]['action'] == 'SELL' and trades[k+1]['action'] == 'BUY':
+            s_t = trades[k]
+            b_t = trades[k+1]
+            p_drop = (b_t['price'] - s_t['price']) / s_t['price'] * 100.0
+            sh_gain = (b_t['shares'] - s_t['shares']) / s_t['shares'] * 100.0
+            is_win = (b_t['price'] < s_t['price']) or (sh_gain > 0)
+            trade_pairs.append({
+                '轮次': len(trade_pairs) + 1,
+                '卖出日期': s_t['date'],
+                '卖出价格': round(s_t['price'], 2),
+                '卖出诱因': s_t['reason'],
+                '卖出时综合得分': round(s_t['radar_score'], 1),
+                '卖出时广度': f"{s_t['breadth']*100:.1f}%",
+                '买入日期': b_t['date'],
+                '买入价格': round(b_t['price'], 2),
+                '买回诱因': b_t['reason'],
+                '期间绝对跌幅': f"{p_drop:+.2f}%",
+                '持股份额增减': f"{sh_gain:+.2f}%",
+                '波段是否有效避险': "✅ 有效" if is_win else "❌ 踏空磨损"
+            })
+    df_pairs = pd.DataFrame(trade_pairs)
+
+    metrics = {
+        'total_invested': total_invested,
+        'bench_final': b_final,
+        'strat_final': s_final,
+        'bench_return': b_cagr,
+        'strat_return': s_cagr,
+        'alpha': alpha,
+        'bench_max_dd': b_dd,
+        'strat_max_dd': s_dd,
+        'trade_count': len(trades),
+        'trade_rounds': len(trade_pairs),
+        'win_rounds': sum(1 for p in trade_pairs if '✅' in p['波段是否有效避险']),
+        'win_rate': sum(1 for p in trade_pairs if '✅' in p['波段是否有效避险']) / max(1, len(trade_pairs)) * 100.0
+    }
+    
+    return sub_bt, df_daily, df_pairs, metrics
+
     sub_bt['Strat_Equity'] = strat_vals
     df_daily = pd.DataFrame(daily_records)
 
