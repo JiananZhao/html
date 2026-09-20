@@ -10,7 +10,7 @@ class UnitizedAccount:
     遵循恒等式：Total Asset = shares * P + cash
     NAV = Total Asset / units
     """
-    def __init__(self, initial_cash: float = 0.0):
+    def __init__(self, initial_cash: float = 0.0, initial_date=None):
         self.shares = 0.0
         self.cash = 0.0
         self.units = 0.0
@@ -21,10 +21,21 @@ class UnitizedAccount:
         self.cash_flows = [] # 记录投资者外部出入金用于 XIRR 计算: (date, amount_inflow_to_account)
         
         if initial_cash > 0:
-            self.inject_cash(initial_cash, pd.Timestamp('1970-01-01')) # 初始化现金时不改变净值
-            self.cash_flows = [] # 清空初始的虚拟历史以配合真实的业务逻辑记录
+            if initial_date is None:
+                raise ValueError("注入初始资金 initial_cash > 0 时，必须显式提供 initial_date。")
+            self.inject_cash(initial_cash, initial_date, current_price=1.0) # 首次注资价格不影响初始净值 1.0
             
-    def inject_cash(self, amount: float, date: pd.Timestamp):
+    def calculate_nav(self, current_price: float):
+        """计算 T 或 T+1 收盘时的净值，并更新内部状态"""
+        if not self.is_initialized or self.units == 0:
+            return 1.0
+            
+        # 允许极端情况，只要不违背数学运算
+        total_asset = self.shares * current_price + self.cash
+        self.unit_nav = total_asset / self.units
+        return self.unit_nav
+
+    def inject_cash(self, amount: float, date: pd.Timestamp, current_price: float):
         """处理预定外部资金流 (增加现金与份额，NAV保持绝对不变)"""
         if amount <= 0: return
         
@@ -35,7 +46,8 @@ class UnitizedAccount:
             self.unit_nav = 1.0
             self.is_initialized = True
         else:
-            # 根据当前 NAV 增发份额
+            # 强制先按照当期价格重新估值，避免使用过期的 unit_nav 增发份额
+            self.calculate_nav(current_price)
             if self.unit_nav <= 0:
                 raise ValueError(f"严重异常：单位净值 <= 0 ({self.unit_nav})，无法进行申购。")
             delta_units = amount / self.unit_nav
@@ -44,12 +56,14 @@ class UnitizedAccount:
             
         self.cash_flows.append((date, amount))
         
-    def withdraw_cash(self, amount: float, date: pd.Timestamp):
+    def withdraw_cash(self, amount: float, date: pd.Timestamp, current_price: float):
         """处理外部提款 (销毁份额，扣减现金，NAV不变)"""
         if amount <= 0: return
         if amount > self.cash:
             raise ValueError(f"异常：提款金额 {amount} 大于可用现金 {self.cash}")
             
+        # 强制先按照当期价格重新估值
+        self.calculate_nav(current_price)
         if self.unit_nav <= 0:
             raise ValueError(f"严重异常：单位净值 <= 0 ({self.unit_nav})，无法进行赎回。")
             
@@ -61,10 +75,11 @@ class UnitizedAccount:
             
         self.cash_flows.append((date, -amount)) # 提款对账户是资金流出
         
-    def execute_trade(self, price: float, target_shares_delta: float, fee_rate: float = 0.001):
+    def execute_trade(self, price: float, target_shares_delta: float, fee_rate: float):
         """
         执行待定订单。
         target_shares_delta: >0 买入，<0 卖出。
+        fee_rate: 费率必须显式传入，不再提供默认值，避免污染实验。
         """
         if target_shares_delta == 0:
             return 0.0
@@ -95,16 +110,6 @@ class UnitizedAccount:
             self.shares += target_shares_delta # target_shares_delta 是负数
             self.cash += (trade_value - fee)
             return target_shares_delta
-
-    def calculate_nav(self, current_price: float):
-        """计算 T 或 T+1 收盘时的净值，并更新内部状态"""
-        if not self.is_initialized or self.units == 0:
-            return 1.0
-            
-        # 允许极端情况，只要不违背数学运算
-        total_asset = self.shares * current_price + self.cash
-        self.unit_nav = total_asset / self.units
-        return self.unit_nav
         
     def record_daily_state(self, date: pd.Timestamp, current_price: float, notes: str = ""):
         nav = self.calculate_nav(current_price)

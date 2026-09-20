@@ -269,8 +269,8 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
         if m != curr_m:
             curr_m = m
             # 兼容原逻辑，第一天算第一个月，注资不影响起步
-            acc.inject_cash(dca_monthly, dt)
-            bench_acc.inject_cash(dca_monthly, dt)
+            acc.inject_cash(dca_monthly, dt, p)
+            bench_acc.inject_cash(dca_monthly, dt, p)
             total_invested += dca_monthly
             
             bench_acc.execute_trade(p, dca_monthly / p, fee_rate=0.0)
@@ -515,6 +515,8 @@ def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='SMH'):
         df_overview.to_excel(writer, sheet_name='全周期业绩总表', index=False)
         df_pairs.to_excel(writer, sheet_name='逐笔买卖配对对账表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日流水底稿表', index=False)
+        df_pairs.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
+        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"📊 机构级 Excel 审计底稿已生成: {os.path.abspath(excel_path)}")
 
     # 2. 导出高清 4 层对齐图谱 (Lesson 9: 严禁未转义裸 $ 符号，显式配置中文)

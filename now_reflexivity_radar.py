@@ -378,8 +378,8 @@ class NOWReflexivityRadar:
         # 逐日记账循环
         # -------------------------------------------------------------
         from true_accounting import UnitizedAccount, calculate_xirr
-        acc = UnitizedAccount(initial_capital)
-        bench_acc = UnitizedAccount(initial_capital)
+        acc = UnitizedAccount(initial_capital, df_bt['date'].iloc[0])
+        bench_acc = UnitizedAccount(initial_capital, df_bt['date'].iloc[0])
         
         bench_nav = []
         strat_nav = []
@@ -409,8 +409,8 @@ class NOWReflexivityRadar:
             
             if dt.month != current_month and i > 0:
                 current_month = dt.month
-                acc.inject_cash(dca_monthly, dt)
-                bench_acc.inject_cash(dca_monthly, dt)
+                acc.inject_cash(dca_monthly, dt, p_open)
+                bench_acc.inject_cash(dca_monthly, dt, p_open)
                 total_injected += dca_monthly
                 
                 bench_acc.execute_trade(p_open, dca_monthly / p_open, fee_rate=0.0)

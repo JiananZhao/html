@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_breakout=True):
+def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_breakout=True, cost_config=0.0):
     """
     轻量化、脱机闭环的纯现货双轨制反身性模型仿真
     返回 sub (包含所有技术与宏观指标、雷达分、净值曲线) 与 trades (逐笔买卖交易记录)
@@ -88,55 +88,57 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     sub = sub.dropna().reset_index(drop=True)
     sub = sub[sub['date'] >= '2009-01-01'].reset_index(drop=True)
 
-    # 7. 真实券商两状态流水记账 (True Brokerage Ledger)
-    total_invested = 0.0
-    bench_shares = 0.0
-    strat_shares = 0.0
-    strat_cash = 0.0
-    pos = 1.0
+    # 7. 接入共享执行器与单位化核算 (T+1 延迟执行, 新版账户)
+    from true_accounting import UnitizedAccount
+    from shared_executor import SharedExecutor
+    
+    acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
+    bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
+    
+    executor = SharedExecutor(acc, fee_rate=cost_config)
+    bench_executor = SharedExecutor(bench_acc, fee_rate=0.0)
+    
     curr_m = -1
     exit_regime = None
-    trades = []
+    pos = 1.0 # 初始目标满仓
     
-    bench_vals = []
-    strat_vals = []
+    bench_eqs = []
+    strat_eqs = []
+    bench_navs = []
+    strat_navs = []
     positions = []
+    total_invested = 0.0
 
     for i in range(len(sub)):
         p = sub[ticker].iloc[i]
-        d_str = sub['date'].iloc[i].strftime('%Y-%m-%d')
-        m = sub['date'].iloc[i].month
+        dt = sub['date'].iloc[i]
+        m = dt.month
 
-        # 月度定投现金注入
+        # 月度定投
+        dca_amount = 0.0
         if m != curr_m:
+            dca_amount = dca_monthly
             total_invested += dca_monthly
-            bench_shares += dca_monthly / p
-            if pos > 0:
-                strat_shares += dca_monthly / p
-            else:
-                strat_cash += dca_monthly
             curr_m = m
 
-        p_val = sub[ticker].iloc[i]
+        # 1. 每日执行引擎推进 (当期估值 -> 资金流入 -> NEXT_CLOSE旧订单执行 -> 扣费估值)
+        executor.step(dt, p, p, dca_amount)
+        bench_executor.step(dt, p, p, dca_amount)
+
+        # 2. 依据当日信息与【已成交记录】产生新订单 (Target Position)
         gap = sub['Gap'].iloc[i]
         gap_med = sub['Gap_Median'].iloc[i]
+        p_val = p
 
-        # 卖出
+        # 卖出逻辑
         if pos > 0 and sub['Sell_Signal'].iloc[i]:
-            strat_cash += strat_shares * p
             is_bub = sub['Cond_Bubble'].iloc[i]
             exit_regime = 'BUBBLE' if is_bub else 'BEAR'
             r_reason = '宏观黄昏期泡沫止盈' if is_bub else '系统宏观紧缩熊市避险'
-            trades.append({
-                'action': 'SELL',
-                'date': d_str,
-                'price': p,
-                'reason': r_reason
-            })
-            strat_shares = 0.0
+            executor.submit_order(0.0, r_reason)
             pos = 0.0
 
-        # 买入
+        # 买入逻辑
         elif pos == 0.0:
             can_buy = False
             b_reason = ""
@@ -145,8 +147,12 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                 is_panic = sub['Cond_Panic'].iloc[i]
                 gap_cooled = (gap < gap_med)
                 trend_conf = sub['Above_MA20_Conf'].iloc[i] and sub['Above_MA50_Conf'].iloc[i]
-                last_sell_p = trades[-1]['price']
-                breakout_higher = (p_val > last_sell_p * 1.02) and trend_conf
+                
+                # 必须使用已实际成交的 last_sell_p
+                last_sell_p = executor.last_sell_p
+                breakout_higher = False
+                if last_sell_p is not None:
+                    breakout_higher = (p_val > last_sell_p * 1.02) and trend_conf
 
                 if is_panic:
                     can_buy = True
@@ -166,26 +172,30 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                     b_reason = '信用债先导修复且趋势重构'
 
             if can_buy:
-                strat_shares += strat_cash / p
-                strat_cash = 0.0
+                executor.submit_order(1.0, b_reason)
                 pos = 1.0
                 exit_regime = None
-                trades.append({
-                    'action': 'BUY',
-                    'date': d_str,
-                    'price': p,
-                    'reason': b_reason
-                })
+        else:
+            # 保持目标仓位，允许 DCA 资金在下一日自动买入
+            executor.submit_order(pos, "Standing Order / DCA")
 
-        bench_vals.append(bench_shares * p)
-        strat_vals.append(strat_shares * p + strat_cash)
+        # 基准始终满仓
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA")
+
+        # 记录日终资产与净值状态
+        bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
+        strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
+        bench_navs.append(bench_executor.acc.unit_nav)
+        strat_navs.append(executor.acc.unit_nav)
         positions.append(pos)
 
-    sub['Bench_Equity'] = bench_vals
-    sub['Strat_Equity'] = strat_vals
+    sub['Bench_Equity'] = bench_eqs
+    sub['Strat_Equity'] = strat_eqs
+    sub['Bench_Unit_NAV'] = bench_navs
+    sub['Strat_Unit_NAV'] = strat_navs
     sub['Position'] = positions
 
-    return {'df': sub, 'trades': trades, 'total_invested': total_invested}
+    return {'df': sub, 'trades': executor.trades, 'total_invested': total_invested}
 
 
 def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'):

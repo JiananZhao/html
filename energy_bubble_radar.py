@@ -450,6 +450,8 @@ def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='XLE'):
         df_overview.to_excel(writer, sheet_name='全周期业绩总表', index=False)
         df_pairs.to_excel(writer, sheet_name='逐笔买卖配对对账表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日流水底稿表', index=False)
+        df_pairs.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
+        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"📊 机构级 Excel 审计底稿已生成: {os.path.abspath(excel_path)}")
 
     fig, axes = plt.subplots(4, 1, figsize=(16, 15), sharex=True, gridspec_kw={'height_ratios': [3.0, 2.2, 2.2, 2.5]})

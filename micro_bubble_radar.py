@@ -232,8 +232,8 @@ def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthl
         # 定投及买入 (按收盘价)
         if m != curr_m:
             curr_m = m
-            acc.inject_cash(dca_monthly, dt)
-            bench_acc.inject_cash(dca_monthly, dt)
+            acc.inject_cash(dca_monthly, dt, p)
+            bench_acc.inject_cash(dca_monthly, dt, p)
             tot_inv += dca_monthly
             
             bench_acc.execute_trade(p, dca_monthly / p, fee_rate=0.0)
@@ -433,6 +433,8 @@ def export_deliverables(df, metrics, df_paired, df_daily, ticker='IGV'):
         df_summary.to_excel(writer, sheet_name='绩效总览表', index=False)
         df_paired.to_excel(writer, sheet_name='逐笔买卖配对表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日分项流水总账', index=False)
+        df_paired.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
+        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"✅ Excel 导出成功: {excel_path}")
 
     # 绘制 4 层高清图谱

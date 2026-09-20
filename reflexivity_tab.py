@@ -73,9 +73,10 @@ except ImportError:
 
 
 @st.cache_data(show_spinner=False)
-def get_cached_simulation(df, ticker):
+def get_cached_simulation(df, ticker, result_id="P1-A_v1.0"):
     if run_reflexivity_simulation is not None and not df.empty:
-        return run_reflexivity_simulation(df, ticker)
+        # P1-A 新执行引擎要求强制显式传入 cost_config
+        return run_reflexivity_simulation(df, ticker, cost_config=0.001)
     return None
 
 
@@ -113,6 +114,9 @@ def render_reflexivity_tab():
             last_date_str = str(df_data['date'].iloc[-1])[:10]
             st.markdown(
                 f"**微型数据库状态:** `🟢 正常运行 ({source_tag})` | **数据基准日:** `{last_date_str}` | **历史样本量:** `{len(df_data)} 交易日`"
+            )
+            st.markdown(
+                f"**配置版本 (result_id=P1-A_v1.0):** `strategy=A_Plus` | `execution=NEXT_CLOSE` | `accounting=Unitized` | `cost=0.001`"
             )
         else:
             st.error(f"数据库加载失败，请检查网络或 GitHub 链接: {GITHUB_RAW_CSV_URL}")
