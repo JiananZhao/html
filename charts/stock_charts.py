@@ -560,12 +560,12 @@ def create_interactive_reflexivity_radar(df, symbol: str):
         legend=dict(
             orientation="h", 
             yanchor="bottom", 
-            y=1.03, 
+            y=1.08, 
             xanchor="center", 
             x=0.5,
             font=dict(size=15)
         ),
-        margin=dict(t=120)
+        margin=dict(t=180)
     )
     
     return fig
