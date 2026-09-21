@@ -73,9 +73,9 @@ except ImportError:
 
 
 @st.cache_data(show_spinner=False)
-def get_cached_simulation(df, ticker, result_id="P1-A_v1.0"):
+def get_cached_simulation(df, ticker, result_id="P1-B_v1.0"):
     if run_reflexivity_simulation is not None and not df.empty:
-        # P1-A 新执行引擎要求强制显式传入 cost_config
+        # P1-B 新执行引擎要求强制显式传入 cost_config，并返回 SimulationResult
         return run_reflexivity_simulation(df, ticker, cost_config=0.001)
     return None
 
