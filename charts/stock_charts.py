@@ -553,10 +553,19 @@ def create_interactive_reflexivity_radar(df, symbol: str):
         fig.add_trace(go.Scatter(x=df[date_col], y=df['NFCI'], mode='lines', name='NFCI 金融条件', line=dict(color='#f59e0b', width=1.5)), row=4, col=1, secondary_y=True)
 
     fig.update_layout(
-        height=900,
+        height=950,
         hovermode="x unified",
         template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        font=dict(size=14, family="sans-serif"),
+        legend=dict(
+            orientation="h", 
+            yanchor="bottom", 
+            y=1.03, 
+            xanchor="center", 
+            x=0.5,
+            font=dict(size=15)
+        ),
+        margin=dict(t=120)
     )
     
     return fig

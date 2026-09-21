@@ -476,21 +476,22 @@ def build_interactive_4layer_chart(sim_result, ticker='QQQ', default_range='6M')
     # =========================================================================
     fig.update_layout(
         template='plotly_white',
-        height=1060,
+        height=1100,
         hovermode='x unified',
-        margin=dict(l=65, r=35, t=180, b=40),
+        font=dict(size=14, family="sans-serif"),  # 全局大字体
+        margin=dict(l=65, r=45, t=230, b=45),     # 增加 Top Margin 以容纳大号图例和按钮
         
         # 🌟 优化项 1: 白底黑字、浅灰外边框的高清晰图例
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.04,
+            y=1.05,
             xanchor="center",
             x=0.5,
             bgcolor="#ffffff",                      # 纯白底色
             bordercolor="#b2bec3",                  # 浅灰精致边框
             borderwidth=1.5,
-            font=dict(color="#111111", size=11, family="sans-serif") # 纯黑高清晰文字！
+            font=dict(color="#111111", size=15, family="sans-serif") # 纯黑大号文字
         ),
 
         # 🌟 优化项 2: 内置双轴联动切换按钮组 (点击同时自适应调整 Y 轴与 X 轴)
@@ -499,13 +500,13 @@ def build_interactive_4layer_chart(sim_result, ticker='QQQ', default_range='6M')
                 type="buttons",
                 direction="right",
                 x=0.0,
-                y=1.17,
+                y=1.18,
                 xanchor="left",
                 yanchor="bottom",
                 bgcolor="#f5f6fa",
                 bordercolor="#dcdde1",
                 borderwidth=1,
-                font=dict(color="#2f3542", size=11, family="sans-serif"),
+                font=dict(color="#2f3542", size=14, family="sans-serif"),
                 buttons=updatemenu_buttons
             )
         ]

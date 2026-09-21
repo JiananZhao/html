@@ -64,6 +64,7 @@ def apply_chart_theme(
         "template": template,
         "hovermode": hovermode,
         "showlegend": showlegend,
+        "font": dict(size=14, family="sans-serif"),
     }
     if title is not None:
         layout_params["title"] = title
