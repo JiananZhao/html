@@ -197,13 +197,13 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
 
     result = SimulationResult(
         features=sub,
-        signals=sub[['date', 'Position', 'buy_signal', 'sell_signal']],
+        signals=pd.DataFrame({'date': sub['date'], 'Position': positions}),
         orders=executor.orders_history + executor.pending_orders,
         fills=executor.fills,
         cashflows=executor.cashflows,
         daily_accounts=daily_accounts,
         metrics={'total_invested': total_invested},
-        metadata={'ticker': ticker, 'start_date': start_date, 'end_date': end_date}
+        metadata={'ticker': ticker, 'start_date': sub['date'].iloc[0], 'end_date': sub['date'].iloc[-1]}
     )
     # result.validate() # 暂时先不校验或者在外部校验，以防有兼容性问题
 
