@@ -65,8 +65,8 @@ def generate_trade_pairs(orders, sub_bt, ticker='NOW'):
             s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
             b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
             
-            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), 'close'].values
-            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), 'close'].values
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), 'NOW'].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), 'NOW'].values
             
             s_p = s_p[0] if len(s_p) > 0 else 0
             b_p = b_p[0] if len(b_p) > 0 else 0
@@ -126,9 +126,9 @@ class NOWReflexivityRadar:
         df_s = pd.read_csv(self.sec_file)
         df_s['date'] = pd.to_datetime(df_s['date'])
 
-        # 合并数据集
         df = pd.merge(df_p, df_m[['date', 'SPY', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='inner')
         df = pd.merge(df, df_s, on='date', how='left')
+        df.rename(columns={'close': 'NOW'}, inplace=True)
         df = df.sort_values('date').reset_index(drop=True)
 
         print(f"✅ 成功合并数据，跨度从 {df['date'].iloc[0].strftime('%Y-%m-%d')} 到 {df['date'].iloc[-1].strftime('%Y-%m-%d')} (共 {len(df)} 个交易日)")
@@ -141,11 +141,11 @@ class NOWReflexivityRadar:
         print("⚙️ 正在计算相空间动力学 (q, q_dot, q_ddot, V_dot) 与 6 维解耦分位数...")
 
         # 1. 基础技术指标与均线系统
-        df['MA10'] = df['close'].rolling(10).mean()
-        df['MA20'] = df['close'].rolling(20).mean()
-        df['MA50'] = df['close'].rolling(50).mean()
-        df['MA200'] = df['close'].rolling(200).mean()
-        df['Dist_200MA'] = (df['close'] - df['MA200']) / (df['MA200'] + 1e-8) * 100.0
+        df['MA10'] = df['NOW'].rolling(10).mean()
+        df['MA20'] = df['NOW'].rolling(20).mean()
+        df['MA50'] = df['NOW'].rolling(50).mean()
+        df['MA200'] = df['NOW'].rolling(200).mean()
+        df['Dist_200MA'] = (df['NOW'] - df['MA200']) / (df['MA200'] + 1e-8) * 100.0
 
         # 2. 宏观信用环境与流动性状态
         df['Macro_MA50'] = df['HYG'].rolling(50).mean()
@@ -155,7 +155,7 @@ class NOWReflexivityRadar:
         df['RY_Surge'] = (df['Real_Yield'] - df['Real_Yield'].rolling(60).min()) > 0.35
 
         # 3. 反身性认知偏差（Reflexive Gap）
-        df['Price_Z'] = (df['close'] - df['close'].rolling(200).mean()) / (df['close'].rolling(200).std() + 1e-8)
+        df['Price_Z'] = (df['NOW'] - df['NOW'].rolling(200).mean()) / (df['NOW'].rolling(200).std() + 1e-8)
         df['Macro_Z'] = (df['HYG'] - df['HYG'].rolling(200).mean()) / (df['HYG'].rolling(200).std() + 1e-8)
         roll_cov = df['Price_Z'].rolling(252).cov(df['Macro_Z'])
         roll_var = df['Macro_Z'].rolling(252).var()
@@ -191,7 +191,7 @@ class NOWReflexivityRadar:
         # CLV = [(Close - Low) - (High - Close)] / (High - Low)
         high_low_range = df['high'] - df['low']
         high_low_range = high_low_range.replace(0, np.nan)
-        clv = (2 * df['close'] - (df['high'] + df['low'])) / high_low_range
+        clv = (2 * df['NOW'] - (df['high'] + df['low'])) / high_low_range
         clv = clv.fillna(0.0)
         vol_clv = clv * df['volume']
         df['CMF20'] = vol_clv.rolling(20).sum() / (df['volume'].rolling(20).sum() + 1e-8)
@@ -271,7 +271,7 @@ class NOWReflexivityRadar:
             ((df_bt['Gap_Max_45'] > df_bt['Gap_Upper']) | (df_bt['Composite_Score'].rolling(30).max() >= 70.0)) &
             (df_bt['Dist_200MA'] > 12.0) &
             (df_bt['Quadrant'] == 4) &
-            (df_bt['close'] < df_bt['MA50']) &
+            (df_bt['NOW'] < df_bt['MA50']) &
             (df_bt['NFCI'] > -0.50) &
             df_bt['BAA_Stress']
         )
@@ -285,15 +285,15 @@ class NOWReflexivityRadar:
             df_bt['RY_Surge'] &
             (df_bt['NFCI'] > -0.45)
         )
-        cond_bear = macro_crisis & (df_bt['close'] < df_bt['MA50']) & (df_bt['close'] < df_bt['MA200'])
+        cond_bear = macro_crisis & (df_bt['NOW'] < df_bt['MA50']) & (df_bt['NOW'] < df_bt['MA200'])
 
         # 3. 底部防砸盘过滤：严禁在已深度腰斩的位置被动割肉
         recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
         raw_sell = (cond_bubble | cond_bear) & (~recently_crashed)
 
         # 4. 券商实盘买卖条件 (Execution Layer)
-        cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
-        cond_trend = (df_bt['close'] > df_bt['MA50']).rolling(3).sum() == 3
+        cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
+        cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
         raw_buy = cond_panic | cond_trend
 
         # -------------------------------------------------------------
@@ -303,8 +303,8 @@ class NOWReflexivityRadar:
         # 2. 动能拐点精确识别 (Inflection Trigger): 仅在相空间导数初次转正/转负时打点，拒绝缠绕！
         # 3. 迟滞波段去噪 (Hysteresis & Cooldown): 消除微观日线级别的高频假信号，提供真正机构级指导！
         # -------------------------------------------------------------
-        df_bt['MA20'] = df_bt['close'].rolling(20).mean()
-        df_bt['Dist_50MA'] = (df_bt['close'] - df_bt['MA50']) / df_bt['MA50'] * 100.0
+        df_bt['MA20'] = df_bt['NOW'].rolling(20).mean()
+        df_bt['Dist_50MA'] = (df_bt['NOW'] - df_bt['MA50']) / df_bt['MA50'] * 100.0
         df_bt['MA200_Slope'] = (df_bt['MA200'] - df_bt['MA200'].shift(10)) / df_bt['MA200'].shift(10) * 100.0
 
         # -------------------------------------------------------------
@@ -315,9 +315,9 @@ class NOWReflexivityRadar:
         # 经济学机理：自由落体式崩盘、流动性践踏危机、负偏离远场极值区 (Dist_200MA < -10% 或 Score < 32)。
         # 状态约束：处于真实折价状态 (Dist_200MA <= 0% 或 close < MA50)，且相空间速度 q1_dot 初次由负转正。
         regime_panic = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
-        gate_panic = (df_bt['Dist_200MA'] <= 0.0) | (df_bt['close'] < df_bt['MA50'])
+        gate_panic = (df_bt['Dist_200MA'] <= 0.0) | (df_bt['NOW'] < df_bt['MA50'])
         inflection_panic = (
-            (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
+            (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         ) | (
             (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         )
@@ -337,7 +337,7 @@ class NOWReflexivityRadar:
         bull_structure = (df_bt['MA200_Slope'] >= -0.05) & (df_bt['MA50'] >= df_bt['MA200'] * 0.96) & (~macro_crisis_regime) & not_rebounding_from_crash
         equilibrium_test = ((df_bt['Dist_200MA'] >= -12.0) & (df_bt['Dist_200MA'] <= 8.0)) | ((df_bt['Dist_50MA'].abs() <= 3.5) & (df_bt['Dist_200MA'] <= 10.0))
         cool_score = (df_bt['Composite_Score'].rolling(10).min() <= 50.0) | (df_bt['Composite_Score'] <= 60.0)
-        inflection_stage = (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
+        inflection_stage = (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
         raw_stage = bull_structure & equilibrium_test & cool_score & inflection_stage & (~raw_panic)
 
         # 【象限 III：反身性牛市极度泡沫顶 (Type C1: Bull Bubble Climax Top)】
@@ -346,9 +346,9 @@ class NOWReflexivityRadar:
         regime_bubble_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
         gate_bubble_top = df_bt['Dist_200MA'] >= 10.0
         inflection_bubble_top = (
-            (df_bt['close'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
+            (df_bt['NOW'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
         ) | (
-            (df_bt['Dist_200MA'] > 20.0) & (df_bt['close'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['close'].shift(1) >= df_bt['MA20'].shift(1))
+            (df_bt['Dist_200MA'] > 20.0) & (df_bt['NOW'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['NOW'].shift(1) >= df_bt['MA20'].shift(1))
         )
         raw_bubble_top = regime_bubble_top & gate_bubble_top & inflection_bubble_top
 
@@ -357,9 +357,9 @@ class NOWReflexivityRadar:
         # 熊市/宏观信用破位格局下 (close < MA200 或 宏观危机 或 刚经历严重崩盘)，
         # 经历过超跌反弹后遇阻，相空间广义动能由正转负 (q1_dot < 0 且前一日 >= 0)，价格跌破短期均线支撑。
         # 彻底补齐熊市中“毫无黄色防守预警点”的盲区！
-        bear_regime = (df_bt['close'] < df_bt['MA200']) | macro_crisis_regime | (df_bt['Dist_200MA'].rolling(60).min() < -12.0)
+        bear_regime = (df_bt['NOW'] < df_bt['MA200']) | macro_crisis_regime | (df_bt['Dist_200MA'].rolling(60).min() < -12.0)
         recently_bounced = df_bt['Dist_200MA'].rolling(15).min() < -8.0
-        exhaustion_inflection = (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0) & ((df_bt['close'] < df_bt['MA10']) | (df_bt['close'] < df_bt['MA50']))
+        exhaustion_inflection = (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0) & ((df_bt['NOW'] < df_bt['MA10']) | (df_bt['NOW'] < df_bt['MA50']))
         raw_bear_top = bear_regime & recently_bounced & exhaustion_inflection & (df_bt['Dist_200MA'] < 8.0)
 
         # 迟滞去噪滤波 (Hysteresis & Cooldown)
@@ -369,7 +369,7 @@ class NOWReflexivityRadar:
             last_p = -1 if is_top else 999999
             for i in range(len(df_sub)):
                 dt = df_sub['date'].iloc[i]
-                p = df_sub['close'].iloc[i]
+                p = df_sub['NOW'].iloc[i]
                 flg = raw_flags.iloc[i]
                 act = False
                 if flg:
@@ -442,7 +442,7 @@ class NOWReflexivityRadar:
 
         for i in range(df_len):
             dt = df_bt['date'].iloc[i]
-            p = df_bt['close'].iloc[i]
+            p = df_bt['NOW'].iloc[i]
             
             s = raw_sell.iloc[i]
             b = raw_buy.iloc[i]
@@ -558,98 +558,6 @@ class NOWReflexivityRadar:
         print("---------------------------------------------------------------")
         return self.result
 
-    def export_excel(self):
-        """导出机构级对账底稿 Excel (含总体表、逐笔对账表、逐日全流水表)"""
-        print(f"📑 正在导出完整 Excel 对账全底稿至: {self.output_xlsx}...")
-        df_bt = self.result.features
-        m = self.result.metrics
-        daily_accounts = self.result.daily_accounts
-
-        # 1. 总体绩效表
-        perf_data = [
-            ["指标名称", "基准 (Buy & Hold 定投)", "相空间反身性动力学策略", "策略超额优势 (Alpha)"],
-            ["初始本金 (USD)", "$10,000", "$10,000", "基准相同"],
-            ["每月定投 (USD)", "$1,000", "$1,000", "基准相同"],
-            ["总计投入本金 (USD)", f"${m['total_injected']:,.2f}", f"${m['total_injected']:,.2f}", "$0.00"],
-            ["期末总资产净值 (USD)", f"${m['bench_end']:,.2f}", f"${m['strat_end']:,.2f}", f"+${m['strat_end'] - m['bench_end']:,.2f}"],
-            ["全周期累计收益率 (%)", f"{m['bench_total_ret']:+.2f}%", f"{m['strat_total_ret']:+.2f}%", f"{m['strat_total_ret'] - m['bench_total_ret']:+.2f}%"],
-            ["年化复合增长率 CAGR (%)", f"{m['bench_cagr']:.2f}%", f"{m['strat_cagr']:.2f}%", f"{m['strat_cagr'] - m['bench_cagr']:+.2f}%"],
-            ["全周期最大历史回撤 MaxDD (%)", f"{m['bench_dd']:.2f}%", f"{m['strat_dd']:.2f}%", f"{m['bench_dd'] - m['strat_dd']:+.2f}% (风险显著下降)"],
-            ["交易触发总次数", "0", f"{m['trades_count']}", f"{m['rounds_count']} 轮完整波段操作"],
-            ["券商记账模式", "真实股数累加", "两状态追踪 (strat_shares, strat_cash)", "严格杜绝幽灵复利虚假连乘"]
-        ]
-        df_summary = pd.DataFrame(perf_data[1:], columns=perf_data[0])
-
-        # 2. 逐笔波段买卖配对表
-        df_pairs = generate_trade_pairs(self.result.orders, df_bt, 'NOW')
-
-        # 3. 雷达客观全信号观测明细表 (解耦于仓位与现金，记录全历史超买超卖预警)
-        signals_mask = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage'] | df_bt['Trigger_Overbought']
-        export_sig_cols = [
-            'date', 'close', 'Dist_200MA', 'q1_dot', 'v_dot', 'Quadrant',
-            'Score_Dim1_Pos', 'Score_Dim2_Vel', 'Score_Dim3_Lyapunov',
-            'Score_Dim4_Capital', 'Score_Dim5_Liquidity', 'Score_Dim6_Macro',
-            'Composite_Score', 'Radar_Alert_Type', 'Radar_Alert_Reason',
-            'action', 'strat_shares', 'strat_cash'
-        ]
-        df_signals = df_bt[signals_mask][export_sig_cols].copy()
-        df_signals['date'] = df_signals['date'].dt.strftime('%Y-%m-%d')
-        df_signals.columns = [
-            '触发日期', '收盘价(USD)', '年线偏离度(%)', '相空间速度q_dot', '能量导数V_dot', '动力学相限',
-            '维度1_势能分', '维度2_速度分', '维度3_稳定性分',
-            '维度4_资本稀释分', '维度5_筹码资金流分', '维度6_宏观引力分',
-            '综合反身性过热分', '客观雷达信号类型', '信号量化诱因',
-            '实盘执行动作', '账户实盘持股数', '闲置现金池(USD)'
-        ]
-
-        # 4. 逐日全流水表
-        export_cols = [
-            'date', 'close', 'volume', 'MA10', 'MA50', 'MA200', 'Dist_200MA',
-            'q1', 'q1_dot', 'q1_ddot', 'v_dot', 'Quadrant',
-            'Score_Dim1_Pos', 'Score_Dim2_Vel', 'Score_Dim3_Lyapunov',
-            'Score_Dim4_Capital', 'Score_Dim5_Liquidity', 'Score_Dim6_Macro',
-            'Composite_Score', 'Radar_Alert_Type', 'Radar_Alert_Reason',
-            'action', 'strat_shares', 'strat_cash', 'strat_nav', 'bench_nav'
-        ]
-        col_names_cn = [
-            '日期', '收盘价', '成交量', '10日均线', '50日均线', '200日均线', '年线偏离度(%)',
-            '状态位置q1', '状态速度q1_dot', '广义加速度q1_ddot', '相空间能量变化率代理指标v_dot', '动力学相限',
-            '维度1_势能分', '维度2_速度分', '维度3_稳定性分',
-            '维度4_资本稀释分', '维度5_筹码资金流分', '维度6_宏观引力分',
-            '综合反身性过热分', '客观雷达信号类型', '信号量化诱因',
-            '实盘交易信号', '策略真实持股数', '策略闲置现金池', '策略总资产净值', '基准总资产净值'
-        ]
-        df_daily = df_bt[export_cols].copy()
-        df_daily['date'] = df_daily['date'].dt.strftime('%Y-%m-%d')
-        df_daily.columns = col_names_cn
-
-        with pd.ExcelWriter(self.output_xlsx, engine='openpyxl') as writer:
-            df_summary.to_excel(writer, sheet_name='总体绩效对比', index=False)
-            df_pairs.to_excel(writer, sheet_name='逐笔波段买卖对账表', index=False)
-            df_signals.to_excel(writer, sheet_name='雷达客观全信号明细表', index=False)
-            df_daily.to_excel(writer, sheet_name='逐日状态全流水底稿', index=False)
-
-    def export_csv(self):
-        """保存全历史雷达与维度数据至本地 CSV"""
-        print(f"💾 正在导出本地主雷达数据表至: {self.output_csv}...")
-        # 将回测客观信号合并回 self.df 中
-        df_merged = self.df.copy()
-        if hasattr(self, 'df_bt') and self.df_bt is not None:
-            sig_cols = ['date', 'Signal_Oversold', 'Trigger_Oversold', 'Trigger_Panic', 'Trigger_Stage', 'Signal_Overbought', 'Trigger_Overbought', 'Trigger_Bubble_Top', 'Trigger_Bear_Top', 'Radar_Alert_Type', 'Radar_Alert_Reason']
-            df_merged = df_merged.merge(self.df_bt[sig_cols], on='date', how='left')
-            df_merged['Signal_Oversold'] = df_merged['Signal_Oversold'].fillna(False)
-            df_merged['Trigger_Oversold'] = df_merged['Trigger_Oversold'].fillna(False)
-            df_merged['Trigger_Panic'] = df_merged['Trigger_Panic'].fillna(False)
-            df_merged['Trigger_Stage'] = df_merged['Trigger_Stage'].fillna(False)
-            df_merged['Signal_Overbought'] = df_merged['Signal_Overbought'].fillna(False)
-            df_merged['Trigger_Overbought'] = df_merged['Trigger_Overbought'].fillna(False)
-            df_merged['Trigger_Bubble_Top'] = df_merged['Trigger_Bubble_Top'].fillna(False)
-            df_merged['Trigger_Bear_Top'] = df_merged['Trigger_Bear_Top'].fillna(False)
-            df_merged['Radar_Alert_Type'] = df_merged['Radar_Alert_Type'].fillna('无')
-            df_merged['Radar_Alert_Reason'] = df_merged['Radar_Alert_Reason'].fillna('正常跟踪中')
-        df_merged.to_csv(self.output_csv, index=False)
-        print(f"✅ CSV 导出完毕: {self.output_csv}")
-
     def plot_panoramic_chart(self):
         """生成 4 层对齐高清时间序列全景图谱"""
         print(f"🎨 正在绘制 4 层对齐时间序列图谱至: {self.output_panoramic_png}...")
@@ -663,35 +571,35 @@ class NOWReflexivityRadar:
         # 第 1 层：价格与买卖点标记 (四象限对称客观预警 vs 账户实盘交易)
         # -------------------------------------------------------------
         ax1 = axes[0]
-        ax1.plot(dates, df_bt['close'], label='NOW 收盘价 (USD)', color='#1f77b4', lw=1.8, zorder=2)
+        ax1.plot(dates, df_bt['NOW'], label='NOW 收盘价 (USD)', color='#1f77b4', lw=1.8, zorder=2)
         ax1.plot(dates, df_bt['MA50'], label='50 日机构均线 (MA50)', color='#ff7f0e', lw=1.2, ls='--', zorder=2)
         ax1.plot(dates, df_bt['MA200'], label='200 日牛熊生命线 (MA200)', color='#2ca02c', lw=1.2, ls=':', zorder=2)
 
         # 1. 客观雷达信号标记 (不受仓位和现金限制，高信噪比四象限体系)
         # 象限 I：极度恐慌底 (亮青色钻石点)
         panic_pts = df_bt[df_bt['Trigger_Panic']]
-        ax1.scatter(panic_pts['date'], panic_pts['close'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度恐慌底] 崩盘超卖耗竭 (共 {len(panic_pts)} 次)')
+        ax1.scatter(panic_pts['date'], panic_pts['NOW'], color='#00e5ff', edgecolors='#0091ea', marker='D', s=70, alpha=0.95, zorder=5, label=f'[客观极度恐慌底] 崩盘超卖耗竭 (共 {len(panic_pts)} 次)')
 
         # 象限 II：牛市阶段蓄势底 (宝蓝色钻石点)
         stage_pts = df_bt[df_bt['Trigger_Stage']]
-        ax1.scatter(stage_pts['date'], stage_pts['close'], color='#2979ff', edgecolors='#1a237e', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观阶段蓄势底] 均衡回踩确认 (共 {len(stage_pts)} 次)')
+        ax1.scatter(stage_pts['date'], stage_pts['NOW'], color='#2979ff', edgecolors='#1a237e', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观阶段蓄势底] 均衡回踩确认 (共 {len(stage_pts)} 次)')
 
         # 象限 III：牛市极度泡沫顶 (亮橙红色钻石点)
         bubble_pts = df_bt[df_bt['Trigger_Bubble_Top']]
-        ax1.scatter(bubble_pts['date'], bubble_pts['close'], color='#ff9100', edgecolors='#d50000', marker='D', s=75, alpha=0.95, zorder=5, label=f'[客观极度泡沫顶] 泡沫衰竭防守 (共 {len(bubble_pts)} 次)')
+        ax1.scatter(bubble_pts['date'], bubble_pts['NOW'], color='#ff9100', edgecolors='#d50000', marker='D', s=75, alpha=0.95, zorder=5, label=f'[客观极度泡沫顶] 泡沫衰竭防守 (共 {len(bubble_pts)} 次)')
 
         # 象限 IV：熊市反弹衰竭顶 (亮黄色钻石点)
         bear_top_pts = df_bt[df_bt['Trigger_Bear_Top']]
-        ax1.scatter(bear_top_pts['date'], bear_top_pts['close'], color='#ffd600', edgecolors='#e65100', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观熊市衰竭顶] 诱多破位防守 (共 {len(bear_top_pts)} 次)')
+        ax1.scatter(bear_top_pts['date'], bear_top_pts['NOW'], color='#ffd600', edgecolors='#e65100', marker='D', s=65, alpha=0.95, zorder=5, label=f'[客观熊市衰竭顶] 诱多破位防守 (共 {len(bear_top_pts)} 次)')
 
         # 2. 策略实盘记账买卖点 (真实账户交易变动)
         sells = df_bt[df_bt['action'] == 'SELL']
         buys = df_bt[df_bt['action'] == 'BUY']
-        ax1.scatter(sells['date'], sells['close'], color='#d62728', marker='v', s=140, zorder=7, label=f'[实盘卖出] 策略减仓变现 (共 {len(sells)} 次, 仓位清零)')
-        ax1.scatter(buys['date'], buys['close'], color='#00c853', marker='^', s=140, zorder=7, label=f'[实盘买入] 策略低位建仓 (共 {len(buys)} 次, 满仓买入)')
+        ax1.scatter(sells['date'], sells['NOW'], color='#d62728', marker='v', s=140, zorder=7, label=f'[实盘卖出] 策略减仓变现 (共 {len(sells)} 次, 仓位清零)')
+        ax1.scatter(buys['date'], buys['NOW'], color='#00c853', marker='^', s=140, zorder=7, label=f'[实盘买入] 策略低位建仓 (共 {len(buys)} 次, 满仓买入)')
 
         # 3. 背景真实深度超跌体制区间微弱高亮
-        ax1.fill_between(dates, df_bt['close'].min()*0.85, df_bt['close'].max()*1.1, where=(df_bt['Dist_200MA'] <= -10.0), color='#00e5ff', alpha=0.06, label='深度超跌体制区 (Dist_200MA <= -10%)')
+        ax1.fill_between(dates, df_bt['NOW'].min()*0.85, df_bt['NOW'].max()*1.1, where=(df_bt['Dist_200MA'] <= -10.0), color='#00e5ff', alpha=0.06, label='深度超跌体制区 (Dist_200MA <= -10%)')
 
         ax1.set_title("Layer 1: 股价微观雷达双层信号图谱 (高信噪比客观预警 vs 账户实盘买卖执行)", fontsize=13, fontweight='bold')
         ax1.set_ylabel("价格 (USD)", fontsize=11)
@@ -833,14 +741,22 @@ class NOWReflexivityRadar:
         print("================================================================================")
         self.load_and_preprocess()
         self.compute_all_dimensions()
+        
+        # Save local radar
+        self.df.to_csv('single_radar_local.csv', index=False)
+        print(f"💾 预计算指标已固化至: single_radar_local.csv (共 {len(self.df)} 行)")
+        
         self.run_backtest()
-        self.export_excel()
-        self.export_csv()
+        
+        from core_engine.export_utils import export_deliverables
+        export_deliverables(self.result, "ServiceNow (NOW)")
+        
         self.plot_panoramic_chart()
         self.plot_phase_portrait()
         print("================================================================================")
         print("🎉 全部任务已圆满完成！所有机构级对账表、全景图谱与相图均已生成！")
         print("================================================================================")
+
 
 if __name__ == "__main__":
     radar = NOWReflexivityRadar()
