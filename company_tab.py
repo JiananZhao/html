@@ -814,6 +814,23 @@ def render_company_deep_dive_tab():
     
     with st.expander("点击展开：生成该股专属 4-Quadrant 动力学雷达图谱", expanded=True):
         st.info("💡 采用本地缓存与无量纲分位数标定，自适应任何美股标的，识别恐慌极值底与泡沫衰竭顶。")
+
+        # 初始默认聚焦时间视野 (自动自适应 Y 轴，消除留白)
+        range_map = {
+            "近6个月 (最新细节)": "6M",
+            "近1年": "1Y",
+            "近3年": "3Y",
+            "近5年": "5Y",
+            "全部 (最长历史)": "ALL"
+        }
+        radar_range_choice = st.selectbox(
+            "🎯 初始默认聚焦时间视野 (自动自适应 Y 轴，消除留白)：",
+            list(range_map.keys()),
+            index=0,
+            key="radar_range_select"
+        )
+        selected_radar_range = range_map[radar_range_choice]
+
         try:
             import yfinance as yf
             from reflexivity_engine import run_universal_reflexivity_radar
@@ -839,7 +856,7 @@ def render_company_deep_dive_tab():
                     df_macro = pd.read_csv(macro_path)
                     df_bt = run_universal_reflexivity_radar(active_ticker, df_price, df_macro)
                     
-                    fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker)
+                    fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker, default_range=selected_radar_range)
                     if fig_radar:
                         st.plotly_chart(fig_radar, use_container_width=True)
                     else:

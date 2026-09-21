@@ -481,7 +481,11 @@ def create_volatility_momentum_chart(df_metrics: pd.DataFrame, symbol: str, time
     return fig
 
 
-def create_interactive_reflexivity_radar(df, symbol: str):
+def create_interactive_reflexivity_radar(df, symbol: str, default_range: str = '1Y'):
+    """
+    构建 4 层反身性相空间动力学雷达图，内置可选期限按钮与 Y 轴自适应。
+    default_range: '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'
+    """
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     import pandas as pd
@@ -490,6 +494,11 @@ def create_interactive_reflexivity_radar(df, symbol: str):
         return None
         
     date_col = 'date' if 'date' in df.columns else df.index
+
+    # 确保 date 列为 datetime 类型
+    if isinstance(date_col, str):
+        df = df.copy()
+        df[date_col] = pd.to_datetime(df[date_col])
 
     # Create subplots: 4 rows
     fig = make_subplots(
@@ -552,20 +561,175 @@ def create_interactive_reflexivity_radar(df, symbol: str):
     if 'NFCI' in df.columns:
         fig.add_trace(go.Scatter(x=df[date_col], y=df['NFCI'], mode='lines', name='NFCI 金融条件', line=dict(color='#f59e0b', width=1.5)), row=4, col=1, secondary_y=True)
 
+    # =========================================================================
+    # 动态自适应 Y 轴与双轴联动按钮 (各预设期限切片的精准极值计算)
+    # =========================================================================
+    last_dt = df[date_col].iloc[-1]
+    total_days = (last_dt - df[date_col].iloc[0]).days
+    total_years = total_days / 365.25
+    end_str = (last_dt + pd.DateOffset(days=5)).strftime('%Y-%m-%d')
+
+    time_windows = [
+        ("近1月", 1),
+        ("近3月", 3),
+        ("近6月", 6),
+        ("近1年", 12),
+        ("近3年", 36),
+        ("近5年", 60),
+        (f"全部 ({total_years:.1f}年)", None)
+    ]
+
+    updatemenu_buttons = []
+
+    # 初始默认边界 (防护性初始化为全量)
+    initial_x_start = df[date_col].iloc[0]
+    initial_y_price_range = [df['close'].min() * 0.94, df['close'].max() * 1.06]
+
+    # 用于 Layer 1 价格 Y 轴计算的列
+    price_cols = ['close']
+    if 'MA50' in df.columns:
+        price_cols.append('MA50')
+    if 'MA200' in df.columns:
+        price_cols.append('MA200')
+
+    for label, months in time_windows:
+        if months is not None:
+            s_dt = last_dt - pd.DateOffset(months=months)
+            s_slice = df[df[date_col] >= s_dt]
+        else:
+            s_dt = df[date_col].iloc[0]
+            s_slice = df
+
+        if s_slice.empty:
+            continue
+
+        s_str = s_dt.strftime('%Y-%m-%d')
+
+        # --- Layer 1: 价格切片极值 (带 6% 呼吸边距) ---
+        p_min = s_slice[price_cols].min().min()
+        p_max = s_slice[price_cols].max().max()
+        p_pad = (p_max - p_min) * 0.06 if p_max > p_min else p_max * 0.06
+        y_p_min = max(0, p_min - p_pad)
+        y_p_max = p_max + p_pad
+
+        # --- Layer 2: Composite Score (0-100 固定量纲, q1_dot 自适应) ---
+        y_score_min = 0
+        y_score_max = 105
+        if 'q1_dot' in s_slice.columns:
+            qd_min = s_slice['q1_dot'].min()
+            qd_max = s_slice['q1_dot'].max()
+            qd_pad = (qd_max - qd_min) * 0.08 if qd_max > qd_min else 1.0
+            y_qd_range = [qd_min - qd_pad, qd_max + qd_pad]
+        else:
+            y_qd_range = [-5, 5]
+
+        # --- Layer 3: Gap & V_dot 自适应 ---
+        if 'Gap' in s_slice.columns:
+            g_min = s_slice['Gap'].min()
+            g_max = s_slice['Gap'].max()
+            g_pad = (g_max - g_min) * 0.08 if g_max > g_min else 1.0
+            y_gap_range = [g_min - g_pad, g_max + g_pad]
+        else:
+            y_gap_range = [-20, 20]
+        if 'v_dot' in s_slice.columns:
+            vd_min = s_slice['v_dot'].min()
+            vd_max = s_slice['v_dot'].max()
+            vd_pad = (vd_max - vd_min) * 0.08 if vd_max > vd_min else 1.0
+            y_vd_range = [vd_min - vd_pad, vd_max + vd_pad]
+        else:
+            y_vd_range = [-5, 5]
+
+        # --- Layer 4: BAA10Y & NFCI 自适应 ---
+        if 'BAA10Y' in s_slice.columns:
+            b_min = s_slice['BAA10Y'].min()
+            b_max = s_slice['BAA10Y'].max()
+            b_pad = (b_max - b_min) * 0.08 if b_max > b_min else 0.1
+            y_baa_range = [b_min - b_pad, b_max + b_pad]
+        else:
+            y_baa_range = [0, 5]
+        if 'NFCI' in s_slice.columns:
+            n_min = s_slice['NFCI'].min()
+            n_max = s_slice['NFCI'].max()
+            n_pad = (n_max - n_min) * 0.08 if n_max > n_min else 0.1
+            y_nfci_range = [n_min - n_pad, n_max + n_pad]
+        else:
+            y_nfci_range = [-1, 1]
+
+        # 匹配初始视野
+        key_tag = f"{months}M" if months and months < 12 else (f"{months // 12}Y" if months else "ALL")
+        if default_range == key_tag or (default_range == '1Y' and months == 12):
+            initial_x_start = s_dt
+            initial_y_price_range = [y_p_min, y_p_max]
+
+        # 构造 Plotly Relayout 联动按钮：点击同时精准更新全部 4 层 X 轴与 Y 轴范围
+        # Plotly subplots axis naming: row1=yaxis, row2=yaxis2 (primary) + yaxis5 (secondary),
+        # row3=yaxis3 (primary) + yaxis6 (secondary), row4=yaxis4 (primary) + yaxis7 (secondary)
+        updatemenu_buttons.append(dict(
+            label=label,
+            method='relayout',
+            args=[{
+                'xaxis4.range': [s_str, end_str],
+                'yaxis.range': [y_p_min, y_p_max],
+                'yaxis2.range': [y_score_min, y_score_max],
+                'yaxis5.range': y_qd_range,
+                'yaxis3.range': y_gap_range,
+                'yaxis6.range': y_vd_range,
+                'yaxis4.range': y_baa_range,
+                'yaxis7.range': y_nfci_range,
+            }]
+        ))
+
     fig.update_layout(
-        height=950,
+        height=1000,
         hovermode="x unified",
         template="plotly_white",
         font=dict(size=14, family="sans-serif"),
         legend=dict(
             orientation="h", 
             yanchor="bottom", 
-            y=1.08, 
+            y=1.06, 
             xanchor="center", 
             x=0.5,
-            font=dict(size=15)
+            bgcolor="#ffffff",
+            bordercolor="#b2bec3",
+            borderwidth=1.5,
+            font=dict(color="#111111", size=15, family="sans-serif")
         ),
-        margin=dict(t=180)
+        margin=dict(l=65, r=45, t=220, b=45),
+        # 内置期限切换按钮组 (点击同时自适应调整全部 Y 轴与 X 轴)
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="right",
+                x=0.0,
+                y=1.16,
+                xanchor="left",
+                yanchor="bottom",
+                bgcolor="#f5f6fa",
+                bordercolor="#dcdde1",
+                borderwidth=1,
+                font=dict(color="#2f3542", size=14, family="sans-serif"),
+                buttons=updatemenu_buttons
+            )
+        ]
     )
+
+    # 底部滑块 (rangeslider)
+    fig.update_xaxes(
+        rangeslider=dict(visible=True, thickness=0.03, bgcolor="#f1f2f6"),
+        range=[initial_x_start.strftime('%Y-%m-%d'), end_str],
+        row=4, col=1
+    )
+
+    # 初始 Y 轴设置为默认期限切片的精准极值区间
+    fig.update_yaxes(
+        range=initial_y_price_range,
+        title_text="价格 (USD)", tickprefix="$",
+        gridcolor="#f1f2f6", zerolinecolor="#dcdde1",
+        row=1, col=1
+    )
+    fig.update_yaxes(title_text="综合得分", range=[0, 105], gridcolor="#f1f2f6", zerolinecolor="#dcdde1", row=2, col=1)
+    fig.update_yaxes(title_text="反身性 Gap", gridcolor="#f1f2f6", zerolinecolor="#dcdde1", row=3, col=1)
+    fig.update_yaxes(title_text="信用利差", gridcolor="#f1f2f6", zerolinecolor="#dcdde1", row=4, col=1)
     
     return fig
