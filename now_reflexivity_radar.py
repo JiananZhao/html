@@ -33,6 +33,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+from core_engine.simulation_result import SimulationResult
+from shared_executor import SharedExecutor
+from true_accounting import UnitizedAccount
+from true_accounting import calculate_xirr
+
 # 保证 Windows 控制台 UTF-8 输出正常
 if sys.platform == 'win32':
     import io
@@ -44,6 +49,47 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', '
 plt.rcParams['axes.unicode_minus'] = False
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def generate_trade_pairs(orders, sub_bt, ticker='NOW'):
+    """从 SharedExecutor 的 orders_history 中提取买卖配对"""
+    trade_pairs = []
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    
+    for k in range(0, len(discretionary) - 1, 2):
+        s_o = discretionary[k]
+        b_o = discretionary[k+1]
+        
+        if s_o['target'] == 0.0 and b_o['target'] == 1.0:
+            import pandas as pd
+            s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
+            b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
+            
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), 'close'].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), 'close'].values
+            
+            s_p = s_p[0] if len(s_p) > 0 else 0
+            b_p = b_p[0] if len(b_p) > 0 else 0
+            
+            if s_p > 0:
+                p_drop = (b_p - s_p) / s_p * 100.0
+            else:
+                p_drop = 0.0
+            
+            trade_pairs.append({
+                '波段轮次': len(trade_pairs) + 1,
+                '卖出避险日期': s_dt.strftime('%Y-%m-%d'),
+                '卖出逃顶价格': round(s_p, 2),
+                '变现闲置现金(USD)': 0.0,
+                '逃顶触发原因': s_o['reason'],
+                '低位回补日期': b_dt.strftime('%Y-%m-%d'),
+                '回补买入价格': round(b_p, 2),
+                '买入持股数量': 0.0,
+                '回补建仓原因': b_o['reason'],
+                '逃顶回补差价空间(%)': round(p_drop, 2) * -1,
+                '状态': '超额成功' if p_drop < 0 else '震荡平保'
+            })
+    return pd.DataFrame(trade_pairs)
 
 class NOWReflexivityRadar:
     def __init__(self):
@@ -119,27 +165,9 @@ class NOWReflexivityRadar:
         df['Gap_Max_45'] = df['Gap'].rolling(45, min_periods=1).max()
         df['Gap_Upper'] = df['Gap'].expanding(min_periods=50).quantile(0.85)
 
-        # 4. 黄文政拉格朗日相空间动力学 (q, q_dot, q_ddot, V_dot)
-        # 状态位置 q1: 年线相对偏离度 (%)
-        df['q1'] = df['Dist_200MA']
-        # 广义速度 q1_dot: 10 天低通后向有限差分 (%/day)
-        df['q1_dot'] = (df['q1'] - df['q1'].shift(10)) / 10.0
-        # 广义加速度 q1_ddot: 5 天二阶有限差分 (%/day^2)
-        df['q1_ddot'] = (df['q1_dot'] - df['q1_dot'].shift(5)) / 5.0
-        # 相空间能量变化率代理指标: V_dot = q1_dot * (q1 + tau * q1_ddot), 特征时间尺度 tau = 100
-        tau = 100.0
-        df['v_dot'] = df['q1_dot'] * (df['q1'] + tau * df['q1_ddot'])
-
-        # 5. 相平面四象限动力学标记
-        # 象限 1: q1 >= 0 且 q1_dot >= 0 (正反身性自激主升浪)
-        # 象限 2: q1 < 0 且 q1_dot >= 0 (底部蓄势重构 / 右侧确认)
-        # 象限 3: q1 < 0 且 q1_dot < 0 (负反身性死亡螺旋)
-        # 象限 4: q1 >= 0 且 q1_dot < 0 (动能衰竭与相变崩塌 / 逃顶信号)
-        df['Quadrant'] = 0
-        df.loc[(df['q1'] >= 0) & (df['q1_dot'] >= 0), 'Quadrant'] = 1
-        df.loc[(df['q1'] < 0) & (df['q1_dot'] >= 0), 'Quadrant'] = 2
-        df.loc[(df['q1'] < 0) & (df['q1_dot'] < 0), 'Quadrant'] = 3
-        df.loc[(df['q1'] >= 0) & (df['q1_dot'] < 0), 'Quadrant'] = 4
+        # 4 & 5. 黄文政拉格朗日相空间动力学 & 相平面四象限动力学标记
+        from core_engine.phase_space import PhaseSpaceFilter
+        df = PhaseSpaceFilter.compute_dynamics(df, price_col='close', ma_col='MA200', tau=100.0, vel_window=10, acc_window=5)
 
         # 6. 微观资金流向 (CMF 20) 与换手率
         # CLV = [(Close - Low) - (High - Close)] / (High - Low)
@@ -317,34 +345,11 @@ class NOWReflexivityRadar:
         raw_bear_top = bear_regime & recently_bounced & exhaustion_inflection & (df_bt['Dist_200MA'] < 8.0)
 
         # 迟滞去噪滤波 (Hysteresis & Cooldown)
-        def apply_hys(df_sub, raw_flags, min_days, price_step, is_top=False):
-            final_flags = []
-            last_dt = None
-            last_p = -1 if is_top else 999999
-            for i in range(len(df_sub)):
-                dt = df_sub['date'].iloc[i]
-                p = df_sub['close'].iloc[i]
-                flg = raw_flags.iloc[i]
-                act = False
-                if flg:
-                    days = (dt - last_dt).days if last_dt else 999
-                    if is_top:
-                        if days > min_days or p > last_p * (1 + price_step):
-                            act = True
-                            last_dt = dt
-                            last_p = p
-                    else:
-                        if days > min_days or p < last_p * (1 - price_step):
-                            act = True
-                            last_dt = dt
-                            last_p = p
-                final_flags.append(act)
-            return pd.Series(final_flags, index=df_sub.index)
-
-        df_bt['Trigger_Panic'] = apply_hys(df_bt, raw_panic, min_days=15, price_step=0.07, is_top=False)
-        df_bt['Trigger_Stage'] = apply_hys(df_bt, raw_stage, min_days=20, price_step=0.06, is_top=False)
-        df_bt['Trigger_Bubble_Top'] = apply_hys(df_bt, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
-        df_bt['Trigger_Bear_Top'] = apply_hys(df_bt, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
+        from core_engine.phase_space import PhaseSpaceFilter
+        df_bt['Trigger_Panic'] = PhaseSpaceFilter.apply_hysteresis(df_bt, raw_panic, min_days=15, price_step=0.07, is_top=False)
+        df_bt['Trigger_Stage'] = PhaseSpaceFilter.apply_hysteresis(df_bt, raw_stage, min_days=20, price_step=0.06, is_top=False)
+        df_bt['Trigger_Bubble_Top'] = PhaseSpaceFilter.apply_hysteresis(df_bt, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
+        df_bt['Trigger_Bear_Top'] = PhaseSpaceFilter.apply_hysteresis(df_bt, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
         df_bt['Trigger_Top'] = df_bt['Trigger_Bubble_Top'] | df_bt['Trigger_Bear_Top']
         df_bt['Trigger_Overbought'] = df_bt['Trigger_Top']
         df_bt['Trigger_Oversold'] = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage']
@@ -375,571 +380,104 @@ class NOWReflexivityRadar:
         df_bt['Radar_Alert_Reason'] = alert_reasons
 
         # -------------------------------------------------------------
-        # 逐日记账循环
+        # 逐日记账循环 (SharedExecutor)
         # -------------------------------------------------------------
-        from true_accounting import UnitizedAccount, calculate_xirr
-        acc = UnitizedAccount(initial_capital, df_bt['date'].iloc[0])
-        bench_acc = UnitizedAccount(initial_capital, df_bt['date'].iloc[0])
-        
-        bench_nav = []
-        strat_nav = []
-        shares_hist = []
-        cash_hist = []
+        bench_acc = UnitizedAccount(initial_cash=initial_capital, initial_date=df_bt['date'].iloc[0])
+        strat_acc = UnitizedAccount(initial_cash=initial_capital, initial_date=df_bt['date'].iloc[0])
+
+        executor = SharedExecutor(strat_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='strat')
+        bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='bench')
+
+        curr_m = -1
+        pos = 1.0
+        total_injected = 0.0
+
+        bench_eqs = []
+        strat_eqs = []
+        positions = []
         action_hist = []
-        trades = []
-        current_pair = {}
-        round_idx = 1
-        
-        total_injected = initial_capital
-        current_month = -1
-        
-        target_state = 1
-        pending_order = None # 1 for buy, -1 for sell
-        pending_reason = ""
-        
+
         df_len = len(df_bt)
-        
+
         for i in range(df_len):
             dt = df_bt['date'].iloc[i]
-            p_open = df_bt['open'].iloc[i] if ('open' in df_bt.columns and pd.notna(df_bt['open'].iloc[i])) else df_bt['close'].iloc[i]
-            p_close = df_bt['close'].iloc[i]
-            
-            acc.calculate_nav(p_open)
-            bench_acc.calculate_nav(p_open)
-            
-            if dt.month != current_month and i > 0:
-                current_month = dt.month
-                acc.inject_cash(dca_monthly, dt, p_open)
-                bench_acc.inject_cash(dca_monthly, dt, p_open)
-                total_injected += dca_monthly
-                
-                bench_acc.execute_trade(p_open, dca_monthly / p_open, fee_rate=0.0)
-                if target_state == 1 and pending_order != -1:
-                    if acc.cash > 0:
-                        acc.execute_trade(p_open, acc.cash / p_open, fee_rate=0.0)
-                        
-            action = 'HOLD'
-            
-            if pending_order == -1:
-                if acc.shares > 0:
-                    trades.append({
-                        'round': round_idx,
-                        'date': dt.strftime('%Y-%m-%d'),
-                        'action': 'SELL',
-                        'price': p_open,
-                        'shares': 0.0,
-                        'cash': acc.cash + acc.shares * p_open,
-                        'reason': pending_reason
-                    })
-                    acc.execute_trade(p_open, -acc.shares, fee_rate=0.0)
-                    action = 'SELL'
-                pending_order = None
-                
-            elif pending_order == 1:
-                if acc.cash > 0:
-                    trades.append({
-                        'round': round_idx,
-                        'date': dt.strftime('%Y-%m-%d'),
-                        'action': 'BUY',
-                        'price': p_open,
-                        'shares': acc.shares + acc.cash / p_open,
-                        'cash': 0.0,
-                        'reason': pending_reason
-                    })
-                    acc.execute_trade(p_open, acc.cash / p_open, fee_rate=0.0)
-                    action = 'BUY'
-                    round_idx += 1
-                pending_order = None
-
-            acc.calculate_nav(p_close)
-            bench_acc.calculate_nav(p_close)
-            acc.record_daily_state(dt, p_close)
-            bench_acc.record_daily_state(dt, p_close)
-            
-            s_val = acc.shares * p_close + acc.cash
-            b_val = bench_acc.shares * p_close + bench_acc.cash
-            
-            bench_nav.append(b_val)
-            strat_nav.append(s_val)
-            shares_hist.append(acc.shares)
-            cash_hist.append(acc.cash)
-            action_hist.append(action)
-            
-            if i < df_len - 1:
-                s = raw_sell.iloc[i]
-                b = raw_buy.iloc[i]
-                
-                if target_state == 1 and s:
-                    pending_order = -1
-                    target_state = 0
-                    pending_reason = "泡沫高点破位" if cond_bubble.iloc[i] else "科技熊市确立"
-                elif target_state == 0 and b:
-                    pending_order = 1
-                    target_state = 1
-                    pending_reason = "极度恐慌底反转" if cond_panic.iloc[i] else "牛市中枢支撑"
-                    
-        df_bt['bench_nav'] = bench_nav
-        df_bt['strat_nav'] = strat_nav
-        df_bt['strat_shares'] = shares_hist
-        df_bt['strat_cash'] = cash_hist
-        df_bt['action'] = action_hist
-        
-        bench_end = bench_nav[-1]
-        strat_end = strat_nav[-1]
-        final_date = df_bt['date'].iloc[-1]
-        
-        bench_cagr = calculate_xirr(bench_acc.cash_flows, bench_end, final_date) * 100.0
-        strat_cagr = calculate_xirr(acc.cash_flows, strat_end, final_date) * 100.0
-        
-        bench_df = bench_acc.get_history_df()
-        history_df = acc.get_history_df()
-        
-        bench_dd = (bench_df['Unit_NAV'] / bench_df['Unit_NAV'].cummax() - 1).min() * 100.0
-        strat_dd = (history_df['Unit_NAV'] / history_df['Unit_NAV'].cummax() - 1).min() * 100.0
-        
-        bench_total_ret = (bench_end - total_injected) / total_injected * 100.0
-        strat_total_ret = (strat_end - total_injected) / total_injected * 100.0
-        alpha = strat_cagr - bench_cagr
-        
-        self.perf_metrics = {}
-
-    def load_and_preprocess(self):
-        """100% 离线脱机加载本地日线行情、宏观指标与 SEC 基本面数据"""
-        print("📂 正在加载本地主数据集 (100% 脱机优先闭环)...")
-        if not os.path.exists(self.ohlcv_file):
-            raise FileNotFoundError(f"缺少行情文件: {self.ohlcv_file}")
-        if not os.path.exists(self.macro_file):
-            raise FileNotFoundError(f"缺少宏观文件: {self.macro_file}")
-        if not os.path.exists(self.sec_file):
-            raise FileNotFoundError(f"缺少SEC基本面文件: {self.sec_file}")
-
-        df_p = pd.read_csv(self.ohlcv_file)
-        df_p['date'] = pd.to_datetime(df_p['date'])
-
-        df_m = pd.read_csv(self.macro_file)
-        df_m['date'] = pd.to_datetime(df_m['date']).dt.tz_localize(None)
-
-        df_s = pd.read_csv(self.sec_file)
-        df_s['date'] = pd.to_datetime(df_s['date'])
-
-        # 合并数据集
-        df = pd.merge(df_p, df_m[['date', 'SPY', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='inner')
-        df = pd.merge(df, df_s, on='date', how='left')
-        df = df.sort_values('date').reset_index(drop=True)
-
-        print(f"✅ 成功合并数据，跨度从 {df['date'].iloc[0].strftime('%Y-%m-%d')} 到 {df['date'].iloc[-1].strftime('%Y-%m-%d')} (共 {len(df)} 个交易日)")
-        self.df = df
-        return df
-
-    def compute_all_dimensions(self):
-        """完全解耦计算 6 大独立维度、相空间变量与综合过热得分"""
-        df = self.df
-        print("⚙️ 正在计算相空间动力学 (q, q_dot, q_ddot, V_dot) 与 6 维解耦分位数...")
-
-        # 1. 基础技术指标与均线系统
-        df['MA10'] = df['close'].rolling(10).mean()
-        df['MA20'] = df['close'].rolling(20).mean()
-        df['MA50'] = df['close'].rolling(50).mean()
-        df['MA200'] = df['close'].rolling(200).mean()
-        df['Dist_200MA'] = (df['close'] - df['MA200']) / (df['MA200'] + 1e-8) * 100.0
-
-        # 2. 宏观信用环境与流动性状态
-        df['Macro_MA50'] = df['HYG'].rolling(50).mean()
-        df['Macro_MA200'] = df['HYG'].rolling(200).mean()
-        df['BAA_MA60'] = df['BAA10Y'].rolling(60).mean()
-        df['BAA_Stress'] = df['BAA10Y'] > df['BAA_MA60']
-        df['RY_Surge'] = (df['Real_Yield'] - df['Real_Yield'].rolling(60).min()) > 0.35
-
-        # 3. 反身性认知偏差（Reflexive Gap）
-        df['Price_Z'] = (df['close'] - df['close'].rolling(200).mean()) / (df['close'].rolling(200).std() + 1e-8)
-        df['Macro_Z'] = (df['HYG'] - df['HYG'].rolling(200).mean()) / (df['HYG'].rolling(200).std() + 1e-8)
-        roll_cov = df['Price_Z'].rolling(252).cov(df['Macro_Z'])
-        roll_var = df['Macro_Z'].rolling(252).var()
-        df['Dynamic_Beta'] = (roll_cov / (roll_var + 1e-8)).clip(lower=-2.0, upper=2.0)
-        df['Expected_Price_Z'] = df['Macro_Z'] * df['Dynamic_Beta']
-        df['Gap'] = df['Price_Z'] - df['Expected_Price_Z']
-        df['Gap_Max_45'] = df['Gap'].rolling(45, min_periods=1).max()
-        df['Gap_Upper'] = df['Gap'].expanding(min_periods=50).quantile(0.85)
-
-        # 4. 黄文政拉格朗日相空间动力学 (q, q_dot, q_ddot, V_dot)
-        # 状态位置 q1: 年线相对偏离度 (%)
-        df['q1'] = df['Dist_200MA']
-        # 广义速度 q1_dot: 10 天低通后向有限差分 (%/day)
-        df['q1_dot'] = (df['q1'] - df['q1'].shift(10)) / 10.0
-        # 广义加速度 q1_ddot: 5 天二阶有限差分 (%/day^2)
-        df['q1_ddot'] = (df['q1_dot'] - df['q1_dot'].shift(5)) / 5.0
-        # 相空间能量变化率代理指标: V_dot = q1_dot * (q1 + tau * q1_ddot), 特征时间尺度 tau = 100
-        tau = 100.0
-        df['v_dot'] = df['q1_dot'] * (df['q1'] + tau * df['q1_ddot'])
-
-        # 5. 相平面四象限动力学标记
-        # 象限 1: q1 >= 0 且 q1_dot >= 0 (正反身性自激主升浪)
-        # 象限 2: q1 < 0 且 q1_dot >= 0 (底部蓄势重构 / 右侧确认)
-        # 象限 3: q1 < 0 且 q1_dot < 0 (负反身性死亡螺旋)
-        # 象限 4: q1 >= 0 且 q1_dot < 0 (动能衰竭与相变崩塌 / 逃顶信号)
-        df['Quadrant'] = 0
-        df.loc[(df['q1'] >= 0) & (df['q1_dot'] >= 0), 'Quadrant'] = 1
-        df.loc[(df['q1'] < 0) & (df['q1_dot'] >= 0), 'Quadrant'] = 2
-        df.loc[(df['q1'] < 0) & (df['q1_dot'] < 0), 'Quadrant'] = 3
-        df.loc[(df['q1'] >= 0) & (df['q1_dot'] < 0), 'Quadrant'] = 4
-
-        # 6. 微观资金流向 (CMF 20) 与换手率
-        # CLV = [(Close - Low) - (High - Close)] / (High - Low)
-        high_low_range = df['high'] - df['low']
-        high_low_range = high_low_range.replace(0, np.nan)
-        clv = (2 * df['close'] - (df['high'] + df['low'])) / high_low_range
-        clv = clv.fillna(0.0)
-        vol_clv = clv * df['volume']
-        df['CMF20'] = vol_clv.rolling(20).sum() / (df['volume'].rolling(20).sum() + 1e-8)
-        df['Vol_Ratio50'] = df['volume'] / (df['volume'].rolling(50).mean() + 1e-8)
-
-        # 7. 6 大独立解耦分位数转换 (0 ~ 100 Uniform 标定)
-        import bisect
-        def expanding_rank(s, min_periods=100):
-            vals = s.values
-            n = len(vals)
-            res = np.full(n, np.nan)
-            sorted_arr = []
-            for i in range(n):
-                v = vals[i]
-                if np.isnan(v):
-                    continue
-                pos = bisect.bisect_right(sorted_arr, v)
-                sorted_arr.insert(pos, v)
-                if len(sorted_arr) >= min_periods:
-                    res[i] = (pos / len(sorted_arr)) * 100.0
-            return pd.Series(res, index=s.index)
-
-        # 维度 1: 势能位置
-        df['Score_Dim1_Pos'] = expanding_rank(df['q1']).fillna(50.0)
-        # 维度 2: 动能速度
-        df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot']).fillna(50.0)
-        # 维度 3: 李雅普诺夫稳定性导数
-        df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot']).fillna(50.0)
-        # 维度 4: 资本稀释与高管减持
-        insider_roll = df['insider_net_flow_m'].rolling(60).sum()
-        shares_growth = df['diluted_shares_m'].pct_change(252)
-        df['Score_Dim4_Capital'] = (
-            expanding_rank(-insider_roll) * 0.6 + expanding_rank(shares_growth) * 0.4
-        ).fillna(50.0)
-        # 维度 5: 微观筹码与资金流向
-        df['Score_Dim5_Liquidity'] = (
-            expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4
-        ).fillna(50.0)
-        # 维度 6: 宏观信用与金融条件收紧
-        df['Score_Dim6_Macro'] = (
-            expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5
-        ).fillna(50.0)
-
-        # 8. 综合反身性过热得分 (Composite Overheat Score)
-        df['Composite_Score'] = (
-            df['Score_Dim1_Pos'] * 0.25 +
-            df['Score_Dim2_Vel'] * 0.20 +
-            df['Score_Dim3_Lyapunov'] * 0.20 +
-            df['Score_Dim4_Capital'] * 0.15 +
-            df['Score_Dim6_Macro'] * 0.20
-        )
-
-        self.df = df
-        return df
-
-    def run_backtest(self, start_date='2013-06-01', initial_capital=10000.0, dca_monthly=1000.0):
-        """
-        真实券商记账体系模拟 (True Brokerage Accounting)
-        严格维护两个账户状态：
-          - strat_shares：当前持有的真实股数；
-          - strat_cash：当前闲置的现金池（美元）。
-        """
-        print(f"📊 启动真实券商记账回测 (回测起点: {start_date}, 初始本金: ${initial_capital:,.0f}, 月定投: ${dca_monthly:,.0f})...")
-        df = self.df
-        df_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
-
-        # -------------------------------------------------------------
-        # 信号判定逻辑
-        # -------------------------------------------------------------
-        # 1. 反身性高位泡沫破裂卖出信号：
-        #    - 过去 45 天内经历高认知偏差或综合高过热 (Gap > 85% 分位 或 Composite >= 70)
-        #    - 年线偏离度仍在较高位置 (Dist_200MA > 12%)
-        #    - 相空间跨入第四象限 (q1 >= 0 且 q1_dot < 0，动能衰竭转负)
-        #    - 跌破 50 日均线 (close < MA50)
-        #    - 宏观信用环境承压 (NFCI > -0.50 且 BAA10Y 处于扩张期)
-        cond_bubble = (
-            ((df_bt['Gap_Max_45'] > df_bt['Gap_Upper']) | (df_bt['Composite_Score'].rolling(30).max() >= 70.0)) &
-            (df_bt['Dist_200MA'] > 12.0) &
-            (df_bt['Quadrant'] == 4) &
-            (df_bt['close'] < df_bt['MA50']) &
-            (df_bt['NFCI'] > -0.50) &
-            df_bt['BAA_Stress']
-        )
-
-        # 2. 宏观信用海啸 / 科技熊市卖出信号：
-        #    - 高收益债跌破年线 (HYG < MA200)
-        #    - 真实利率急速飙升 (RY_Surge) 且金融条件骤紧 (NFCI > -0.45)
-        #    - 股价双均线破位 (close < MA50 且 close < MA200)
-        macro_crisis = (
-            (df_bt['HYG'] < df_bt['Macro_MA200']) &
-            df_bt['RY_Surge'] &
-            (df_bt['NFCI'] > -0.45)
-        )
-        cond_bear = macro_crisis & (df_bt['close'] < df_bt['MA50']) & (df_bt['close'] < df_bt['MA200'])
-
-        # 3. 底部防砸盘过滤：严禁在已深度腰斩的位置被动割肉
-        recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
-        raw_sell = (cond_bubble | cond_bear) & (~recently_crashed)
-
-        # 4. 券商实盘买卖条件 (Execution Layer)
-        cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
-        cond_trend = (df_bt['close'] > df_bt['MA50']).rolling(3).sum() == 3
-        raw_buy = cond_panic | cond_trend
-
-        # -------------------------------------------------------------
-        # 核心解耦：客观雷达高信噪比观测信号层 (Pure High-SNR Observational Signals)
-        # 第一性原理设计：
-        # 1. 严格状态门禁 (Regime Gating): 彻底杜绝在牛市高位打“抄底”，杜绝在熊市深渊打“逃顶”！
-        # 2. 动能拐点精确识别 (Inflection Trigger): 仅在相空间导数初次转正/转负时打点，拒绝缠绕！
-        # 3. 迟滞波段去噪 (Hysteresis & Cooldown): 消除微观日线级别的高频假信号，提供真正机构级指导！
-        # -------------------------------------------------------------
-        df_bt['MA20'] = df_bt['close'].rolling(20).mean()
-        df_bt['Dist_50MA'] = (df_bt['close'] - df_bt['MA50']) / df_bt['MA50'] * 100.0
-        df_bt['MA200_Slope'] = (df_bt['MA200'] - df_bt['MA200'].shift(10)) / df_bt['MA200'].shift(10) * 100.0
-
-        # -------------------------------------------------------------
-        # 核心解耦：客观雷达高信噪比观测信号层 (4-Quadrant Symmetric Reflexive System)
-        # 第一性原理设计 (严格基于索罗斯反身性理论与黄文政相空间动力学)：
-        #
-        # 【象限 I：反身性极度恐慌底 (Type A: Panic Crash Bottom)】
-        # 经济学机理：自由落体式崩盘、流动性践踏危机、负偏离远场极值区 (Dist_200MA < -10% 或 Score < 32)。
-        # 状态约束：处于真实折价状态 (Dist_200MA <= 0% 或 close < MA50)，且相空间速度 q1_dot 初次由负转正。
-        regime_panic = (df_bt['Dist_200MA'].rolling(20).min() < -15.0) | (df_bt['Dist_200MA'] < -10.0) | (df_bt['Composite_Score'] < 32.0)
-        gate_panic = (df_bt['Dist_200MA'] <= 0.0) | (df_bt['close'] < df_bt['MA50'])
-        inflection_panic = (
-            (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
-        ) | (
-            (df_bt['Dist_200MA'] < -25.0) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
-        )
-        raw_panic = regime_panic & gate_panic & inflection_panic
-
-        # 宏观信用危机/承压：高收益债跌破年线且金融条件紧缩 (NFCI > -0.40 或 RY_Surge)
-        macro_crisis_regime = (df_bt['HYG'] < df_bt['Macro_MA200']) & ((df_bt['NFCI'] > -0.40) | df_bt['RY_Surge'])
-
-        # 【象限 II：反身性牛市阶段蓄势底 / 均衡考验确认 (Type B: Stage Consolidation Bottom)】
-        # 经济学机理：索罗斯“考验期 (Period of Testing)”。
-        # 宏观结构：处于上升或平稳牛市结构 (MA200斜率 >= -0.05%, MA50 >= MA200 * 0.96)，绝非宏观信用危机期 (~macro_crisis_regime)。
-        # 几何物理约束：必须是从上方回踩中枢均线，绝不能是从深渊崩盘向上反抽阻力位的“死猫跳” (not_rebounding_from_crash)。
-        # 中枢回踩：股价回踩中长期均衡中枢带 (Dist_200MA 在 -12% ~ +8% 或回踩 50MA 附近)。
-        # 能量冷却：李雅普诺夫过热能量宣泄完毕 (Composite Score <= 60 或近期低点 <= 50)。
-        # 动能重启：相空间广义动能由负转正 (q1_dot > 0 且前一日 <= 0)。
-        not_rebounding_from_crash = df_bt['Dist_200MA'].rolling(90).min() >= -12.0
-        bull_structure = (df_bt['MA200_Slope'] >= -0.05) & (df_bt['MA50'] >= df_bt['MA200'] * 0.96) & (~macro_crisis_regime) & not_rebounding_from_crash
-        equilibrium_test = ((df_bt['Dist_200MA'] >= -12.0) & (df_bt['Dist_200MA'] <= 8.0)) | ((df_bt['Dist_50MA'].abs() <= 3.5) & (df_bt['Dist_200MA'] <= 10.0))
-        cool_score = (df_bt['Composite_Score'].rolling(10).min() <= 50.0) | (df_bt['Composite_Score'] <= 60.0)
-        inflection_stage = (df_bt['close'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0) & (df_bt['q1_dot'].shift(1) <= 0)
-        raw_stage = bull_structure & equilibrium_test & cool_score & inflection_stage & (~raw_panic)
-
-        # 【象限 III：反身性牛市极度泡沫顶 (Type C1: Bull Bubble Climax Top)】
-        # 经济学机理：正反馈认知偏离极峰 (Climax)。Composite >= 70 或偏离年线 > 22%，
-        # 且处于高位真实区间 (Dist_200MA >= 10%)，相空间跨入第四象限破位或跌破20MA月线动能加速转负。
-        regime_bubble_top = (df_bt['Composite_Score'] >= 70.0) | (df_bt['Dist_200MA'] > 22.0)
-        gate_bubble_top = df_bt['Dist_200MA'] >= 10.0
-        inflection_bubble_top = (
-            (df_bt['close'] < df_bt['MA50']) & (df_bt['q1_dot'] < 0) & (df_bt['Quadrant'] == 4)
-        ) | (
-            (df_bt['Dist_200MA'] > 20.0) & (df_bt['close'] < df_bt['MA20']) & (df_bt['q1_dot'] < -0.3) & (df_bt['close'].shift(1) >= df_bt['MA20'].shift(1))
-        )
-        raw_bubble_top = regime_bubble_top & gate_bubble_top & inflection_bubble_top
-
-        # 【象限 IV：反身性熊市反弹衰竭顶 (Type C2: Bear Rebound Exhaustion Top)】
-        # 经济学机理：索罗斯“犹豫期假复苏 (False Dawn)”。
-        # 熊市/宏观信用破位格局下 (close < MA200 或 宏观危机 或 刚经历严重崩盘)，
-        # 经历过超跌反弹后遇阻，相空间广义动能由正转负 (q1_dot < 0 且前一日 >= 0)，价格跌破短期均线支撑。
-        # 彻底补齐熊市中“毫无黄色防守预警点”的盲区！
-        bear_regime = (df_bt['close'] < df_bt['MA200']) | macro_crisis_regime | (df_bt['Dist_200MA'].rolling(60).min() < -12.0)
-        recently_bounced = df_bt['Dist_200MA'].rolling(15).min() < -8.0
-        exhaustion_inflection = (df_bt['q1_dot'] < 0) & (df_bt['q1_dot'].shift(1) >= 0) & ((df_bt['close'] < df_bt['MA10']) | (df_bt['close'] < df_bt['MA50']))
-        raw_bear_top = bear_regime & recently_bounced & exhaustion_inflection & (df_bt['Dist_200MA'] < 8.0)
-
-        # 迟滞去噪滤波 (Hysteresis & Cooldown)
-        def apply_hys(df_sub, raw_flags, min_days, price_step, is_top=False):
-            final_flags = []
-            last_dt = None
-            last_p = -1 if is_top else 999999
-            for i in range(len(df_sub)):
-                dt = df_sub['date'].iloc[i]
-                p = df_sub['close'].iloc[i]
-                flg = raw_flags.iloc[i]
-                act = False
-                if flg:
-                    days = (dt - last_dt).days if last_dt else 999
-                    if is_top:
-                        if days > min_days or p > last_p * (1 + price_step):
-                            act = True
-                            last_dt = dt
-                            last_p = p
-                    else:
-                        if days > min_days or p < last_p * (1 - price_step):
-                            act = True
-                            last_dt = dt
-                            last_p = p
-                final_flags.append(act)
-            return pd.Series(final_flags, index=df_sub.index)
-
-        df_bt['Trigger_Panic'] = apply_hys(df_bt, raw_panic, min_days=15, price_step=0.07, is_top=False)
-        df_bt['Trigger_Stage'] = apply_hys(df_bt, raw_stage, min_days=20, price_step=0.06, is_top=False)
-        df_bt['Trigger_Bubble_Top'] = apply_hys(df_bt, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
-        df_bt['Trigger_Bear_Top'] = apply_hys(df_bt, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
-        df_bt['Trigger_Top'] = df_bt['Trigger_Bubble_Top'] | df_bt['Trigger_Bear_Top']
-        df_bt['Trigger_Overbought'] = df_bt['Trigger_Top']
-        df_bt['Trigger_Oversold'] = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage']
-        df_bt['Signal_Oversold'] = regime_panic | (bull_structure & equilibrium_test & cool_score)
-        df_bt['Signal_Overbought'] = regime_bubble_top | bear_regime
-
-        # 详细记录客观雷达预警诱因
-        alert_types = []
-        alert_reasons = []
-        for i in range(len(df_bt)):
-            if df_bt['Trigger_Panic'].iloc[i]:
-                alert_types.append("极度恐慌底")
-                alert_reasons.append(f"熊市崩盘超跌耗竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能初次转正(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-            elif df_bt['Trigger_Stage'].iloc[i]:
-                alert_types.append("牛市阶段蓄势底")
-                alert_reasons.append(f"牛市中枢考验确认(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相空间动能重启(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-            elif df_bt['Trigger_Bubble_Top'].iloc[i]:
-                alert_types.append("牛市极度泡沫顶")
-                alert_reasons.append(f"牛市高位极端泡沫(偏离年线+{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且相变破位衰竭(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-            elif df_bt['Trigger_Bear_Top'].iloc[i]:
-                alert_types.append("熊市反弹衰竭顶")
-                alert_reasons.append(f"熊市反抽遇阻衰竭(偏离年线{df_bt['Dist_200MA'].iloc[i]:.1f}%, 得分{df_bt['Composite_Score'].iloc[i]:.1f})且动能破位转负(q_dot={df_bt['q1_dot'].iloc[i]:.2f})")
-            else:
-                alert_types.append("无")
-                alert_reasons.append("正常跟踪中")
-
-        df_bt['Radar_Alert_Type'] = alert_types
-        df_bt['Radar_Alert_Reason'] = alert_reasons
-
-        # -------------------------------------------------------------
-        # 逐日记账循环
-        # -------------------------------------------------------------
-        bench_shares = initial_capital / df_bt['close'].iloc[0]
-        strat_shares = initial_capital / df_bt['close'].iloc[0]
-        strat_cash = 0.0
-        is_invested = True
-        current_month = -1
-        cooldown = 0
-
-        bench_nav = []
-        strat_nav = []
-        shares_hist = []
-        cash_hist = []
-        action_hist = []
-        trades = []
-        current_pair = {}
-        round_idx = 1
-
-        total_injected = initial_capital
-
-        for i in range(len(df_bt)):
-            dt = df_bt['date'].iloc[i]
             p = df_bt['close'].iloc[i]
+            
             s = raw_sell.iloc[i]
             b = raw_buy.iloc[i]
-            cooldown -= 1
+
+            m = dt.month
 
             # 每月定投注入
-            if dt.month != current_month:
-                current_month = dt.month
+            dca_amount = 0.0
+            if m != curr_m:
+                curr_m = m
+                dca_amount = dca_monthly
                 total_injected += dca_monthly
-                bench_shares += dca_monthly / p
-                if is_invested:
-                    strat_shares += dca_monthly / p
+
+            executor.step(dt, p, p, dca_amount=dca_amount)
+            bench_executor.step(dt, p, p, dca_amount=dca_amount)
+
+            # T日收盘后产生新信号
+            if i < df_len - 1:
+                action = 'HOLD'
+                if pos > 0 and s:
+                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                    pos = 0.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'SELL'
+                elif pos == 0.0 and b:
+                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                    pos = 1.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'BUY'
                 else:
-                    strat_cash += dca_monthly
+                    executor.submit_order(pos, "Standing Order / DCA", dt)
+            else:
+                action = 'HOLD'
+                executor.submit_order(pos, "Standing Order / DCA", dt)
 
-            action = 'HOLD'
-
-            # 卖出判定
-            if is_invested and s and cooldown <= 0:
-                strat_cash = strat_shares * p
-                reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
-                trades.append({
-                    'round': round_idx,
-                    'date': dt.strftime('%Y-%m-%d'),
-                    'action': 'SELL',
-                    'price': p,
-                    'shares': 0.0,
-                    'cash': strat_cash,
-                    'reason': reason
-                })
-                current_pair['sell_date'] = dt.strftime('%Y-%m-%d')
-                current_pair['sell_price'] = p
-                current_pair['sell_cash'] = strat_cash
-                current_pair['reason'] = reason
-                
-                strat_shares = 0.0
-                is_invested = False
-                cooldown = 15
-                action = 'SELL'
-
-            # 买入判定
-            elif not is_invested and b and cooldown <= 0:
-                strat_shares = strat_cash / p
-                reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
-                trades.append({
-                    'round': round_idx,
-                    'date': dt.strftime('%Y-%m-%d'),
-                    'action': 'BUY',
-                    'price': p,
-                    'shares': strat_shares,
-                    'cash': 0.0,
-                    'reason': reason
-                })
-                current_pair['buy_date'] = dt.strftime('%Y-%m-%d')
-                current_pair['buy_price'] = p
-                current_pair['buy_shares'] = strat_shares
-                
-                strat_cash = 0.0
-                is_invested = True
-                cooldown = 15
-                action = 'BUY'
-                round_idx += 1
-
-            # 资产估值
-            b_val = bench_shares * p
-            s_val = strat_shares * p + strat_cash
-
-            bench_nav.append(b_val)
-            strat_nav.append(s_val)
-            shares_hist.append(strat_shares)
-            cash_hist.append(strat_cash)
             action_hist.append(action)
 
-        df_bt['bench_nav'] = bench_nav
-        df_bt['strat_nav'] = strat_nav
-        df_bt['strat_shares'] = shares_hist
-        df_bt['strat_cash'] = cash_hist
+            bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+
+            bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
+            strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
+            positions.append(pos)
+
+        df_bt['bench_nav'] = bench_eqs
+        df_bt['strat_nav'] = strat_eqs
+        df_bt['Position'] = positions
         df_bt['action'] = action_hist
+
+        all_states = executor.daily_states + bench_executor.daily_states
+        daily_accounts = pd.DataFrame(all_states)
+
+        # 把缺失的列补上为了向前兼容雷达明细表（这里用 shares 和 cash 替代 strat_shares）
+        df_bt['strat_shares'] = [s['shares'] for s in executor.daily_states]
+        df_bt['strat_cash'] = [s['cash'] for s in executor.daily_states]
 
         # -------------------------------------------------------------
         # 绩效统计
         # -------------------------------------------------------------
-        bench_end = bench_nav[-1]
-        strat_end = strat_nav[-1]
+        bench_end = bench_eqs[-1]
+        strat_end = strat_eqs[-1]
         
-        bench_cummax = pd.Series(bench_nav).cummax()
-        bench_dd = ((pd.Series(bench_nav) - bench_cummax) / bench_cummax).min() * 100.0
+        bench_cummax = pd.Series(bench_eqs).cummax()
+        bench_dd = ((pd.Series(bench_eqs) - bench_cummax) / bench_cummax).min() * 100.0
 
-        strat_cummax = pd.Series(strat_nav).cummax()
-        strat_dd = ((pd.Series(strat_nav) - strat_cummax) / strat_cummax).min() * 100.0
+        strat_cummax = pd.Series(strat_eqs).cummax()
+        strat_dd = ((pd.Series(strat_eqs) - strat_cummax) / strat_cummax).min() * 100.0
 
-        alpha = (strat_end - bench_end) / bench_end * 100.0
+        final_date = pd.Timestamp(df_bt['date'].iloc[-1])
+        bench_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], bench_end, final_date) * 100.0
+        strat_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], strat_end, final_date) * 100.0
+
+        alpha = strat_cagr - bench_cagr
         bench_total_ret = (bench_end - total_injected) / total_injected * 100.0
         strat_total_ret = (strat_end - total_injected) / total_injected * 100.0
 
-        days = (df_bt['date'].iloc[-1] - df_bt['date'].iloc[0]).days
-        years = days / 365.25
-        bench_cagr = ((bench_end / total_injected) ** (1.0 / years) - 1.0) * 100.0
-        strat_cagr = ((strat_end / total_injected) ** (1.0 / years) - 1.0) * 100.0
-
-        self.perf_metrics = {
+        metrics = {
             'total_injected': total_injected,
             'bench_end': bench_end,
             'strat_end': strat_end,
@@ -950,12 +488,23 @@ class NOWReflexivityRadar:
             'bench_dd': bench_dd,
             'strat_dd': strat_dd,
             'alpha': alpha,
-            'trades_count': len(trades),
-            'rounds_count': len(trades) // 2
+            'trades_count': len(executor.fills),
+            'rounds_count': len(executor.fills) // 2
         }
 
+        self.perf_metrics = metrics
         self.df_bt = df_bt
-        self.trades = trades
+        
+        self.result = SimulationResult(
+            features=df_bt,
+            signals=df_bt[['date', 'Position', 'Radar_Alert_Type', 'Radar_Alert_Reason']],
+            orders=executor.orders_history + executor.pending_orders,
+            fills=executor.fills,
+            cashflows=executor.cashflows,
+            daily_accounts=daily_accounts,
+            metrics=metrics,
+            metadata={'ticker': 'NOW', 'start_date': start_date, 'end_date': df_bt['date'].iloc[-1]}
+        )
 
         print("---------------------------------------------------------------")
         print(f"💰 总体绩效报告 [ServiceNow (NOW) 反身性雷达 2013-2026]")
@@ -964,16 +513,16 @@ class NOWReflexivityRadar:
         print(f"策略最终资产:     ${strat_end:,.2f} (总收益: {strat_total_ret:+.2f}%, 年化CAGR: {strat_cagr:.2f}%, 最大回撤: {strat_dd:.2f}%)")
         print(f"超额收益 Alpha:   {alpha:+.2f}% (净增财富: +${strat_end - bench_end:,.2f})")
         print(f"最大回撤改善:     {bench_dd - strat_dd:+.2f}%")
-        print(f"交易频次:         共 {len(trades)} 次触发 ({len(trades)//2} 轮买卖配对)")
+        print(f"交易频次:         共 {len(executor.fills)} 次触发")
         print("---------------------------------------------------------------")
-        return df_bt, trades, self.perf_metrics
+        return self.result
 
     def export_excel(self):
         """导出机构级对账底稿 Excel (含总体表、逐笔对账表、逐日全流水表)"""
         print(f"📑 正在导出完整 Excel 对账全底稿至: {self.output_xlsx}...")
-        df_bt = self.df_bt
-        trades = self.trades
-        m = self.perf_metrics
+        df_bt = self.result.features
+        m = self.result.metrics
+        daily_accounts = self.result.daily_accounts
 
         # 1. 总体绩效表
         perf_data = [
@@ -991,28 +540,7 @@ class NOWReflexivityRadar:
         df_summary = pd.DataFrame(perf_data[1:], columns=perf_data[0])
 
         # 2. 逐笔波段买卖配对表
-        pairs = []
-        sell_t = None
-        for t in trades:
-            if t['action'] == 'SELL':
-                sell_t = t
-            elif t['action'] == 'BUY' and sell_t is not None:
-                ret = (sell_t['price'] - t['price']) / sell_t['price'] * 100.0
-                pairs.append({
-                    '波段轮次': sell_t['round'],
-                    '卖出避险日期': sell_t['date'],
-                    '卖出逃顶价格': round(sell_t['price'], 2),
-                    '变现闲置现金(USD)': round(sell_t['cash'], 2),
-                    '逃顶触发原因': sell_t['reason'],
-                    '低位回补日期': t['date'],
-                    '回补买入价格': round(t['price'], 2),
-                    '买入持股数量': round(t['shares'], 2),
-                    '回补建仓原因': t['reason'],
-                    '逃顶回补差价空间(%)': round(ret, 2),
-                    '状态': '超额成功' if ret > 0 else '震荡平保'
-                })
-                sell_t = None
-        df_pairs = pd.DataFrame(pairs)
+        df_pairs = generate_trade_pairs(self.result.orders, df_bt, 'NOW')
 
         # 3. 雷达客观全信号观测明细表 (解耦于仓位与现金，记录全历史超买超卖预警)
         signals_mask = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage'] | df_bt['Trigger_Overbought']
@@ -1059,8 +587,6 @@ class NOWReflexivityRadar:
             df_pairs.to_excel(writer, sheet_name='逐笔波段买卖对账表', index=False)
             df_signals.to_excel(writer, sheet_name='雷达客观全信号明细表', index=False)
             df_daily.to_excel(writer, sheet_name='逐日状态全流水底稿', index=False)
-
-        print(f"✅ Excel 导出完毕: {self.output_xlsx}")
 
     def export_csv(self):
         """保存全历史雷达与维度数据至本地 CSV"""

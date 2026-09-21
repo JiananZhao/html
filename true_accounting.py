@@ -125,6 +125,45 @@ class UnitizedAccount:
             'Notes': notes
         })
         
+    def get_state(self) -> dict:
+        """提取可序列化的账户状态"""
+        # 注意 history 中的 Date 是 Timestamp 对象，需要序列化
+        hist = []
+        for h in self.history:
+            h_copy = h.copy()
+            h_copy['Date'] = h_copy['Date'].strftime('%Y-%m-%d')
+            hist.append(h_copy)
+            
+        cfs = []
+        for d, a in self.cash_flows:
+            cfs.append((d.strftime('%Y-%m-%d'), a))
+            
+        return {
+            'cash': self.cash,
+            'shares': self.shares,
+            'units': self.units,
+            'history': hist,
+            'cash_flows': cfs
+        }
+
+    def load_state(self, state: dict):
+        """从状态快照中恢复账户状态"""
+        self.cash = state['cash']
+        self.shares = state['shares']
+        self.units = state['units']
+        
+        hist = []
+        for h in state['history']:
+            h_copy = h.copy()
+            h_copy['Date'] = pd.Timestamp(h_copy['Date'])
+            hist.append(h_copy)
+        self.history = hist
+        
+        cfs = []
+        for d, a in state['cash_flows']:
+            cfs.append((pd.Timestamp(d), a))
+        self.cash_flows = cfs
+        
     def get_history_df(self) -> pd.DataFrame:
         if not self.history:
             return pd.DataFrame()

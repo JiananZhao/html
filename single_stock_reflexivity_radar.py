@@ -33,6 +33,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+from core_engine.simulation_result import SimulationResult
+from shared_executor import SharedExecutor
+from true_accounting import UnitizedAccount
+from true_accounting import calculate_xirr
+
 # 保证 Windows 控制台 UTF-8 输出正常
 if sys.platform == 'win32':
     import io
@@ -44,6 +49,47 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', '
 plt.rcParams['axes.unicode_minus'] = False
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def generate_trade_pairs(orders, sub_bt, ticker='NOW'):
+    """从 SharedExecutor 的 orders_history 中提取买卖配对"""
+    trade_pairs = []
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    
+    for k in range(0, len(discretionary) - 1, 2):
+        s_o = discretionary[k]
+        b_o = discretionary[k+1]
+        
+        if s_o['target'] == 0.0 and b_o['target'] == 1.0:
+            import pandas as pd
+            s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
+            b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
+            
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), 'close'].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), 'close'].values
+            
+            s_p = s_p[0] if len(s_p) > 0 else 0
+            b_p = b_p[0] if len(b_p) > 0 else 0
+            
+            if s_p > 0:
+                p_drop = (b_p - s_p) / s_p * 100.0
+            else:
+                p_drop = 0.0
+            
+            trade_pairs.append({
+                '波段轮次': len(trade_pairs) + 1,
+                '卖出避险日期': s_dt.strftime('%Y-%m-%d'),
+                '卖出逃顶价格': round(s_p, 2),
+                '变现闲置现金(USD)': 0.0,
+                '逃顶触发原因': s_o['reason'],
+                '低位回补日期': b_dt.strftime('%Y-%m-%d'),
+                '回补买入价格': round(b_p, 2),
+                '买入持股数量': 0.0,
+                '回补建仓原因': b_o['reason'],
+                '逃顶回补差价空间(%)': round(p_drop, 2) * -1,
+                '状态': '超额成功' if p_drop < 0 else '震荡平保'
+            })
+    return pd.DataFrame(trade_pairs)
 
 class NOWReflexivityRadar:
     def __init__(self):
@@ -375,129 +421,104 @@ class NOWReflexivityRadar:
         df_bt['Radar_Alert_Reason'] = alert_reasons
 
         # -------------------------------------------------------------
-        # 逐日记账循环
+        # 逐日记账循环 (SharedExecutor)
         # -------------------------------------------------------------
-        bench_shares = initial_capital / df_bt['close'].iloc[0]
-        strat_shares = initial_capital / df_bt['close'].iloc[0]
-        strat_cash = 0.0
-        is_invested = True
-        current_month = -1
-        cooldown = 0
+        bench_acc = UnitizedAccount(initial_cash=initial_capital, initial_date=df_bt['date'].iloc[0])
+        strat_acc = UnitizedAccount(initial_cash=initial_capital, initial_date=df_bt['date'].iloc[0])
 
-        bench_nav = []
-        strat_nav = []
-        shares_hist = []
-        cash_hist = []
+        executor = SharedExecutor(strat_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='strat')
+        bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='bench')
+
+        curr_m = -1
+        pos = 1.0
+        total_injected = 0.0
+
+        bench_eqs = []
+        strat_eqs = []
+        positions = []
         action_hist = []
-        trades = []
-        current_pair = {}
-        round_idx = 1
 
-        total_injected = initial_capital
+        df_len = len(df_bt)
 
-        for i in range(len(df_bt)):
+        for i in range(df_len):
             dt = df_bt['date'].iloc[i]
             p = df_bt['close'].iloc[i]
+            
             s = raw_sell.iloc[i]
             b = raw_buy.iloc[i]
-            cooldown -= 1
+
+            m = dt.month
 
             # 每月定投注入
-            if dt.month != current_month:
-                current_month = dt.month
+            dca_amount = 0.0
+            if m != curr_m:
+                curr_m = m
+                dca_amount = dca_monthly
                 total_injected += dca_monthly
-                bench_shares += dca_monthly / p
-                if is_invested:
-                    strat_shares += dca_monthly / p
+
+            executor.step(dt, p, p, dca_amount=dca_amount)
+            bench_executor.step(dt, p, p, dca_amount=dca_amount)
+
+            # T日收盘后产生新信号
+            if i < df_len - 1:
+                action = 'HOLD'
+                if pos > 0 and s:
+                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                    pos = 0.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'SELL'
+                elif pos == 0.0 and b:
+                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                    pos = 1.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'BUY'
                 else:
-                    strat_cash += dca_monthly
+                    executor.submit_order(pos, "Standing Order / DCA", dt)
+            else:
+                action = 'HOLD'
+                executor.submit_order(pos, "Standing Order / DCA", dt)
 
-            action = 'HOLD'
-
-            # 卖出判定
-            if is_invested and s and cooldown <= 0:
-                strat_cash = strat_shares * p
-                reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
-                trades.append({
-                    'round': round_idx,
-                    'date': dt.strftime('%Y-%m-%d'),
-                    'action': 'SELL',
-                    'price': p,
-                    'shares': 0.0,
-                    'cash': strat_cash,
-                    'reason': reason
-                })
-                current_pair['sell_date'] = dt.strftime('%Y-%m-%d')
-                current_pair['sell_price'] = p
-                current_pair['sell_cash'] = strat_cash
-                current_pair['reason'] = reason
-                
-                strat_shares = 0.0
-                is_invested = False
-                cooldown = 15
-                action = 'SELL'
-
-            # 买入判定
-            elif not is_invested and b and cooldown <= 0:
-                strat_shares = strat_cash / p
-                reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
-                trades.append({
-                    'round': round_idx,
-                    'date': dt.strftime('%Y-%m-%d'),
-                    'action': 'BUY',
-                    'price': p,
-                    'shares': strat_shares,
-                    'cash': 0.0,
-                    'reason': reason
-                })
-                current_pair['buy_date'] = dt.strftime('%Y-%m-%d')
-                current_pair['buy_price'] = p
-                current_pair['buy_shares'] = strat_shares
-                
-                strat_cash = 0.0
-                is_invested = True
-                cooldown = 15
-                action = 'BUY'
-                round_idx += 1
-
-            # 资产估值
-            b_val = bench_shares * p
-            s_val = strat_shares * p + strat_cash
-
-            bench_nav.append(b_val)
-            strat_nav.append(s_val)
-            shares_hist.append(strat_shares)
-            cash_hist.append(strat_cash)
             action_hist.append(action)
 
-        df_bt['bench_nav'] = bench_nav
-        df_bt['strat_nav'] = strat_nav
-        df_bt['strat_shares'] = shares_hist
-        df_bt['strat_cash'] = cash_hist
+            bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+
+            bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
+            strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
+            positions.append(pos)
+
+        df_bt['bench_nav'] = bench_eqs
+        df_bt['strat_nav'] = strat_eqs
+        df_bt['Position'] = positions
         df_bt['action'] = action_hist
+
+        all_states = executor.daily_states + bench_executor.daily_states
+        daily_accounts = pd.DataFrame(all_states)
+
+        # 把缺失的列补上为了向前兼容雷达明细表（这里用 shares 和 cash 替代 strat_shares）
+        df_bt['strat_shares'] = [s['shares'] for s in executor.daily_states]
+        df_bt['strat_cash'] = [s['cash'] for s in executor.daily_states]
 
         # -------------------------------------------------------------
         # 绩效统计
         # -------------------------------------------------------------
-        bench_end = bench_nav[-1]
-        strat_end = strat_nav[-1]
+        bench_end = bench_eqs[-1]
+        strat_end = strat_eqs[-1]
         
-        bench_cummax = pd.Series(bench_nav).cummax()
-        bench_dd = ((pd.Series(bench_nav) - bench_cummax) / bench_cummax).min() * 100.0
+        bench_cummax = pd.Series(bench_eqs).cummax()
+        bench_dd = ((pd.Series(bench_eqs) - bench_cummax) / bench_cummax).min() * 100.0
 
-        strat_cummax = pd.Series(strat_nav).cummax()
-        strat_dd = ((pd.Series(strat_nav) - strat_cummax) / strat_cummax).min() * 100.0
+        strat_cummax = pd.Series(strat_eqs).cummax()
+        strat_dd = ((pd.Series(strat_eqs) - strat_cummax) / strat_cummax).min() * 100.0
 
-        alpha = (strat_end - bench_end) / bench_end * 100.0
+        final_date = pd.Timestamp(df_bt['date'].iloc[-1])
+        bench_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], bench_end, final_date) * 100.0
+        strat_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], strat_end, final_date) * 100.0
+
+        alpha = strat_cagr - bench_cagr
         bench_total_ret = (bench_end - total_injected) / total_injected * 100.0
         strat_total_ret = (strat_end - total_injected) / total_injected * 100.0
 
-        days = (df_bt['date'].iloc[-1] - df_bt['date'].iloc[0]).days
-        years = days / 365.25
-        bench_cagr = ((bench_end / total_injected) ** (1.0 / years) - 1.0) * 100.0
-        strat_cagr = ((strat_end / total_injected) ** (1.0 / years) - 1.0) * 100.0
-
-        self.perf_metrics = {
+        metrics = {
             'total_injected': total_injected,
             'bench_end': bench_end,
             'strat_end': strat_end,
@@ -508,12 +529,23 @@ class NOWReflexivityRadar:
             'bench_dd': bench_dd,
             'strat_dd': strat_dd,
             'alpha': alpha,
-            'trades_count': len(trades),
-            'rounds_count': len(trades) // 2
+            'trades_count': len(executor.fills),
+            'rounds_count': len(executor.fills) // 2
         }
 
+        self.perf_metrics = metrics
         self.df_bt = df_bt
-        self.trades = trades
+        
+        self.result = SimulationResult(
+            features=df_bt,
+            signals=df_bt[['date', 'Position', 'Radar_Alert_Type', 'Radar_Alert_Reason']],
+            orders=executor.orders_history + executor.pending_orders,
+            fills=executor.fills,
+            cashflows=executor.cashflows,
+            daily_accounts=daily_accounts,
+            metrics=metrics,
+            metadata={'ticker': 'NOW', 'start_date': start_date, 'end_date': df_bt['date'].iloc[-1]}
+        )
 
         print("---------------------------------------------------------------")
         print(f"💰 总体绩效报告 [ServiceNow (NOW) 反身性雷达 2013-2026]")
@@ -522,16 +554,16 @@ class NOWReflexivityRadar:
         print(f"策略最终资产:     ${strat_end:,.2f} (总收益: {strat_total_ret:+.2f}%, 年化CAGR: {strat_cagr:.2f}%, 最大回撤: {strat_dd:.2f}%)")
         print(f"超额收益 Alpha:   {alpha:+.2f}% (净增财富: +${strat_end - bench_end:,.2f})")
         print(f"最大回撤改善:     {bench_dd - strat_dd:+.2f}%")
-        print(f"交易频次:         共 {len(trades)} 次触发 ({len(trades)//2} 轮买卖配对)")
+        print(f"交易频次:         共 {len(executor.fills)} 次触发")
         print("---------------------------------------------------------------")
-        return df_bt, trades, self.perf_metrics
+        return self.result
 
     def export_excel(self):
         """导出机构级对账底稿 Excel (含总体表、逐笔对账表、逐日全流水表)"""
         print(f"📑 正在导出完整 Excel 对账全底稿至: {self.output_xlsx}...")
-        df_bt = self.df_bt
-        trades = self.trades
-        m = self.perf_metrics
+        df_bt = self.result.features
+        m = self.result.metrics
+        daily_accounts = self.result.daily_accounts
 
         # 1. 总体绩效表
         perf_data = [
@@ -549,28 +581,7 @@ class NOWReflexivityRadar:
         df_summary = pd.DataFrame(perf_data[1:], columns=perf_data[0])
 
         # 2. 逐笔波段买卖配对表
-        pairs = []
-        sell_t = None
-        for t in trades:
-            if t['action'] == 'SELL':
-                sell_t = t
-            elif t['action'] == 'BUY' and sell_t is not None:
-                ret = (sell_t['price'] - t['price']) / sell_t['price'] * 100.0
-                pairs.append({
-                    '波段轮次': sell_t['round'],
-                    '卖出避险日期': sell_t['date'],
-                    '卖出逃顶价格': round(sell_t['price'], 2),
-                    '变现闲置现金(USD)': round(sell_t['cash'], 2),
-                    '逃顶触发原因': sell_t['reason'],
-                    '低位回补日期': t['date'],
-                    '回补买入价格': round(t['price'], 2),
-                    '买入持股数量': round(t['shares'], 2),
-                    '回补建仓原因': t['reason'],
-                    '逃顶回补差价空间(%)': round(ret, 2),
-                    '状态': '超额成功' if ret > 0 else '震荡平保'
-                })
-                sell_t = None
-        df_pairs = pd.DataFrame(pairs)
+        df_pairs = generate_trade_pairs(self.result.orders, df_bt, 'NOW')
 
         # 3. 雷达客观全信号观测明细表 (解耦于仓位与现金，记录全历史超买超卖预警)
         signals_mask = df_bt['Trigger_Panic'] | df_bt['Trigger_Stage'] | df_bt['Trigger_Overbought']
@@ -617,8 +628,6 @@ class NOWReflexivityRadar:
             df_pairs.to_excel(writer, sheet_name='逐笔波段买卖对账表', index=False)
             df_signals.to_excel(writer, sheet_name='雷达客观全信号明细表', index=False)
             df_daily.to_excel(writer, sheet_name='逐日状态全流水底稿', index=False)
-
-        print(f"✅ Excel 导出完毕: {self.output_xlsx}")
 
     def export_csv(self):
         """保存全历史雷达与维度数据至本地 CSV"""

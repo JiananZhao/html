@@ -229,7 +229,7 @@ def render_reflexivity_tab():
             sim_q = get_cached_simulation(df_data, 'QQQ')
             if sim_q:
                 fig_q = build_interactive_4layer_chart(
-                    sim_q['df'], sim_q['trades'], ticker='QQQ', default_range=selected_range
+                    sim_q.features, sim_q.fills, ticker='QQQ', default_range=selected_range
                 )
                 st.plotly_chart(fig_q, use_container_width=True)
             
@@ -246,7 +246,7 @@ def render_reflexivity_tab():
             sim_s = get_cached_simulation(df_data, 'SPY')
             if sim_s:
                 fig_s = build_interactive_4layer_chart(
-                    sim_s['df'], sim_s['trades'], ticker='SPY', default_range=selected_range
+                    sim_s.features, sim_s.fills, ticker='SPY', default_range=selected_range
                 )
                 st.plotly_chart(fig_s, use_container_width=True)
             

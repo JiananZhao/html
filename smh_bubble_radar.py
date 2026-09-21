@@ -225,26 +225,74 @@ class SMHBubbleRadar:
         return df
 
 
-def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthly=1000.0):
+def generate_trade_pairs(orders, sub_bt, ticker):
+    import pandas as pd
+    trade_pairs = []
+    
+    # Filter only discretionary signal orders
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    
+    # We expect SELL (target_pos=0.0) then BUY (target_pos=1.0)
+    for k in range(0, len(discretionary) - 1, 2):
+        s_o = discretionary[k]
+        b_o = discretionary[k+1]
+        
+        if s_o['target'] == 0.0 and b_o['target'] == 1.0:
+            s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
+            b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
+            
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), ticker].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), ticker].values
+            
+            s_p = s_p[0] if len(s_p) > 0 else 0
+            b_p = b_p[0] if len(b_p) > 0 else 0
+            
+            if s_p > 0:
+                p_drop = (b_p - s_p) / s_p * 100.0
+            else:
+                p_drop = 0.0
+            
+            trade_pairs.append({
+                '轮次': len(trade_pairs) + 1,
+                '卖出日期': s_dt.strftime('%Y-%m-%d'),
+                '卖出价格': round(s_p, 2),
+                '卖出诱因': s_o['reason'],
+                '买入日期': b_dt.strftime('%Y-%m-%d'),
+                '买入价格': round(b_p, 2),
+                '买回诱因': b_o['reason'],
+                '期间绝对跌幅': f"{p_drop:+.2f}%",
+                '波段是否有效避险': "✅ 有效" if p_drop < 0 else "❌ 踏空磨损"
+            })
+            
+    return pd.DataFrame(trade_pairs)
+
+def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthly=1000.0, cost_config=0.0):
     from true_accounting import UnitizedAccount, calculate_xirr
+    from shared_executor import SharedExecutor
+    from core_engine.simulation_result import SimulationResult
     import pandas as pd
     
     sub_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
+    if sub_bt.empty:
+        return SimulationResult(pd.DataFrame(), pd.DataFrame(), [], [], [], pd.DataFrame(), {}, {})
+        
+    initial_dt = pd.to_datetime(sub_bt['date'].iloc[0])
+    acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
+    bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
     
-    acc = UnitizedAccount()
-    bench_acc = UnitizedAccount()
+    executor = SharedExecutor(acc, fee_rate=cost_config, execution_mode='NEXT_CLOSE', account_type='strat')
+    bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='bench')
     
     curr_m = -1
     exit_reg = None
-    trades = []
-    daily_records = []
-    
     pos = 1.0
-    pending_order = None # 1 for buy, -1 for sell
-    pending_reason = ""
     
     df_len = len(sub_bt)
     total_invested = 0.0
+    
+    bench_eqs = []
+    strat_eqs = []
+    positions = []
     
     for i in range(df_len):
         d_str = sub_bt['date'].iloc[i]
@@ -261,81 +309,15 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
         gap_med = sub_bt['Gap_Median'].iloc[i]
         macro_anchor = 'HYG'
         
-        # T+1 收盘时估值 (NEXT_CLOSE)
-        acc.calculate_nav(p)
-        bench_acc.calculate_nav(p)
-        
         # 定投及买入 (按收盘价)
+        dca_amount = 0.0
         if m != curr_m:
             curr_m = m
-            # 兼容原逻辑，第一天算第一个月，注资不影响起步
-            acc.inject_cash(dca_monthly, dt, p)
-            bench_acc.inject_cash(dca_monthly, dt, p)
+            dca_amount = dca_monthly
             total_invested += dca_monthly
-            
-            bench_acc.execute_trade(p, dca_monthly / p, fee_rate=0.0)
-            if pos > 0 and pending_order != -1:
-                if acc.cash > 0:
-                    acc.execute_trade(p, acc.cash / p, fee_rate=0.0)
-                    
-        # 执行前一日遗留订单
-        if pending_order == -1:
-            if acc.shares > 0:
-                trades.append({
-                    'action': 'SELL',
-                    'date': d_str,
-                    'price': p,
-                    'shares': acc.shares,
-                    'cash': acc.cash + acc.shares * p,
-                    'reason': pending_reason,
-                    'radar_score': score,
-                    'breadth': sub_bt['Breadth_50'].iloc[i]
-                })
-                acc.execute_trade(p, -acc.shares, fee_rate=0.0)
-                pos = 0.0
-            pending_order = None
-            
-        elif pending_order == 1:
-            if acc.cash > 0:
-                trades.append({
-                    'action': 'BUY',
-                    'date': d_str,
-                    'price': p,
-                    'shares': acc.shares + acc.cash / p,
-                    'cash': 0.0,
-                    'reason': pending_reason,
-                    'radar_score': score,
-                    'breadth': sub_bt['Breadth_50'].iloc[i]
-                })
-                acc.execute_trade(p, acc.cash / p, fee_rate=0.0)
-                pos = 1.0
-            pending_order = None
-            
-        acc.calculate_nav(p)
-        bench_acc.calculate_nav(p)
-        acc.record_daily_state(dt, p)
-        bench_acc.record_daily_state(dt, p)
-        
-        s_val = acc.shares * p + acc.cash
-        b_val = bench_acc.shares * p + bench_acc.cash
-        
-        daily_records.append({
-            'date': d_str,
-            ticker: p,
-            'Action': 'HOLD' if pos > 0 else 'CASH',
-            'Position': pos,
-            'Strat_Shares': acc.shares,
-            'Strat_Cash': acc.cash,
-            'Strat_Equity': s_val,
-            'Bench_Shares': bench_acc.shares,
-            'Bench_Equity': b_val,
-            'Composite_Radar_Score': score,
-            'Breadth_50': sub_bt['Breadth_50'].iloc[i],
-            'Score_Dynamics': sub_bt['Score_Dynamics'].iloc[i],
-            'Score_Valuation': sub_bt['Score_Valuation'].iloc[i],
-            'Score_Breadth': sub_bt['Score_Breadth'].iloc[i],
-            'Score_Relative': sub_bt['Score_Relative'].iloc[i]
-        })
+
+        executor.step(dt, p, p, dca_amount=dca_amount)
+        bench_executor.step(dt, p, p, dca_amount=dca_amount)
         
         # T 日收盘后产生新信号，传给 T+1
         if i < df_len - 1:
@@ -343,7 +325,8 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
                 is_bub = sub_bt['Cond_Bubble'].iloc[i]
                 exit_reg = 'BUBBLE' if is_bub else 'BEAR'
                 pending_reason = '泡沫高点破位预警' if is_bub else '宏观及基本面双破位'
-                pending_order = -1
+                pos = 0.0
+                executor.submit_order(pos, pending_reason, dt)
             elif pos == 0.0:
                 can_buy = False
                 b_reason = ""
@@ -354,7 +337,7 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
                     elif (gap < gap_med) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
                         can_buy = True
                         b_reason = '回踩中枢且动能恢复'
-                    elif len(trades) > 0 and (p > trades[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                    elif len(executor.fills) > 0 and (p > executor.fills[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
                         can_buy = True
                         b_reason = '突破前高阻力重拾升势'
                 elif exit_reg == 'BEAR':
@@ -364,55 +347,41 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
                         can_buy = True
                         b_reason = '宏观修复且均线多头'
                 if can_buy:
-                    pending_order = 1
-                    pending_reason = b_reason
-
-    # 后处理提取结果
-    df_daily = pd.DataFrame(daily_records)
-    sub_bt['Bench_Equity'] = df_daily['Bench_Equity']
-    sub_bt['Strat_Equity'] = df_daily['Strat_Equity']
+                    pos = 1.0
+                    executor.submit_order(pos, b_reason, dt)
+            else:
+                executor.submit_order(pos, "Standing Order / DCA", dt)
+        else:
+            executor.submit_order(pos, "Standing Order / DCA", dt)
+            
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+            
+        bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
+        strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
+        positions.append(pos)
+        
+    sub_bt['Bench_Equity'] = bench_eqs
+    sub_bt['Strat_Equity'] = strat_eqs
+    sub_bt['Position'] = positions
+    
+    all_states = executor.daily_states + bench_executor.daily_states
+    daily_accounts = pd.DataFrame(all_states)
     
     b_final = sub_bt['Bench_Equity'].iloc[-1]
     s_final = sub_bt['Strat_Equity'].iloc[-1]
-    
-    b_ret = (b_final - total_invested) / total_invested * 100.0
-    s_ret = (s_final - total_invested) / total_invested * 100.0
+    b_ret = (b_final - total_invested) / total_invested * 100.0 if total_invested > 0 else 0
+    s_ret = (s_final - total_invested) / total_invested * 100.0 if total_invested > 0 else 0
     
     final_date = pd.Timestamp(sub_bt['date'].iloc[-1])
-    b_cagr = calculate_xirr(bench_acc.cash_flows, b_final, final_date) * 100.0
-    s_cagr = calculate_xirr(acc.cash_flows, s_final, final_date) * 100.0
+    b_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], b_final, final_date) * 100.0
+    s_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], s_final, final_date) * 100.0
     
     alpha = s_cagr - b_cagr
     
-    bench_df = bench_acc.get_history_df()
-    history_df = acc.get_history_df()
-    
-    b_dd = (bench_df['Unit_NAV'] / bench_df['Unit_NAV'].cummax() - 1).min() * 100.0
-    s_dd = (history_df['Unit_NAV'] / history_df['Unit_NAV'].cummax() - 1).min() * 100.0
+    b_dd = (daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'].cummax() - 1).min() * 100.0
+    s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
 
-    trade_pairs = []
-    for k in range(0, len(trades) - 1, 2):
-        if trades[k]['action'] == 'SELL' and trades[k+1]['action'] == 'BUY':
-            s_t = trades[k]
-            b_t = trades[k+1]
-            p_drop = (b_t['price'] - s_t['price']) / s_t['price'] * 100.0
-            sh_gain = (b_t['shares'] - s_t['shares']) / s_t['shares'] * 100.0
-            is_win = (b_t['price'] < s_t['price']) or (sh_gain > 0)
-            trade_pairs.append({
-                '轮次': len(trade_pairs) + 1,
-                '卖出日期': s_t['date'],
-                '卖出价格': round(s_t['price'], 2),
-                '卖出诱因': s_t['reason'],
-                '卖出时综合得分': round(s_t['radar_score'], 1),
-                '卖出时广度': f"{s_t['breadth']*100:.1f}%",
-                '买入日期': b_t['date'],
-                '买入价格': round(b_t['price'], 2),
-                '买回诱因': b_t['reason'],
-                '期间绝对跌幅': f"{p_drop:+.2f}%",
-                '持股份额增减': f"{sh_gain:+.2f}%",
-                '波段是否有效避险': "✅ 有效" if is_win else "❌ 踏空磨损"
-            })
-    df_pairs = pd.DataFrame(trade_pairs)
+    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
 
     metrics = {
         'total_invested': total_invested,
@@ -423,73 +392,34 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
         'alpha': alpha,
         'bench_max_dd': b_dd,
         'strat_max_dd': s_dd,
-        'trade_count': len(trades),
-        'trade_rounds': len(trade_pairs),
-        'win_rounds': sum(1 for p in trade_pairs if '✅' in p['波段是否有效避险']),
-        'win_rate': sum(1 for p in trade_pairs if '✅' in p['波段是否有效避险']) / max(1, len(trade_pairs)) * 100.0
+        'trade_count': len(executor.fills),
+        'trade_rounds': len(trade_pairs_df),
+        'win_rounds': sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) if not trade_pairs_df.empty else 0,
+        'win_rate': (sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) / max(1, len(trade_pairs_df)) * 100.0) if not trade_pairs_df.empty else 0.0
     }
     
-    return sub_bt, df_daily, df_pairs, metrics
-
-    sub_bt['Strat_Equity'] = strat_vals
-    df_daily = pd.DataFrame(daily_records)
-
-    # 统计核心指标
-    b_final = bench_vals[-1]
-    s_final = strat_vals[-1]
-    b_ret = (b_final - tot_inv) / tot_inv * 100.0
-    s_ret = (s_final - tot_inv) / tot_inv * 100.0
-    alpha = s_ret - b_ret
-
-    b_s = pd.Series(bench_vals)
-    s_s = pd.Series(strat_vals)
-    b_dd = ((b_s - b_s.cummax()) / b_s.cummax()).min() * 100.0
-    s_dd = ((s_s - s_s.cummax()) / s_s.cummax()).min() * 100.0
-
-    # 整理逐笔买卖配对表
-    trade_pairs = []
-    for k in range(0, len(trades) - 1, 2):
-        if trades[k]['action'] == 'SELL' and trades[k+1]['action'] == 'BUY':
-            s_t = trades[k]
-            b_t = trades[k+1]
-            p_drop = (b_t['price'] - s_t['price']) / s_t['price'] * 100.0
-            sh_gain = (b_t['shares'] - s_t['shares']) / s_t['shares'] * 100.0
-            is_win = (b_t['price'] < s_t['price']) or (sh_gain > 0)
-            trade_pairs.append({
-                '轮次': len(trade_pairs) + 1,
-                '卖出日期': s_t['date'],
-                '卖出价格': round(s_t['price'], 2),
-                '卖出原因': s_t['reason'],
-                '卖出时雷达分': round(s_t['radar_score'], 1),
-                '卖出时广度': f"{s_t['breadth']*100:.1f}%",
-                '买入日期': b_t['date'],
-                '买入价格': round(b_t['price'], 2),
-                '买入原因': b_t['reason'],
-                '期间标的跌幅': f"{p_drop:+.2f}%",
-                '持股增益幅度': f"{sh_gain:+.2f}%",
-                '是否实现低买高卖': "✅ 是" if is_win else "⚠️ 防踏空"
-            })
-    df_pairs = pd.DataFrame(trade_pairs)
-
-    metrics = {
-        'total_invested': tot_inv,
-        'bench_final': b_final,
-        'strat_final': s_final,
-        'bench_return': b_ret,
-        'strat_return': s_ret,
-        'alpha': alpha,
-        'bench_max_dd': b_dd,
-        'strat_max_dd': s_dd,
-        'trade_count': len(trades),
-        'trade_rounds': len(trade_pairs),
-        'win_rounds': sum(1 for p in trade_pairs if '✅' in p['是否实现低买高卖']),
-        'win_rate': sum(1 for p in trade_pairs if '✅' in p['是否实现低买高卖']) / max(1, len(trade_pairs)) * 100.0
-    }
-
-    return sub_bt, df_daily, df_pairs, metrics
+    result = SimulationResult(
+        features=sub_bt,
+        signals=sub_bt[['date', 'Position', 'Sell_Signal', 'Cond_Bubble', 'Cond_Bear']],
+        orders=executor.orders_history + executor.pending_orders,
+        fills=executor.fills,
+        cashflows=executor.cashflows,
+        daily_accounts=daily_accounts,
+        metrics=metrics,
+        metadata={'ticker': ticker, 'start_date': start_date, 'end_date': sub_bt['date'].iloc[-1]}
+    )
+    
+    return result
 
 
-def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='SMH'):
+
+
+def export_deliverables(result):
+    sub_bt = result.features
+    df_daily = result.daily_accounts
+    metrics = result.metrics
+    ticker = result.metadata.get('ticker', 'SMH')
+    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
     """
     导出机构级 Excel 审计全底稿与高清 4 层对齐图谱
     """
@@ -516,7 +446,7 @@ def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='SMH'):
         df_pairs.to_excel(writer, sheet_name='逐笔买卖配对对账表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日流水底稿表', index=False)
         df_pairs.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
-        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
+        sub_bt.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"📊 机构级 Excel 审计底稿已生成: {os.path.abspath(excel_path)}")
 
     # 2. 导出高清 4 层对齐图谱 (Lesson 9: 严禁未转义裸 $ 符号，显式配置中文)
@@ -600,24 +530,28 @@ def main():
     print(f"💾 预计算指标已固化至: smh_radar_local.csv (共 {len(radar.df)} 行)")
 
     # 真实券商记账回测 (2009-01-01 开始，涵盖完整 17.6 年 213 个月)
-    sub_bt, df_daily, df_pairs, metrics = run_brokerage_backtest(radar.df, ticker='SMH', start_date='2009-01-01')
+    result = run_brokerage_backtest(radar.df, ticker='SMH', start_date='2009-01-01')
+    sub_bt = result.features
+    df_daily = result.daily_accounts
+    metrics = result.metrics
+    df_pairs = generate_trade_pairs(result.orders, sub_bt, 'SMH')
 
     print("\n==================================================")
     print("🎯 SMH 半导体微观雷达全周期实证对账审计报告 (2009 - 2026)")
     print("==================================================")
-    print(f"定投总本金: USD {metrics['total_invested']:,.2f}")
-    print(f"买入持有基准终值: USD {metrics['bench_final']:,.2f} (+{metrics['bench_return']:.2f}%), 最大回撤: {metrics['bench_max_dd']:.2f}%")
-    print(f"微观雷达策略终值: USD {metrics['strat_final']:,.2f} (+{metrics['strat_return']:.2f}%), 最大回撤: {metrics['strat_max_dd']:.2f}%")
-    print(f"超额 Alpha: {metrics['alpha']:+.2f}% | 净多赚现金财富: USD {metrics['strat_final'] - metrics['bench_final']:,.2f}")
-    print(f"最大回撤改善幅度: {metrics['strat_max_dd'] - metrics['bench_max_dd']:+.2f}%")
-    print(f"全周期调仓: {metrics['trade_count']} 笔 ({metrics['trade_rounds']} 轮)")
-    print(f"波段胜率 (有效低买高卖/防踏空): {metrics['win_rate']:.1f}%")
+    print(f"定投总本金: USD {metrics.get('total_invested', 0):,.2f}")
+    print(f"买入持有基准终值: USD {metrics.get('bench_final', 0):,.2f} (+{metrics.get('bench_return', 0):.2f}%), 最大回撤: {metrics.get('bench_max_dd', 0):.2f}%")
+    print(f"微观雷达策略终值: USD {metrics.get('strat_final', 0):,.2f} (+{metrics.get('strat_return', 0):.2f}%), 最大回撤: {metrics.get('strat_max_dd', 0):.2f}%")
+    print(f"超额 Alpha: {metrics.get('alpha', 0):+.2f}% | 净多赚现金财富: USD {metrics.get('strat_final', 0) - metrics.get('bench_final', 0):,.2f}")
+    print(f"最大回撤改善幅度: {metrics.get('strat_max_dd', 0) - metrics.get('bench_max_dd', 0):+.2f}%")
+    print(f"全周期调仓: {metrics.get('trade_count', 0)} 笔 ({metrics.get('trade_rounds', 0)} 轮)")
+    print(f"波段胜率 (有效低买高卖/防踏空): {metrics.get('win_rate', 0):.1f}%")
     print("==================================================\n")
 
     print("=== 逐笔买卖配对详细对账 ===")
     print(df_pairs.to_string())
 
-    export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='SMH')
+    export_deliverables(result)
     print("🎉 SMH 微观雷达全套交付物本地生成完毕！")
 
 

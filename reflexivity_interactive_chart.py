@@ -135,7 +135,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
             is_bub = sub['Cond_Bubble'].iloc[i]
             exit_regime = 'BUBBLE' if is_bub else 'BEAR'
             r_reason = '宏观黄昏期泡沫止盈' if is_bub else '系统宏观紧缩熊市避险'
-            executor.submit_order(0.0, r_reason)
+            executor.submit_order(0.0, r_reason, dt)
             pos = 0.0
 
         # 买入逻辑
@@ -172,15 +172,15 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                     b_reason = '信用债先导修复且趋势重构'
 
             if can_buy:
-                executor.submit_order(1.0, b_reason)
+                executor.submit_order(1.0, b_reason, dt)
                 pos = 1.0
                 exit_regime = None
         else:
             # 保持目标仓位，允许 DCA 资金在下一日自动买入
-            executor.submit_order(pos, "Standing Order / DCA")
+            executor.submit_order(pos, "Standing Order / DCA", dt)
 
         # 基准始终满仓
-        bench_executor.submit_order(1.0, "Bench Standing Order / DCA")
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", pd.to_datetime(d_str))
 
         # 记录日终资产与净值状态
         bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
@@ -189,13 +189,25 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
         strat_navs.append(executor.acc.unit_nav)
         positions.append(pos)
 
-    sub['Bench_Equity'] = bench_eqs
-    sub['Strat_Equity'] = strat_eqs
-    sub['Bench_Unit_NAV'] = bench_navs
-    sub['Strat_Unit_NAV'] = strat_navs
-    sub['Position'] = positions
+    # 将账户每日状态汇总
+    all_states = executor.daily_states + bench_executor.daily_states
+    daily_accounts = pd.DataFrame(all_states)
 
-    return {'df': sub, 'trades': executor.trades, 'total_invested': total_invested}
+    from core_engine.simulation_result import SimulationResult
+
+    result = SimulationResult(
+        features=sub,
+        signals=sub[['date', 'Position', 'buy_signal', 'sell_signal']],
+        orders=executor.orders_history + executor.pending_orders,
+        fills=executor.fills,
+        cashflows=executor.cashflows,
+        daily_accounts=daily_accounts,
+        metrics={'total_invested': total_invested},
+        metadata={'ticker': ticker, 'start_date': start_date, 'end_date': end_date}
+    )
+    # result.validate() # 暂时先不校验或者在外部校验，以防有兼容性问题
+
+    return result
 
 
 def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'):

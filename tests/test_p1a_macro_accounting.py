@@ -46,7 +46,7 @@ class TestP1AMacroAccounting(unittest.TestCase):
         self.assertEqual(acc.shares, 0)
         
         # Day 0 End: Strategy decides to buy full position (1.0)
-        executor.submit_order(1.0, "Testing Buy")
+        executor.submit_order(1.0, "Testing Buy", self.df_mock['date'].iloc[0])
         
         # Day 1: Step executes the pending order at Day 1 price (102)
         executor.step(self.df_mock['date'].iloc[1], self.df_mock['QQQ'].iloc[1], self.df_mock['QQQ'].iloc[1], dca_amount=0)
@@ -54,14 +54,14 @@ class TestP1AMacroAccounting(unittest.TestCase):
         expected_shares = 1000 / 102
         self.assertAlmostEqual(acc.shares, expected_shares, places=4)
         self.assertEqual(executor.last_buy_p, 102)
-        self.assertEqual(len(executor.trades), 1)
+        self.assertEqual(len(executor.fills), 1)
         
     def test_fee_rate_impact(self):
         """测试费用是否能够正确从资金池扣除"""
         acc = UnitizedAccount(initial_cash=1000, initial_date=self.df_mock['date'].iloc[0])
         executor = SharedExecutor(acc, fee_rate=0.01) # 1% fee for easy math
         
-        executor.submit_order(1.0, "Buy")
+        executor.submit_order(1.0, "Buy", self.df_mock['date'].iloc[0])
         # Executes at price=100.
         # Total cost = Shares * P + Shares * P * fee_rate = Cash
         # Shares * P * 1.01 = 1000 => Shares * P = 1000 / 1.01

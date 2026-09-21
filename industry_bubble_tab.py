@@ -157,7 +157,7 @@ def load_radar_data(asset_key):
             radar = NOWReflexivityRadar()
             radar.load_and_preprocess()
             radar.compute_all_dimensions()
-            df_bt, _, _ = radar.run_backtest()
+            radar.run_backtest()
             df = radar.df
             df['NOW'] = df['close']
             df['Composite_Radar_Score'] = df['Composite_Score']

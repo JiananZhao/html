@@ -188,6 +188,301 @@ class MicroBubbleRadar:
         return df
 
 
+def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthly=1000.0, cooldown_days=20, cost_config=0.0):
+    from true_accounting import UnitizedAccount, SharedExecutor, calculate_xirr
+    from core_engine.simulation_result import SimulationResult
+    import pandas as pd
+    
+    sub_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
+    initial_date = sub_bt['date'].iloc[0]
+    
+    acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_date)
+    bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_date)
+    
+    executor = SharedExecutor(acc, fee_rate=cost_config, execution_mode='NEXT_CLOSE', account_type='strat')
+    bench_executor = SharedExecutor(bench_acc, fee_rate=cost_config, execution_mode='NEXT_CLOSE', account_type='bench')
+    
+    curr_m = -1
+    pos = 1.0
+    cooldown = 0
+    total_injected = 0.0
+
+    df_len = len(sub_bt)
+
+    for i in range(df_len):
+        dt = sub_bt['date'].iloc[i]
+        p = sub_bt[ticker].iloc[i]
+        m = dt.month
+
+        s = sub_bt['Cond_Bubble'].iloc[i]
+        b = sub_bt['Cond_Panic'].iloc[i]
+
+        dca_amount = 0.0
+        if m != curr_m:
+            curr_m = m
+            dca_amount = dca_monthly
+            total_injected += dca_monthly
+
+        executor.step(dt, p, p, dca_amount=dca_amount)
+        bench_executor.step(dt, p, p, dca_amount=dca_amount)
+
+        if i < df_len - 1:
+            if pos > 0 and s and cooldown <= 0:
+                pos = 0.0
+                executor.submit_order(pos, "泡沫高点破位预警", dt)
+                cooldown = cooldown_days
+            elif pos == 0.0 and b and cooldown <= 0:
+                pos = 1.0
+                executor.submit_order(pos, "恐慌底极值共振抄底", dt)
+                cooldown = cooldown_days
+            else:
+                executor.submit_order(pos, "Standing Order / DCA", dt)
+        else:
+            executor.submit_order(pos, "Standing Order / DCA", dt)
+
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+        cooldown -= 1
+
+    bench_eqs = [s['shares'] * sub_bt[ticker].iloc[idx] + s['cash'] for idx, s in enumerate(bench_executor.daily_states)]
+    strat_eqs = [s['shares'] * sub_bt[ticker].iloc[idx] + s['cash'] for idx, s in enumerate(executor.daily_states)]
+    positions = [s['target_exposure'] for s in executor.daily_states]
+
+    sub_bt['Bench_Equity'] = bench_eqs
+    sub_bt['Strat_Equity'] = strat_eqs
+    sub_bt['Position'] = positions
+
+    all_states = executor.daily_states + bench_executor.daily_states
+    daily_accounts = pd.DataFrame(all_states)
+
+    bench_end = bench_eqs[-1]
+    strat_end = strat_eqs[-1]
+    
+    bench_cummax = pd.Series(bench_eqs).cummax()
+    bench_dd = ((pd.Series(bench_eqs) - bench_cummax) / bench_cummax).min() * 100.0
+
+    strat_cummax = pd.Series(strat_eqs).cummax()
+    strat_dd = ((pd.Series(strat_eqs) - strat_cummax) / strat_cummax).min() * 100.0
+
+    final_date = pd.Timestamp(sub_bt['date'].iloc[-1])
+    bench_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], bench_end, final_date) * 100.0
+    strat_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], strat_end, final_date) * 100.0
+
+    metrics = {
+        'total_invested': total_injected,
+        'bench_final': bench_end,
+        'strat_final': strat_end,
+        'bench_return': (bench_end - total_injected) / total_injected * 100.0,
+        'strat_return': (strat_end - total_injected) / total_injected * 100.0,
+        'bench_cagr': bench_cagr,
+        'strat_cagr': strat_cagr,
+        'bench_max_dd': bench_dd,
+        'strat_max_dd': strat_dd,
+        'alpha': strat_cagr - bench_cagr,
+        'trade_count': len(executor.fills),
+        'trade_rounds': len(executor.fills) // 2,
+        'win_rate': 0.0 # Placeholder
+    }
+
+    result = SimulationResult(
+        features=sub_bt,
+        signals=sub_bt[['date', 'Position']],
+        orders=executor.orders_history + executor.pending_orders,
+        fills=executor.fills,
+        cashflows=executor.cashflows,
+        daily_accounts=daily_accounts,
+        metrics=metrics,
+        metadata={'ticker': ticker, 'start_date': start_date, 'end_date': sub_bt['date'].iloc[-1]}
+    )
+    
+    return result Engine) —— IGV 先行验证标的
+支持 4 维度独立度量与加权复合生成 0~100 微观雷达分：
+1. 价格动力学与 LPPLS 奇异度 (Score_Dynamics, 0~100)
+2. 行业内生估值分位数与久期折现惩罚 (Score_Valuation, 0~100)
+3. 内部成分股广度坍塌与顶背离 (Score_Breadth, 0~100)
+4. 跨资产剪刀差与相对强度溢价 (Score_Relative, 0~100)
+
+包含：
+- 逐日计算 4 个独立分项与加权总分
+- 券商级真实两状态记账回测 (追踪真实股数与现金池)
+- 导出机构级三层 Excel 对账总表 (绩效、逐笔配对、逐日流水)
+- 导出高清 4 层对齐信号与净值对比图谱
+"""
+
+import os
+import sys
+import io
+import numpy as np
+import pandas as pd
+from expanding_ols import expanding_polyfit_residual
+import matplotlib.pyplot as plt
+
+# 强制 UTF-8 输出
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# 配置 Matplotlib 中文字体与符号 (Lesson 9)
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False
+
+
+class MicroBubbleRadar:
+    """
+    微观泡沫雷达引擎 (以 IGV 为先行标的)
+    """
+    def __init__(self, market_data_path='market_data_local.csv', constituents_path='igv_constituents_local.csv'):
+        self.market_data_path = market_data_path
+        self.constituents_path = constituents_path
+        self.df = None
+        self.ticker = 'IGV'
+        self.weights = {
+            'dynamics': 0.35,
+            'valuation': 0.25,
+            'breadth': 0.25,
+            'relative': 0.15
+        }
+
+    def load_and_preprocess(self):
+        """
+        加载本地主数据并对齐时间轴 (100% 脱机闭环)
+        """
+        df_m = pd.read_csv(self.market_data_path)
+        df_c = pd.read_csv(self.constituents_path)
+
+        df_m['date'] = pd.to_datetime(df_m['date']).dt.strftime('%Y-%m-%d')
+        df_c['date'] = pd.to_datetime(df_c['date']).dt.strftime('%Y-%m-%d')
+
+        df = pd.merge(df_m, df_c, on='date', how='inner').sort_values('date').reset_index(drop=True)
+        self.df = df
+        self.const_cols = [c for c in df_c.columns if c != 'date']
+        return self.df
+
+    def compute_all_dimensions(self):
+        """
+        计算 4 个独立维度分项与加权综合分
+        """
+        df = self.df
+        ticker = self.ticker
+
+        # -------------------------------------------------------------
+        # 维度 1: 价格动力学与 LPPLS 奇异度 (Score_Dynamics, 0~100)
+        # -------------------------------------------------------------
+        ema200 = df[ticker].ewm(span=200, adjust=False).mean()
+        dist_200 = (df[ticker] - ema200) / ema200 * 100.0
+
+        # LPPLS 超指数奇异性非线性矩阵拟合
+        lppls_scores = np.zeros(len(df))
+        N_window = 130
+        for i in range(N_window, len(df), 3):
+            sub_p = df[ticker].iloc[i-N_window:i+1].values
+            log_p = np.log(sub_p)
+            N = len(sub_p)
+            t_series = np.arange(N)
+            best_r2 = 0.0
+            
+            for dt in [10, 20, 30]:
+                tc = N + dt
+                for m in [0.3, 0.6, 0.8]:
+                    for omega in [6.0, 9.0, 13.0]:
+                        f = (tc - t_series) ** m
+                        g = f * np.cos(omega * np.log(np.maximum(1e-4, tc - t_series)))
+                        h = f * np.sin(omega * np.log(np.maximum(1e-4, tc - t_series)))
+                        X = np.column_stack([np.ones(N), f, g, h])
+                        try:
+                            beta, _, _, _ = np.linalg.lstsq(X, log_p, rcond=None)
+                            B = beta[1]
+                            C1, C2 = beta[2], beta[3]
+                            if B < 0:
+                                C = np.sqrt(C1**2 + C2**2)
+                                if C / np.abs(B) < 1.0:
+                                    pred = X @ beta
+                                    ss_tot = np.sum((log_p - np.mean(log_p))**2)
+                                    ss_res = np.sum((log_p - pred)**2)
+                                    r2 = 1.0 - ss_res / (ss_tot + 1e-8)
+                                    if r2 > best_r2:
+                                        best_r2 = r2
+                        except:
+                            continue
+            for k in range(3):
+                if i + k < len(df):
+                    lppls_scores[i + k] = best_r2
+
+        df['LPPLS_R2'] = lppls_scores
+        raw_dyn = 0.50 * df['LPPLS_R2'] * 100.0 + 0.50 * dist_200
+        # 滚动 2 年 (504 交易日) 自适应分位数标定
+        df['Score_Dynamics'] = raw_dyn.rolling(504, min_periods=60).apply(lambda s: pd.Series(s).rank(pct=True).iloc[-1] * 100.0, raw=False)
+
+        # -------------------------------------------------------------
+        # 维度 2: 行业专属估值分位数与久期惩罚 (Score_Valuation, 0~100)
+        # -------------------------------------------------------------
+        log_p = np.log(df[ticker])
+        t_full = np.arange(len(df))
+        slope, intercept = np.polyfit(t_full, log_p, 1)
+        df['Log_Trend'] = slope * t_full + intercept
+        df['Valuation_Residual'] = (log_p - df['Log_Trend']) * 100.0
+
+        # 实际利率久期惩罚 (软件平均久期 15-20 年)
+        yield_surge = np.clip((df['Real_Yield'] - df['Real_Yield'].rolling(60, min_periods=20).min()) / 0.40, 0.0, 1.0)
+        val_raw = df['Valuation_Residual'] + yield_surge * 15.0
+
+        # 滚动 3 年 (756 交易日) 自适应分位数标定
+        df['Score_Valuation'] = val_raw.rolling(756, min_periods=100).apply(lambda s: pd.Series(s).rank(pct=True).iloc[-1] * 100.0, raw=False)
+
+        # -------------------------------------------------------------
+        # 维度 3: 内部成分股广度高位顶背离 (Score_Breadth, 0~100，彻底剔除底部污染)
+        # -------------------------------------------------------------
+        above = pd.DataFrame({c: df[c] > df[c].rolling(50, min_periods=20).mean() for c in self.const_cols})
+        df['Breadth_50'] = above.sum(axis=1) / above.notna().sum(axis=1)
+        df['High_60'] = df[ticker].rolling(60, min_periods=20).max()
+        df['Price_Ratio_High'] = df[ticker] / df['High_60']
+
+        # 修正：当且仅当价格处于高位区间 (距离60日高点不足10%) 时，衡量广度缺失；超跌后背离度严格归零
+        high_proximity = np.clip((df['Price_Ratio_High'] - 0.90) / 0.10, 0.0, 1.0)
+        raw_div = high_proximity * (1.0 - df['Breadth_50']) * 100.0
+        # 滚动 2 年分位数标定
+        df['Score_Breadth'] = raw_div.rolling(504, min_periods=60).apply(lambda s: pd.Series(s).rank(pct=True).iloc[-1] * 100.0, raw=False)
+
+        # -------------------------------------------------------------
+        # 维度 4: 跨资产抛物线脱节乖离 (Score_Relative, 0~100，动量与泡沫解耦)
+        # -------------------------------------------------------------
+        df['Ratio_QQQ'] = df[ticker] / df['QQQ']
+        ratio_ma60 = df['Ratio_QQQ'].rolling(60, min_periods=20).mean()
+        ratio_dist_60 = (df['Ratio_QQQ'] - ratio_ma60) / ratio_ma60 * 100.0
+        # 滚动 2 年分位数标定：仅在相对 60MA 发生抛物线垂直拉升时计分
+        df['Score_Relative'] = ratio_dist_60.rolling(504, min_periods=60).apply(lambda s: pd.Series(s).rank(pct=True).iloc[-1] * 100.0, raw=False)
+
+        # -------------------------------------------------------------
+        # 5. 加权复合微观雷达分 (Composite Radar Score, 0 ~ 100)
+        # -------------------------------------------------------------
+        w = self.weights
+        df['Composite_Radar_Score'] = (
+            w['dynamics'] * df['Score_Dynamics'] +
+            w['valuation'] * df['Score_Valuation'] +
+            w['breadth'] * df['Score_Breadth'] +
+            w['relative'] * df['Score_Relative']
+        )
+
+        # 辅助均线与确认
+        df['MA10'] = df[ticker].rolling(10).mean()
+        df['MA20'] = df[ticker].rolling(20).mean()
+        df['MA50'] = df[ticker].rolling(50).mean()
+        df['MA200'] = df[ticker].rolling(200).mean()
+        df['Dist_200MA'] = (df[ticker] - df['MA200']) / df['MA200'] * 100.0
+        df['Above_MA20_Conf'] = (df[ticker] > df['MA20']).rolling(3, min_periods=1).sum() == 3
+        df['Above_MA50_Conf'] = (df[ticker] > df['MA50']).rolling(3, min_periods=1).sum() == 3
+        df['Below_MA50_3D'] = (df[ticker] < df['MA50']).rolling(3, min_periods=1).sum() == 3
+        df['Cond_Panic'] = (df['Dist_200MA'].rolling(10, min_periods=1).min() < -10.0) & (df[ticker] > df['MA10'])
+
+        # 攻防信号：25日记忆窗口 + 实质性破位确认 (击穿MA50达1%或跌破MA200) + 广度实质收缩 (<45%)
+        radar_win_25 = df['Composite_Radar_Score'].rolling(25, min_periods=1).max()
+        ma50_broken = df['Below_MA50_3D'] & (df[ticker] < df['MA50'] * 0.99)
+        ma200_danger = (df[ticker] < df['MA200'] * 1.02) & (df[ticker] < df['MA50'])
+        df['Cond_Bubble'] = (radar_win_25 >= 70.0) & (ma50_broken | ma200_danger) & (df['Breadth_50'] < 0.45)
+        df['Cond_Bear'] = False
+        df['Sell_Signal'] = df['Cond_Bubble']
+
+        self.df = df
+        return df
+
+
 def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthly=1000.0, cooldown_days=20):
     """
     券商级真实两状态记账回测引擎 (追踪 strat_shares 与 strat_cash)
@@ -406,7 +701,49 @@ def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthl
 
 
 
-def export_deliverables(df, metrics, df_paired, df_daily, ticker='IGV'):
+
+def generate_trade_pairs(orders, sub_bt, ticker='IGV'):
+    """从 SharedExecutor 的 orders_history 中提取买卖配对"""
+    import pandas as pd
+    trade_pairs = []
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    
+    for k in range(0, len(discretionary) - 1, 2):
+        s_o = discretionary[k]
+        b_o = discretionary[k+1]
+        
+        if s_o['target'] == 0.0 and b_o['target'] == 1.0:
+            s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
+            b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
+            
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), ticker].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), ticker].values
+            
+            s_p = s_p[0] if len(s_p) > 0 else 0
+            b_p = b_p[0] if len(b_p) > 0 else 0
+            
+            p_drop = (b_p - s_p) / s_p * 100.0 if s_p > 0 else 0.0
+            
+            trade_pairs.append({
+                '轮次': len(trade_pairs) + 1,
+                '卖出日期': s_dt.strftime('%Y-%m-%d'),
+                '卖出价格': round(s_p, 2),
+                '卖出诱因': s_o['reason'],
+                '买入日期': b_dt.strftime('%Y-%m-%d'),
+                '买入价格': round(b_p, 2),
+                '买回诱因': b_o['reason'],
+                '期间绝对跌幅': f"{p_drop:+.2f}%",
+                '波段是否有效避险': "✅ 有效" if p_drop < 0 else "❌ 踏空磨损"
+            })
+    return pd.DataFrame(trade_pairs)
+
+
+def export_deliverables(result):
+    sub_bt = result.features
+    df_daily = result.daily_accounts
+    metrics = result.metrics
+    ticker = result.metadata.get('ticker', 'IGV')
+    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
     """
     导出 Excel 交付底稿与 4 层高清对齐图谱
     """
@@ -434,7 +771,7 @@ def export_deliverables(df, metrics, df_paired, df_daily, ticker='IGV'):
         df_paired.to_excel(writer, sheet_name='逐笔买卖配对表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日分项流水总账', index=False)
         df_paired.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
-        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
+        sub_bt.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"✅ Excel 导出成功: {excel_path}")
 
     # 绘制 4 层高清图谱
@@ -516,8 +853,8 @@ if __name__ == '__main__':
     df = radar.compute_all_dimensions()
 
     print("⚡ 正在执行真实券商记账回测...")
-    metrics, df_paired, df_daily = run_brokerage_backtest(df, ticker='IGV')
+    result = run_brokerage_backtest(radar.df, ticker='IGV', start_date='2012-01-01')
 
     print("📦 正在导出交付物...")
-    export_deliverables(df, metrics, df_paired, df_daily, ticker='IGV')
+    export_deliverables(result)
     print("🎉 全部本地开发与交付物生成已顺利完成！")

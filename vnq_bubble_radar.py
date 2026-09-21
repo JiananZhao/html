@@ -208,192 +208,204 @@ class VNQBubbleRadar:
         return df
 
 
-def run_brokerage_backtest(df, ticker='VNQ', start_date='2009-01-01', dca_monthly=1000.0, cooldown_days=20):
-    """
-    券商级真实两状态记账回测引擎 (追踪 strat_shares 与 strat_cash)
-    设置买入后 20 日冷却期，杜绝牛熊震荡期的均线缠绕频繁磨损
-    """
-    sub_bt = df[df['date'] >= start_date].reset_index(drop=True)
-    tot_inv = 0.0
-    b_sh = 0.0
-    s_sh = 0.0
-    s_cash = 0.0
-    pos = 1.0
-    curr_m = -1
-    exit_reg = None
-    trades = []
-
-    bench_vals = []
-    strat_vals = []
-    daily_records = []
-    last_buy_idx = -999
-
-    for i in range(len(sub_bt)):
-        p = sub_bt[ticker].iloc[i]
-        d_str = sub_bt['date'].iloc[i]
-        m = int(d_str.split('-')[1])
-        score = sub_bt['Composite_Radar_Score'].iloc[i]
-
-        # 月度定投现金注入
-        if m != curr_m:
-            tot_inv += dca_monthly
-            b_sh += dca_monthly / p
-            if pos > 0:
-                s_sh += dca_monthly / p
-            else:
-                s_cash += dca_monthly
-            curr_m = m
-
-        action_today = 'HOLD' if pos > 0 else 'CASH'
-        is_bub = sub_bt['Cond_Bubble'].iloc[i]
-        is_bear = sub_bt['Cond_Bear'].iloc[i]
-
-        # 卖出判定 (增加冷却期保护)
-        if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
-            s_cash += s_sh * p
-            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-            r_reason = '微观雷达泡沫与低息狂欢' if is_bub else '真实利率暴涨与信用危机'
-            trades.append({
-                'action': 'SELL',
-                'date': d_str,
-                'price': p,
-                'shares': s_sh,
-                'cash': s_cash,
-                'reason': r_reason,
-                'radar_score': score,
-                'breadth': sub_bt['Breadth_50'].iloc[i],
-                'cre_spread': sub_bt['Homebuilder_CRE_Spread'].iloc[i]
-            })
-            action_today = 'SELL'
-            s_sh = 0.0
-            pos = 0.0
-
-        elif pos == 0.0:
-            can_buy = False
-            b_reason = ""
-            last_sell_p = trades[-1]['price']
-
-            # 1. 极端出清黄金坑抄底 (年线深度超跌 + 短期企稳)
-            if sub_bt['Cond_Panic'].iloc[i]:
-                can_buy = True
-                b_reason = '极端出清黄金坑抄底'
-            # 2. 突破卖出价右侧防踏空接回 (双均线金叉支撑)
-            elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                can_buy = True
-                b_reason = '突破卖出价右侧防踏空接回'
-            # 3. 体制分化精准重构
-            elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                if exit_reg == 'BUBBLE':
-                    radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
-                    if radar_cooled:
-                        can_buy = True
-                        b_reason = '微观雷达降温且右侧重构'
-                elif exit_reg == 'BEAR':
-                    broad_repaired = (sub_bt['Breadth_50'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
-                    if broad_repaired:
-                        can_buy = True
-                        b_reason = '利率环境舒缓且地产广度修复'
-
-            if can_buy:
-                s_sh = s_cash / p
-                s_cash = 0.0
-                pos = 1.0
-                action_today = 'BUY'
-                last_buy_idx = i
-                trades.append({
-                    'action': 'BUY',
-                    'date': d_str,
-                    'price': p,
-                    'shares': s_sh,
-                    'cash': 0.0,
-                    'reason': b_reason,
-                    'radar_score': score,
-                    'breadth': sub_bt['Breadth_50'].iloc[i],
-                    'cre_spread': sub_bt['Homebuilder_CRE_Spread'].iloc[i]
-                })
-
-        b_val = b_sh * p
-        s_val = s_sh * p + s_cash
-        bench_vals.append(b_val)
-        strat_vals.append(s_val)
-
-        daily_records.append({
-            'date': d_str,
-            ticker: p,
-            'Action': action_today,
-            'Position': pos,
-            'Strat_Shares': s_sh,
-            'Strat_Cash': s_cash,
-            'Strat_Equity': s_val,
-            'Bench_Shares': b_sh,
-            'Bench_Equity': b_val,
-            'Composite_Radar_Score': score,
-            'Breadth_50': sub_bt['Breadth_50'].iloc[i],
-            'Homebuilder_CRE_Spread': sub_bt['Homebuilder_CRE_Spread'].iloc[i],
-            'Score_Dynamics': sub_bt['Score_Dynamics'].iloc[i],
-            'Score_Valuation': sub_bt['Score_Valuation'].iloc[i],
-            'Score_Breadth': sub_bt['Score_Breadth'].iloc[i],
-            'Score_Relative': sub_bt['Score_Relative'].iloc[i]
-        })
-
-    sub_bt['Bench_Equity'] = bench_vals
-    sub_bt['Strat_Equity'] = strat_vals
-    df_daily = pd.DataFrame(daily_records)
-
-    b_final = bench_vals[-1]
-    s_final = strat_vals[-1]
-    b_ret = (b_final - tot_inv) / tot_inv * 100.0
-    s_ret = (s_final - tot_inv) / tot_inv * 100.0
-    alpha = s_ret - b_ret
-
-    b_s = pd.Series(bench_vals)
-    s_s = pd.Series(strat_vals)
-    b_dd = ((b_s - b_s.cummax()) / b_s.cummax()).min() * 100.0
-    s_dd = ((s_s - s_s.cummax()) / s_s.cummax()).min() * 100.0
-
+def generate_trade_pairs(orders, sub_bt, ticker):
+    import pandas as pd
     trade_pairs = []
-    for k in range(0, len(trades) - 1, 2):
-        if trades[k]['action'] == 'SELL' and trades[k+1]['action'] == 'BUY':
-            s_t = trades[k]
-            b_t = trades[k+1]
-            p_drop = (b_t['price'] - s_t['price']) / s_t['price'] * 100.0
-            sh_gain = (b_t['shares'] - s_t['shares']) / s_t['shares'] * 100.0
-            is_win = (b_t['price'] < s_t['price']) or (sh_gain > 0)
+    
+    # Filter only discretionary signal orders
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    
+    # We expect SELL (target_pos=0.0) then BUY (target_pos=1.0)
+    for k in range(0, len(discretionary) - 1, 2):
+        s_o = discretionary[k]
+        b_o = discretionary[k+1]
+        
+        if s_o['target'] == 0.0 and b_o['target'] == 1.0:
+            s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
+            b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
+            
+            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), ticker].values
+            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), ticker].values
+            
+            s_p = s_p[0] if len(s_p) > 0 else 0
+            b_p = b_p[0] if len(b_p) > 0 else 0
+            
+            if s_p > 0:
+                p_drop = (b_p - s_p) / s_p * 100.0
+            else:
+                p_drop = 0.0
+            
             trade_pairs.append({
                 '轮次': len(trade_pairs) + 1,
-                '卖出日期': s_t['date'],
-                '卖出价格': round(s_t['price'], 2),
-                '卖出原因': s_t['reason'],
-                '卖出时雷达分': round(s_t['radar_score'], 1),
-                '卖出时广度': f"{s_t['breadth']*100:.1f}%",
-                '买入日期': b_t['date'],
-                '买入价格': round(b_t['price'], 2),
-                '买入原因': b_t['reason'],
-                '期间标的跌幅': f"{p_drop:+.2f}%",
-                '持股增益幅度': f"{sh_gain:+.2f}%",
-                '是否实现低买高卖': "✅ 是" if is_win else "⚠️ 防踏空"
+                '卖出日期': s_dt.strftime('%Y-%m-%d'),
+                '卖出价格': round(s_p, 2),
+                '卖出诱因': s_o['reason'],
+                '买入日期': b_dt.strftime('%Y-%m-%d'),
+                '买入价格': round(b_p, 2),
+                '买回诱因': b_o['reason'],
+                '期间绝对跌幅': f"{p_drop:+.2f}%",
+                '波段是否有效避险': "✅ 有效" if p_drop < 0 else "❌ 踏空磨损"
             })
-    df_pairs = pd.DataFrame(trade_pairs)
+            
+    return pd.DataFrame(trade_pairs)
+
+def run_brokerage_backtest(df, ticker='VNQ', start_date='2009-01-01', dca_monthly=1000.0, cooldown_days=20, cost_config=0.0):
+    from true_accounting import UnitizedAccount, calculate_xirr
+    from shared_executor import SharedExecutor
+    from core_engine.simulation_result import SimulationResult
+    import pandas as pd
+    
+    sub_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
+    if sub_bt.empty:
+        return SimulationResult(pd.DataFrame(), pd.DataFrame(), [], [], [], pd.DataFrame(), {}, {})
+        
+    initial_dt = pd.to_datetime(sub_bt['date'].iloc[0])
+    acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
+    bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
+    
+    executor = SharedExecutor(acc, fee_rate=cost_config, execution_mode='NEXT_CLOSE', account_type='strat')
+    bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='bench')
+    
+    curr_m = -1
+    exit_reg = None
+    pos = 1.0
+    last_buy_idx = -999
+    
+    df_len = len(sub_bt)
+    total_invested = 0.0
+    
+    bench_eqs = []
+    strat_eqs = []
+    positions = []
+    
+    for i in range(df_len):
+        d_str = sub_bt['date'].iloc[i]
+        p = sub_bt[ticker].iloc[i]
+        
+        try:
+            dt = pd.Timestamp(d_str)
+        except:
+            dt = pd.to_datetime(d_str)
+            
+        m = dt.month
+        
+        # 定投及买入 (按收盘价)
+        dca_amount = 0.0
+        if m != curr_m:
+            curr_m = m
+            dca_amount = dca_monthly
+            total_invested += dca_monthly
+
+        executor.step(dt, p, p, dca_amount=dca_amount)
+        bench_executor.step(dt, p, p, dca_amount=dca_amount)
+        
+        # T 日收盘后产生新信号，传给 T+1
+        if i < df_len - 1:
+            is_bub = sub_bt['Cond_Bubble'].iloc[i]
+            is_bear = sub_bt['Cond_Bear'].iloc[i]
+            
+            if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
+                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+                pending_reason = '微观雷达泡沫与低息狂欢' if is_bub else '真实利率暴涨与信用危机'
+                pos = 0.0
+                executor.submit_order(pos, pending_reason, dt)
+            elif pos == 0.0:
+                can_buy = False
+                b_reason = ""
+                
+                # 获取最后一次卖出价
+                last_sell_p = executor.last_sell_p if executor.last_sell_p is not None else p
+                
+                if sub_bt['Cond_Panic'].iloc[i]:
+                    can_buy = True
+                    b_reason = '极端出清黄金坑抄底'
+                elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                    can_buy = True
+                    b_reason = '突破卖出价右侧防踏空接回'
+                elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                    if exit_reg == 'BUBBLE':
+                        radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
+                        if radar_cooled:
+                            can_buy = True
+                            b_reason = '微观雷达降温且右侧重构'
+                    elif exit_reg == 'BEAR':
+                        broad_repaired = (sub_bt['Breadth_50'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
+                        if broad_repaired:
+                            can_buy = True
+                            b_reason = '利率环境舒缓且地产广度修复'
+                if can_buy:
+                    pos = 1.0
+                    last_buy_idx = i
+                    executor.submit_order(pos, b_reason, dt)
+            else:
+                executor.submit_order(pos, "Standing Order / DCA", dt)
+        else:
+            executor.submit_order(pos, "Standing Order / DCA", dt)
+            
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+            
+        bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
+        strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
+        positions.append(pos)
+        
+    sub_bt['Bench_Equity'] = bench_eqs
+    sub_bt['Strat_Equity'] = strat_eqs
+    sub_bt['Position'] = positions
+    
+    all_states = executor.daily_states + bench_executor.daily_states
+    daily_accounts = pd.DataFrame(all_states)
+    
+    b_final = sub_bt['Bench_Equity'].iloc[-1]
+    s_final = sub_bt['Strat_Equity'].iloc[-1]
+    b_ret = (b_final - total_invested) / total_invested * 100.0 if total_invested > 0 else 0
+    s_ret = (s_final - total_invested) / total_invested * 100.0 if total_invested > 0 else 0
+    
+    final_date = pd.Timestamp(sub_bt['date'].iloc[-1])
+    b_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], b_final, final_date) * 100.0
+    s_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], s_final, final_date) * 100.0
+    
+    alpha = s_cagr - b_cagr
+    
+    b_dd = (daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'].cummax() - 1).min() * 100.0
+    s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
+
+    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
 
     metrics = {
-        'total_invested': tot_inv,
+        'total_invested': total_invested,
         'bench_final': b_final,
         'strat_final': s_final,
-        'bench_return': b_ret,
-        'strat_return': s_ret,
+        'bench_return': b_cagr,
+        'strat_return': s_cagr,
         'alpha': alpha,
         'bench_max_dd': b_dd,
         'strat_max_dd': s_dd,
-        'trade_count': len(trades),
-        'trade_rounds': len(trade_pairs),
-        'win_rounds': sum(1 for p in trade_pairs if '✅' in p['是否实现低买高卖']),
-        'win_rate': sum(1 for p in trade_pairs if '✅' in p['是否实现低买高卖']) / max(1, len(trade_pairs)) * 100.0
+        'trade_count': len(executor.fills),
+        'trade_rounds': len(trade_pairs_df),
+        'win_rounds': sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) if not trade_pairs_df.empty else 0,
+        'win_rate': (sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) / max(1, len(trade_pairs_df)) * 100.0) if not trade_pairs_df.empty else 0.0
     }
+    
+    result = SimulationResult(
+        features=sub_bt,
+        signals=sub_bt[['date', 'Position', 'Sell_Signal', 'Cond_Bubble', 'Cond_Bear']],
+        orders=executor.orders_history + executor.pending_orders,
+        fills=executor.fills,
+        cashflows=executor.cashflows,
+        daily_accounts=daily_accounts,
+        metrics=metrics,
+        metadata={'ticker': ticker, 'start_date': start_date, 'end_date': sub_bt['date'].iloc[-1]}
+    )
+    
+    return result
 
-    return sub_bt, df_daily, df_pairs, metrics
 
-
-def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='VNQ'):
+def export_deliverables(result):
+    sub_bt = result.features
+    df_daily = result.daily_accounts
+    metrics = result.metrics
+    ticker = result.metadata.get('ticker', 'VNQ')
+    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
     """
     导出机构级 Excel 审计全底稿与高清 4 层对齐图谱
     """
@@ -419,7 +431,7 @@ def export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='VNQ'):
         df_pairs.to_excel(writer, sheet_name='逐笔买卖配对对账表', index=False)
         df_daily.to_excel(writer, sheet_name='逐日流水底稿表', index=False)
         df_pairs.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False)
-        df_daily.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
+        sub_bt.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False)
     print(f"📊 机构级 Excel 审计底稿已生成: {os.path.abspath(excel_path)}")
 
     fig, axes = plt.subplots(4, 1, figsize=(16, 15), sharex=True, gridspec_kw={'height_ratios': [3.0, 2.2, 2.2, 2.5]})
@@ -503,7 +515,12 @@ def main():
     radar.df.to_csv('vnq_radar_local.csv', index=False)
     print(f"💾 预计算指标已固化至: vnq_radar_local.csv (共 {len(radar.df)} 行)")
 
-    sub_bt, df_daily, df_pairs, metrics = run_brokerage_backtest(radar.df, ticker='VNQ', start_date='2009-01-01')
+    result = run_brokerage_backtest(radar.df, ticker='VNQ', start_date='2009-01-01')
+    
+    sub_bt = result.features
+    df_daily = result.daily_accounts
+    metrics = result.metrics
+    df_pairs = generate_trade_pairs(result.orders, sub_bt, 'VNQ')
 
     print("\n==================================================")
     print("🎯 VNQ 房地产微观雷达全周期实证对账审计报告 (2009 - 2026)")
@@ -517,7 +534,12 @@ def main():
     print(f"波段胜率 (有效低买高卖/防踏空): {metrics['win_rate']:.1f}%")
     print("==================================================\n")
 
-    export_deliverables(sub_bt, df_daily, df_pairs, metrics, ticker='VNQ')
+    # Print df_pairs directly if it exists
+    if not df_pairs.empty:
+        print("=== 逐笔买卖配对详细对账 ===")
+        print(df_pairs.to_string(index=False))
+
+    export_deliverables(result)
     print("🎉 VNQ 微观雷达全套交付物本地生成完毕！")
 
 
