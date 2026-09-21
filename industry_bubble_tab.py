@@ -378,16 +378,16 @@ def build_layer2_radar_chart(df, default_range="1Y", ticker="IGV"):
             borderwidth=1.2,
             font=dict(color="#111111", size=11),
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0.0
+            yanchor="top",
+            y=-0.25,
+            xanchor="center",
+            x=0.5
         ),
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
         hovermode="x unified",
-        margin=dict(l=50, r=30, t=105, b=45),
-        height=530
+        margin=dict(l=50, r=30, t=105, b=120),
+        height=600
     )
 
     return fig
@@ -542,16 +542,16 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
             borderwidth=1.2,
             font=dict(color="#111111", size=11),
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0.0
+            yanchor="top",
+            y=-0.25,
+            xanchor="center",
+            x=0.5
         ),
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
         hovermode="x unified",
-        margin=dict(l=50, r=50, t=105, b=45),
-        height=530
+        margin=dict(l=50, r=50, t=105, b=120),
+        height=600
     )
 
     return fig

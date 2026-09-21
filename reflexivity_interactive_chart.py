@@ -180,7 +180,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
             executor.submit_order(pos, "Standing Order / DCA", dt)
 
         # 基准始终满仓
-        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", pd.to_datetime(d_str))
+        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
 
         # 记录日终资产与净值状态
         bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
@@ -458,7 +458,7 @@ def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'
         template='plotly_white',
         height=1060,
         hovermode='x unified',
-        margin=dict(l=65, r=35, t=140, b=40),
+        margin=dict(l=65, r=35, t=180, b=40),
         
         # 🌟 优化项 1: 白底黑字、浅灰外边框的高清晰图例
         legend=dict(
