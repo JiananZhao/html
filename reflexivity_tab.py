@@ -73,7 +73,7 @@ except ImportError:
 
 
 @st.cache_data(show_spinner=False)
-def get_cached_simulation(df, ticker, result_id="P1-B_v1.1"):
+def get_cached_simulation(df, ticker, result_id="P1-B_v1.2"):
     if run_reflexivity_simulation is not None and not df.empty:
         # P1-B 新执行引擎要求强制显式传入 cost_config，并返回 SimulationResult
         return run_reflexivity_simulation(df, ticker, cost_config=0.001)
@@ -229,7 +229,7 @@ def render_reflexivity_tab():
             sim_q = get_cached_simulation(df_data, 'QQQ')
             if sim_q:
                 fig_q = build_interactive_4layer_chart(
-                    sim_q.features, sim_q.fills, ticker='QQQ', default_range=selected_range
+                    sim_q, ticker='QQQ', default_range=selected_range
                 )
                 st.plotly_chart(fig_q, use_container_width=True)
             
@@ -246,7 +246,7 @@ def render_reflexivity_tab():
             sim_s = get_cached_simulation(df_data, 'SPY')
             if sim_s:
                 fig_s = build_interactive_4layer_chart(
-                    sim_s.features, sim_s.fills, ticker='SPY', default_range=selected_range
+                    sim_s, ticker='SPY', default_range=selected_range
                 )
                 st.plotly_chart(fig_s, use_container_width=True)
             

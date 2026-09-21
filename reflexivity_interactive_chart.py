@@ -192,6 +192,11 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     # 将账户每日状态汇总
     all_states = executor.daily_states + bench_executor.daily_states
     daily_accounts = pd.DataFrame(all_states)
+    
+    sub['Strat_Equity'] = strat_eqs
+    sub['Bench_Equity'] = bench_eqs
+    sub['Strat_NAV'] = strat_navs
+    sub['Bench_NAV'] = bench_navs
 
     from core_engine.simulation_result import SimulationResult
 
@@ -210,11 +215,26 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     return result
 
 
-def build_interactive_4layer_chart(sub, trades, ticker='QQQ', default_range='6M'):
+def build_interactive_4layer_chart(sim_result, ticker='QQQ', default_range='6M'):
     """
     构建 4 层上下严格对齐、时间轴联动缩放、Y 轴自适应价格极值的 Plotly 交互图表
     default_range: '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'
     """
+    sub = sim_result.features
+    fills_df = pd.DataFrame(sim_result.fills) if sim_result.fills else pd.DataFrame()
+    orders_df = pd.DataFrame(sim_result.orders) if sim_result.orders else pd.DataFrame()
+    
+    trades = []
+    if not fills_df.empty and not orders_df.empty:
+        merged = pd.merge(fills_df, orders_df, on='order_id', how='left')
+        for _, row in merged.iterrows():
+            trades.append({
+                'action': row['direction'],
+                'date': row['dt'],
+                'price': row['price'],
+                'reason': row['reason'] if pd.notna(row['reason']) else 'System Executed'
+            })
+            
     color_accent = '#0984e3' if ticker == 'QQQ' else '#00b894'
     
     fig = make_subplots(
