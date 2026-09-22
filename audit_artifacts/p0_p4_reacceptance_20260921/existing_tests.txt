@@ -1,0 +1,111 @@
+test_now_reflexivity_baseline (test_baseline_regression.TestBaselineRegression)
+对照 P0/P1-A 版本的核心基线结果进行浮点容差断言。 ... 📂 正在加载本地主数据集 (100% 脱机优先闭环)...
+✅ 成功合并数据，跨度从 2012-06-29 到 2026-09-14 (共 3571 个交易日)
+⚙️ 正在计算相空间动力学 (q, q_dot, q_ddot, V_dot) 与 6 维解耦分位数...
+📊 启动真实券商记账回测 (回测起点: 2013-06-01, 初始本金: $10,000, 月定投: $1,000)...
+---------------------------------------------------------------
+💰 总体绩效报告 [ServiceNow (NOW) 反身性雷达 2013-2026]
+总投入本金:       $160,000.00
+基准最终资产:     $955,174.81 (总收益: +496.98%, 年化CAGR: 22.26%, 最大回撤: -64.54%)
+策略最终资产:     $910,713.71 (总收益: +469.20%, 年化CAGR: 21.67%, 最大回撤: -67.36%)
+超额收益 Alpha:   -0.59% (净增财富: +$-44,461.11)
+最大回撤改善:     +2.81%
+交易频次:         共 168 次触发
+---------------------------------------------------------------
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.483s
+
+OK
+test_expanding_ols_causality (test_causality.TestCausality)
+Verify that adding future data points does not alter the historical residuals ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+OK
+test_dca_injection_timing (test_execution_rules.TestExecutionRules) ... ok
+test_missing_price_fallback (test_execution_rules.TestExecutionRules) ... ok
+test_state_serialization (test_execution_rules.TestExecutionRules) ... ok
+test_submit_dt_less_than_fill_dt (test_execution_rules.TestExecutionRules) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK
+test_save_and_load_checkpoint_with_prefix_hash (test_idempotency.TestIdempotency) ... ok
+test_verify_checkpoint (test_idempotency.TestIdempotency) ... Config hash mismatch, cannot resume.
+Prefix hash mismatch (historical data or config changed), cannot resume.
+Checkpoint was not marked as complete.
+ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.009s
+
+OK
+test_prevent_dca_on_stale (test_missing_data.TestMissingDataProtection)
+测试在暂估状态下严禁将新资金转换为份额，资金应挂起直到恢复 ... ok
+test_stale_pricing_handling (test_missing_data.TestMissingDataProtection)
+测试遇到缺失价格时使用暂估价格，并在之后恢复 ... FAIL
+
+======================================================================
+FAIL: test_stale_pricing_handling (test_missing_data.TestMissingDataProtection)
+测试遇到缺失价格时使用暂估价格，并在之后恢复
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\AI\Github_AIProject\html\tests\test_missing_data.py", line 31, in test_stale_pricing_handling
+    self.assertEqual(acc.shares, 10.0)
+AssertionError: 0.0 != 10.0
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (failures=1)
+test_fee_rate_impact (test_p1a_macro_accounting.TestP1AMacroAccounting)
+测试费用是否能够正确从资金池扣除 ... FAIL
+test_initial_date_enforcement (test_p1a_macro_accounting.TestP1AMacroAccounting)
+测试初始资金必须显式传入日期，不能'自动补充正确日期' ... ok
+test_next_close_execution (test_p1a_macro_accounting.TestP1AMacroAccounting)
+测试 NEXT_CLOSE 的状态流转 ... ok
+
+======================================================================
+FAIL: test_fee_rate_impact (test_p1a_macro_accounting.TestP1AMacroAccounting)
+测试费用是否能够正确从资金池扣除
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\AI\Github_AIProject\html\tests\test_p1a_macro_accounting.py", line 72, in test_fee_rate_impact
+    self.assertAlmostEqual(acc.shares, expected_shares, places=4)
+AssertionError: 0.0 != 9.900990099009901 within 4 places (9.900990099009901 difference)
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (failures=1)
+test_atomic_overwrite (test_state_manager.TestStateManager)
+测试新检查点覆盖旧检查点逻辑（latest 更新） ... ok
+test_load_non_existent (test_state_manager.TestStateManager)
+测试加载不存在的检查点 ... ok
+test_save_and_load_checkpoint (test_state_manager.TestStateManager)
+测试正常保存和加载检查点 ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.037s
+
+OK
+test_executor_state_resume (test_state_resume.TestStateResume)
+测试从状态快照中精确恢复执行上下文 ... ERROR
+
+======================================================================
+ERROR: test_executor_state_resume (test_state_resume.TestStateResume)
+测试从状态快照中精确恢复执行上下文
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\AI\Github_AIProject\html\tests\test_state_resume.py", line 38, in test_executor_state_resume
+    self.assertEqual(len(state1['daily_states']), 2)
+KeyError: 'daily_states'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)

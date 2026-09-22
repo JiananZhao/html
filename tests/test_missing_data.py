@@ -24,34 +24,36 @@ class TestMissingDataProtection(unittest.TestCase):
         acc = UnitizedAccount(initial_cash=1000, initial_date=self.df_mock['date'].iloc[0])
         executor = SharedExecutor(acc, fee_rate=0.0)
         
-        # Day 0: Price = 100, execute Buy
-        executor.submit_order(1.0, "Init Buy", self.df_mock['date'].iloc[0])
+        # Day 0: Price = 100, submit order
         executor.step(self.df_mock['date'].iloc[0], self.df_mock['close'].iloc[0], self.df_mock['close'].iloc[0])
+        executor.submit_order(1.0, "Init Buy", self.df_mock['date'].iloc[0])
         
-        self.assertEqual(acc.shares, 10.0)
+        self.assertEqual(acc.shares, 0.0)
         self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0)
         self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
-        self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good') # first day is not stale
+        self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good')
 
         # Day 1: Price = 102
         executor.step(self.df_mock['date'].iloc[1], self.df_mock['close'].iloc[1], self.df_mock['close'].iloc[1])
-        self.assertEqual(acc.shares, 10.0)
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.02)
-        self.assertEqual(executor.daily_states[-1]['equity'], 1020.0)
+        # Executes at 102
+        expected_shares = 1000.0 / 102.0
+        self.assertEqual(acc.shares, expected_shares)
+        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0) # Equity is 1000, units is 1000
+        self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good')
 
         # Day 2: Price = NaN (Missing)
         executor.step(self.df_mock['date'].iloc[2], self.df_mock['close'].iloc[2], self.df_mock['close'].iloc[2])
-        # Expected: use Day 1 nav for valuation (1.02), equity = 1020.0, quality = 'stale'
-        self.assertEqual(acc.shares, 10.0) # Not changed
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.02)
-        self.assertEqual(executor.daily_states[-1]['equity'], 1020.0)
+        # Expected: use Day 1 price for valuation (102)
+        self.assertEqual(acc.shares, expected_shares) # Not changed
+        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0)
+        self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'stale')
 
         # Day 3: Price = 105 (Recovery)
         executor.step(self.df_mock['date'].iloc[3], self.df_mock['close'].iloc[3], self.df_mock['close'].iloc[3])
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.05)
-        self.assertEqual(executor.daily_states[-1]['equity'], 1050.0)
+        expected_equity = expected_shares * 105.0
+        self.assertAlmostEqual(executor.daily_states[-1]['equity'], expected_equity, places=4)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good') # No longer stale
 
     def test_prevent_dca_on_stale(self):
@@ -61,28 +63,27 @@ class TestMissingDataProtection(unittest.TestCase):
         
         # Day 0: Price = 100
         executor.step(self.df_mock['date'].iloc[0], self.df_mock['close'].iloc[0], self.df_mock['close'].iloc[0], dca_amount=1000)
+        executor.submit_order(1.0, "Init Buy", self.df_mock['date'].iloc[0])
         self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
         
-        # Buy on Day 0
-        executor.submit_order(1.0, "Init Buy", self.df_mock['date'].iloc[0])
-        
-        # Day 1: Price = 102
+        # Day 1: Price = 102, execute buy
         executor.step(self.df_mock['date'].iloc[1], self.df_mock['close'].iloc[1], self.df_mock['close'].iloc[1])
-        self.assertEqual(acc.shares, 1000 / 102.0)
+        expected_shares = 1000.0 / 102.0
+        self.assertEqual(acc.shares, expected_shares)
 
         # Day 2: Price = NaN, Inject DCA
         executor.step(self.df_mock['date'].iloc[2], self.df_mock['close'].iloc[2], self.df_mock['close'].iloc[2], dca_amount=500)
         
         # In stale mode, the DCA shouldn't convert to units immediately
         self.assertEqual(executor.pending_cash, 500)
-        self.assertAlmostEqual(executor.daily_states[-1]['equity'], 1000.0, places=4) # Equity remains 1000 because shares are valued at stale price 102 (1000/102 * 102 = 1000)
+        self.assertAlmostEqual(executor.daily_states[-1]['equity'], 1000.0, places=4) 
         
         # Day 3: Price = 105, recovery, pending cash should be injected
         executor.step(self.df_mock['date'].iloc[3], self.df_mock['close'].iloc[3], self.df_mock['close'].iloc[3], dca_amount=0)
         self.assertEqual(executor.pending_cash, 0)
         
         # Total equity should now be: value of shares (1000/102 * 105) + 500 (newly injected cash)
-        expected_equity = (1000 / 102.0) * 105.0 + 500.0
+        expected_equity = expected_shares * 105.0 + 500.0
         self.assertAlmostEqual(executor.daily_states[-1]['equity'], expected_equity, places=4)
 
 if __name__ == '__main__':

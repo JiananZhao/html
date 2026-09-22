@@ -259,45 +259,43 @@ def run_brokerage_backtest(df, ticker='VNQ', start_date='2009-01-01', dca_monthl
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
         
         # T 日收盘后产生新信号，传给 T+1
-        if i < df_len - 1:
-            is_bub = sub_bt['Cond_Bubble'].iloc[i]
-            is_bear = sub_bt['Cond_Bear'].iloc[i]
+        # T 日收盘后产生新信号，传给 T+1
+        is_bub = sub_bt['Cond_Bubble'].iloc[i]
+        is_bear = sub_bt['Cond_Bear'].iloc[i]
+        
+        if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
+            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+            pending_reason = '微观雷达泡沫与低息狂欢' if is_bub else '真实利率暴涨与信用危机'
+            pos = 0.0
+            executor.submit_order(pos, pending_reason, dt)
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
             
-            if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
-                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-                pending_reason = '微观雷达泡沫与低息狂欢' if is_bub else '真实利率暴涨与信用危机'
-                pos = 0.0
-                executor.submit_order(pos, pending_reason, dt)
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
-                
-                # 获取最后一次卖出价
-                last_sell_p = executor.last_sell_p if executor.last_sell_p is not None else p
-                
-                if sub_bt['Cond_Panic'].iloc[i]:
-                    can_buy = True
-                    b_reason = '极端出清黄金坑抄底'
-                elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
-                elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    if exit_reg == 'BUBBLE':
-                        radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
-                        if radar_cooled:
-                            can_buy = True
-                            b_reason = '微观雷达降温且右侧重构'
-                    elif exit_reg == 'BEAR':
-                        broad_repaired = (sub_bt['Breadth_50'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
-                        if broad_repaired:
-                            can_buy = True
-                            b_reason = '利率环境舒缓且地产广度修复'
-                if can_buy:
-                    pos = 1.0
-                    last_buy_idx = i
-                    executor.submit_order(pos, b_reason, dt)
-            else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+            # 获取最后一次卖出价
+            last_sell_p = executor.last_sell_p if executor.last_sell_p is not None else p
+            
+            if sub_bt['Cond_Panic'].iloc[i]:
+                can_buy = True
+                b_reason = '极端出清黄金坑抄底'
+            elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                can_buy = True
+                b_reason = '突破卖出价右侧防踏空接回'
+            elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                if exit_reg == 'BUBBLE':
+                    radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
+                    if radar_cooled:
+                        can_buy = True
+                        b_reason = '微观雷达降温且右侧重构'
+                elif exit_reg == 'BEAR':
+                    broad_repaired = (sub_bt['Breadth_50'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
+                    if broad_repaired:
+                        can_buy = True
+                        b_reason = '利率环境舒缓且地产广度修复'
+            if can_buy:
+                pos = 1.0
+                last_buy_idx = i
+                executor.submit_order(pos, b_reason, dt)
         else:
             executor.submit_order(pos, "Standing Order / DCA", dt)
             

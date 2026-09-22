@@ -113,13 +113,11 @@ class SMHBubbleRadar:
         df['Score_Dynamics'] = raw_dyn.rolling(504, min_periods=60).apply(lambda s: pd.Series(s).rank(pct=True).iloc[-1] * 100.0, raw=False)
 
         # -------------------------------------------------------------
-        # 维度 2: 半导体专属估值分位数与久期惩罚 (Score_Valuation, 25%)
+        # 维度 2: 行业专属估值分位数与久期惩罚 (Score_Valuation, 0~100)
         # -------------------------------------------------------------
-        log_p = np.log(df[ticker])
-        t_full = np.arange(len(df))
-        slope, intercept = np.polyfit(t_full, log_p, 1)
-        df['Log_Trend'] = slope * t_full + intercept
-        df['Valuation_Residual'] = (log_p - df['Log_Trend']) * 100.0
+        ols_res = expanding_polyfit_residual(df[ticker], min_periods=252)
+        df['Log_Trend'] = ols_res['Log_Trend']
+        df['Valuation_Residual'] = ols_res['Valuation_Residual']
 
         # 实际利率久期与资本开支贴现惩罚
         yield_surge = np.clip((df['Real_Yield'] - df['Real_Yield'].rolling(60, min_periods=20).min()) / 0.40, 0.0, 1.0)
@@ -279,37 +277,34 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
         
         # T 日收盘后产生新信号，传给 T+1
-        if i < df_len - 1:
-            if pos > 0 and sub_bt['Sell_Signal'].iloc[i]:
-                is_bub = sub_bt['Cond_Bubble'].iloc[i]
-                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-                pending_reason = '泡沫高点破位预警' if is_bub else '宏观及基本面双破位'
-                pos = 0.0
-                executor.submit_order(pos, pending_reason, dt)
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
-                if exit_reg == 'BUBBLE':
-                    if sub_bt['Cond_Panic'].iloc[i]:
-                        can_buy = True
-                        b_reason = '极度恐慌修复买入'
-                    elif (gap < gap_med) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                        can_buy = True
-                        b_reason = '回踩中枢且动能恢复'
-                    elif len(executor.fills) > 0 and (p > executor.fills[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                        can_buy = True
-                        b_reason = '突破前高阻力重拾升势'
-                elif exit_reg == 'BEAR':
-                    macro_healed = (sub_bt[macro_anchor].iloc[i] > sub_bt['Macro_MA200'].iloc[i])
-                    price_healed = sub_bt['Above_MA50_Conf'].iloc[i]
-                    if macro_healed and price_healed:
-                        can_buy = True
-                        b_reason = '宏观修复且均线多头'
-                if can_buy:
-                    pos = 1.0
-                    executor.submit_order(pos, b_reason, dt)
-            else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+        if pos > 0 and sub_bt['Sell_Signal'].iloc[i]:
+            is_bub = sub_bt['Cond_Bubble'].iloc[i]
+            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+            pending_reason = '泡沫高点破位预警' if is_bub else '宏观及基本面双破位'
+            pos = 0.0
+            executor.submit_order(pos, pending_reason, dt)
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
+            if exit_reg == 'BUBBLE':
+                if sub_bt['Cond_Panic'].iloc[i]:
+                    can_buy = True
+                    b_reason = '极度恐慌修复买入'
+                elif (gap < gap_med) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                    can_buy = True
+                    b_reason = '回踩中枢且动能恢复'
+                elif len(executor.fills) > 0 and (p > executor.fills[-1]['price'] * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                    can_buy = True
+                    b_reason = '突破前高阻力重拾升势'
+            elif exit_reg == 'BEAR':
+                macro_healed = (sub_bt[macro_anchor].iloc[i] > sub_bt['Macro_MA200'].iloc[i])
+                price_healed = sub_bt['Above_MA50_Conf'].iloc[i]
+                if macro_healed and price_healed:
+                    can_buy = True
+                    b_reason = '宏观修复且均线多头'
+            if can_buy:
+                pos = 1.0
+                executor.submit_order(pos, b_reason, dt)
         else:
             executor.submit_order(pos, "Standing Order / DCA", dt)
             

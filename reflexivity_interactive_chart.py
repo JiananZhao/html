@@ -95,8 +95,8 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
     bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
     
-    executor = SharedExecutor(acc, fee_rate=cost_config)
-    bench_executor = SharedExecutor(bench_acc, fee_rate=0.0)
+    executor = SharedExecutor(acc, fee_rate=cost_config, account_type='strat')
+    bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, account_type='bench')
     
     curr_m = -1
     exit_regime = None

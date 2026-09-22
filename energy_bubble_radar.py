@@ -260,7 +260,11 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
 
     # 初始化增量管理器
     sm = StateManager()
-    config_hash = "energy_radar_v2" # 固化配置哈希以保证幂等
+    import hashlib
+    # 动态计算 config_hash，若月定投或费率改变则生成全新目录，天然隔离配置
+    config_str = f"dca={dca_monthly}_fee={cost_config}"
+    config_hash = "energy_v2_" + hashlib.md5(config_str.encode()).hexdigest()[:8]
+    
     checkpoint = sm.load_latest_checkpoint('energy_radar', ticker, config_hash)
 
     # 变量初始化
@@ -291,13 +295,23 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     orders_csv_path = sm.get_state_dir('energy_radar', ticker, config_hash) + '/history_orders.csv'
     fills_csv_path = sm.get_state_dir('energy_radar', ticker, config_hash) + '/history_fills.csv'
     
-    if checkpoint and sm.verify_checkpoint(checkpoint, config_hash):
+    if checkpoint:
         last_date = checkpoint.get('last_processed_date')
+        current_prefix_hash = None
         if last_date:
-            # 找到上次执行之后的索引
-            matches = sub_bt.index[sub_bt['date'] > last_date].tolist()
-            if matches:
-                start_idx = matches[0]
+            # 取出历史截面并计算数据前缀哈希
+            history_slice = sub_bt[sub_bt['date'] <= last_date]
+            if not history_slice.empty:
+                # 仅对核心价格列进行快速哈希运算
+                history_hash_val = pd.util.hash_pandas_object(history_slice[['date', 'close', 'OIL']]).sum()
+                current_prefix_hash = str(history_hash_val)
+
+        if sm.verify_checkpoint(checkpoint, config_hash, current_prefix_hash):
+            if last_date:
+                # 找到上次执行之后的索引
+                matches = sub_bt.index[sub_bt['date'] > last_date].tolist()
+                if matches:
+                    start_idx = matches[0]
             else:
                 start_idx = df_len # 已经是最新的
                 
@@ -313,10 +327,12 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         pos = strat_state.get('pos', 1.0)
         total_invested = strat_state.get('total_invested', 0.0)
         
-        # 恢复旧的并行序列以供最后出图
+        # 恢复旧的并行序列以供最后出图，并按 last_processed_date 进行事务截断回滚
         if os.path.exists(daily_csv_path):
             old_daily_accounts = pd.read_csv(daily_csv_path)
-            
+            if last_date:
+                old_daily_accounts = old_daily_accounts[old_daily_accounts['date'] <= last_date]
+                
         # 资金流由于用于计算最终的 XIRR，暂时简单处理：我们依然需要完整的资金流水，由于资金流水数据量极小，可以直接放在 JSON 或单独加载。
         # 为了极简，我们将资金流写入 JSON。我们修改了 true_accounting，这里我们手动从 JSON 恢复:
         cfs_s = checkpoint.get('cashflows_strat', [])
@@ -327,9 +343,15 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         if os.path.exists(orders_csv_path):
             import ast
             old_orders_df = pd.read_csv(orders_csv_path)
+            if last_date:
+                # 剔除未来的越界记录，同时剔除 PENDING，因为 JSON 会独立接管 PENDING
+                old_orders_df = old_orders_df[(old_orders_df['submit_dt'] <= last_date) & (old_orders_df['status'] != 'PENDING')]
             old_orders = old_orders_df.to_dict('records')
+            
         if os.path.exists(fills_csv_path):
             old_fills_df = pd.read_csv(fills_csv_path)
+            if last_date:
+                old_fills_df = old_fills_df[old_fills_df['dt'] <= last_date]
             old_fills = old_fills_df.to_dict('records')
             
         # 并行恢复 bench_eqs, strat_eqs, positions
@@ -377,46 +399,43 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
         # T 日收盘后产生新信号
-        if i < df_len - 1:
-            is_bub = sub_bt['Cond_Bubble'].iloc[i]
-            is_bear = sub_bt['Cond_Bear'].iloc[i]
+        is_bub = sub_bt['Cond_Bubble'].iloc[i]
+        is_bear = sub_bt['Cond_Bear'].iloc[i]
 
-            if pos > 0 and (is_bub or is_bear):
-                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-                pending_reason = '微观雷达泡沫与CapEx过热' if is_bub else '油价击穿成本线与宏观熊市'
-                pos = 0.0
-                executor.submit_order(pos, pending_reason, dt)
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
+        if pos > 0 and (is_bub or is_bear):
+            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+            pending_reason = '微观雷达泡沫与CapEx过热' if is_bub else '油价击穿成本线与宏观熊市'
+            pos = 0.0
+            executor.submit_order(pos, pending_reason, dt)
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
 
-                # 1. 极端出清黄金坑抄底
-                if sub_bt['Cond_Panic'].iloc[i]:
-                    can_buy = True
-                    b_reason = '极端出清黄金坑抄底'
-                # 2. 突破卖出价右侧防踏空接回
-                elif executor.last_sell_p and (p > executor.last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
-                # 3. 体制分化精准重构
-                elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    if exit_reg == 'BUBBLE':
-                        radar_cooled = score < 45.0
-                        if radar_cooled:
-                            can_buy = True
-                            b_reason = '微观雷达降温且右侧重构'
-                    elif exit_reg == 'BEAR':
-                        oil_val = sub_bt['OIL'].iloc[i]
-                        oil_ma = sub_bt['OIL_MA200'].iloc[i]
-                        if (oil_val >= 60.0) or (oil_val > oil_ma):
-                            can_buy = True
-                            b_reason = '油价企稳成本线且趋势重构'
+            # 1. 极端出清黄金坑抄底
+            if sub_bt['Cond_Panic'].iloc[i]:
+                can_buy = True
+                b_reason = '极端出清黄金坑抄底'
+            # 2. 突破卖出价右侧防踏空接回
+            elif executor.last_sell_p and (p > executor.last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                can_buy = True
+                b_reason = '突破卖出价右侧防踏空接回'
+            # 3. 体制分化精准重构
+            elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                if exit_reg == 'BUBBLE':
+                    radar_cooled = score < 45.0
+                    if radar_cooled:
+                        can_buy = True
+                        b_reason = '微观雷达降温且右侧重构'
+                elif exit_reg == 'BEAR':
+                    oil_val = sub_bt['OIL'].iloc[i]
+                    oil_ma = sub_bt['OIL_MA200'].iloc[i]
+                    if (oil_val >= 60.0) or (oil_val > oil_ma):
+                        can_buy = True
+                        b_reason = '油价企稳成本线且趋势重构'
 
-                if can_buy:
-                    pos = 1.0
-                    executor.submit_order(pos, b_reason, dt)
-            else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+            if can_buy:
+                pos = 1.0
+                executor.submit_order(pos, b_reason, dt)
         else:
             executor.submit_order(pos, "Standing Order / DCA", dt)
 
@@ -472,7 +491,12 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         'cashflows_strat': [(d.strftime('%Y-%m-%d'), a) for d, a in executor.acc.cash_flows],
         'cashflows_bench': [(d.strftime('%Y-%m-%d'), a) for d, a in bench_executor.acc.cash_flows]
     }
-    sm.save_checkpoint('energy_radar', ticker, config_hash, f'ckpt_{sub_bt["date"].iloc[-1]}', state_data)
+    
+    # 计算当前运行完成后的全局数据指纹
+    history_hash_val_end = pd.util.hash_pandas_object(sub_bt[['date', 'close', 'OIL']]).sum()
+    final_prefix_hash = str(history_hash_val_end)
+    
+    sm.save_checkpoint('energy_radar', ticker, config_hash, f'ckpt_{sub_bt["date"].iloc[-1]}', state_data, prefix_hash=final_prefix_hash)
 
     b_final = sub_bt['Bench_Equity'].iloc[-1]
     s_final = sub_bt['Strat_Equity'].iloc[-1]

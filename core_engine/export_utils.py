@@ -9,8 +9,8 @@ def generate_trade_pairs(orders, fills, sub_bt, ticker):
     """
     trade_pairs = []
     
-    # 过滤掉非策略主观发出的订单 (如定投)
-    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    # 过滤掉非策略主观发出的订单 (如定投)，并确保仅配对已实际成交 (FILLED) 的订单，过滤掉 PENDING 与 CANCELLED
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA") and o.get('status') == 'FILLED']
     
     # 按照 卖出 -> 买回 的配对结构提取
     for k in range(0, len(discretionary) - 1, 2):

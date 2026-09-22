@@ -42,6 +42,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-states-
             
+      - name: Run Unit Tests
+        run: |
+          python -m unittest discover tests/
+            
       - name: Run Treasury rates update script
         id: run_treasury_script
         run: |

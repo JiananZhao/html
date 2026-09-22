@@ -131,7 +131,9 @@ class UnitizedAccount:
             'cash': self.cash,
             'shares': self.shares,
             'units': self.units,
-            'is_initialized': self.is_initialized
+            'unit_nav': self.unit_nav,
+            'is_initialized': self.is_initialized,
+            'cash_flows': [(d.strftime('%Y-%m-%d'), a) for d, a in self.cash_flows]
         }
 
     def load_state(self, state: dict):
@@ -139,8 +141,11 @@ class UnitizedAccount:
         self.cash = state['cash']
         self.shares = state['shares']
         self.units = state['units']
+        self.unit_nav = state.get('unit_nav', 1.0)
         self.is_initialized = state.get('is_initialized', False)
-        # 历史记录 (history 和 cash_flows) 不从 JSON 恢复，依赖外部流式 CSV 合并
+        raw_flows = state.get('cash_flows', [])
+        self.cash_flows = [(pd.Timestamp(d), a) for d, a in raw_flows]
+        # 历史记录 history 不从 JSON 恢复，依赖外部流式 CSV 合并
         
     def get_history_df(self) -> pd.DataFrame:
         if not self.history:

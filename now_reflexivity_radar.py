@@ -390,7 +390,7 @@ class NOWReflexivityRadar:
 
         curr_m = -1
         pos = 1.0
-        total_injected = 0.0
+        total_injected = initial_capital
 
         bench_eqs = []
         strat_eqs = []
@@ -419,22 +419,18 @@ class NOWReflexivityRadar:
             bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
             # T日收盘后产生新信号
-            if i < df_len - 1:
-                action = 'HOLD'
-                if pos > 0 and s:
-                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
-                    pos = 0.0
-                    executor.submit_order(pos, reason, dt)
-                    action = 'SELL'
-                elif pos == 0.0 and b:
-                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
-                    pos = 1.0
-                    executor.submit_order(pos, reason, dt)
-                    action = 'BUY'
-                else:
-                    executor.submit_order(pos, "Standing Order / DCA", dt)
+            action = 'HOLD'
+            if pos > 0 and s:
+                reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                pos = 0.0
+                executor.submit_order(pos, reason, dt)
+                action = 'SELL'
+            elif pos == 0.0 and b:
+                reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                pos = 1.0
+                executor.submit_order(pos, reason, dt)
+                action = 'BUY'
             else:
-                action = 'HOLD'
                 executor.submit_order(pos, "Standing Order / DCA", dt)
 
             action_hist.append(action)
@@ -463,33 +459,36 @@ class NOWReflexivityRadar:
         bench_end = bench_eqs[-1]
         strat_end = strat_eqs[-1]
         
-        bench_cummax = pd.Series(bench_eqs).cummax()
-        bench_dd = ((pd.Series(bench_eqs) - bench_cummax) / bench_cummax).min() * 100.0
+        strat_nav_series = daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].reset_index(drop=True)
+        bench_nav_series = daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'].reset_index(drop=True)
+        
+        bench_cummax = bench_nav_series.cummax()
+        bench_dd = ((bench_nav_series - bench_cummax) / bench_cummax.clip(lower=1e-8)).min() * 100.0
 
-        strat_cummax = pd.Series(strat_eqs).cummax()
-        strat_dd = ((pd.Series(strat_eqs) - strat_cummax) / strat_cummax).min() * 100.0
+        strat_cummax = strat_nav_series.cummax()
+        strat_dd = ((strat_nav_series - strat_cummax) / strat_cummax.clip(lower=1e-8)).min() * 100.0
 
         final_date = pd.Timestamp(df_bt['date'].iloc[-1])
         bench_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], bench_end, final_date) * 100.0
         strat_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], strat_end, final_date) * 100.0
 
         alpha = strat_cagr - bench_cagr
-        bench_total_ret = (bench_end - total_injected) / total_injected * 100.0
-        strat_total_ret = (strat_end - total_injected) / total_injected * 100.0
+        bench_total_ret = (bench_end - total_injected) / max(total_injected, 1e-8) * 100.0
+        strat_total_ret = (strat_end - total_injected) / max(total_injected, 1e-8) * 100.0
 
         metrics = {
-            'total_injected': total_injected,
-            'bench_end': bench_end,
-            'strat_end': strat_end,
-            'bench_total_ret': bench_total_ret,
-            'strat_total_ret': strat_total_ret,
+            'total_invested': total_injected,
+            'bench_final': bench_end,
+            'strat_final': strat_end,
+            'bench_return': bench_total_ret,
+            'strat_return': strat_total_ret,
             'bench_cagr': bench_cagr,
             'strat_cagr': strat_cagr,
-            'bench_dd': bench_dd,
-            'strat_dd': strat_dd,
+            'bench_max_dd': bench_dd,
+            'strat_max_dd': strat_dd,
             'alpha': alpha,
-            'trades_count': len(executor.fills),
-            'rounds_count': len(executor.fills) // 2
+            'trade_count': len(executor.fills),
+            'trade_rounds': len(executor.fills) // 2
         }
 
         self.perf_metrics = metrics

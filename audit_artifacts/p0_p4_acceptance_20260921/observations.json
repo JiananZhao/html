@@ -1,0 +1,158 @@
+{
+  "split_vs_full": {
+    "full_equity": 1100.0,
+    "resumed_equity": 800.0,
+    "full_fills": 2,
+    "resumed_fills": 1,
+    "resumed_duplicate_order_ids": 1,
+    "resumed_cashflow_rows": 0,
+    "full_cashflow_rows": 1
+  },
+  "noop_idempotence": {
+    "is_updated": false,
+    "orders_before": 5,
+    "orders_after": 6
+  },
+  "history_and_config_change": {
+    "accepted_as_unchanged": true,
+    "cached_total_invested": 1000.0,
+    "fresh_total_invested": 2000.0,
+    "cached_equity": 800.0,
+    "fresh_equity": 2200.0
+  },
+  "history_only_revision": {
+    "accepted_as_unchanged": true,
+    "revised_execution_day_price": 200.0,
+    "cached_strat_equity": 1100.0,
+    "fresh_strat_equity": 2000.0
+  },
+  "config_only_change": {
+    "accepted_as_unchanged": true,
+    "cached_invested": 1000.0,
+    "fresh_invested": 2000.0,
+    "cached_equity": 1100.0,
+    "fresh_equity": 2200.0
+  },
+  "interrupted_publication": {
+    "daily_rows": 12,
+    "expected_daily_rows": 8,
+    "duplicate_date_type_rows": 4
+  },
+  "existing_tests": {
+    "run": 10,
+    "failures": 0,
+    "errors": 1
+  },
+  "same_day_guard": {
+    "submit_date": "2024-01-02",
+    "fill_date": "2024-01-02",
+    "shares": 10.0
+  },
+  "repeat_day_dca": {
+    "cash": 2000.0,
+    "flow_count": 2
+  },
+  "next_open_dca_order": {
+    "shares": 10.0,
+    "cash": 1000.0,
+    "units": 1909.090909090909,
+    "equity": 2100.0,
+    "expected_under_announced_open_deposit_policy": {
+      "shares": 20.0,
+      "cash": 0.0,
+      "units": 2000.0,
+      "equity": 2200.0
+    }
+  },
+  "pending_cash_resume": {
+    "cash_after_resume": 1500.0,
+    "pending_cash": 0.0,
+    "executor_cashflow_rows": 0,
+    "account_cashflow_rows": 1
+  },
+  "cancelled_orders_pairing": {
+    "fills": 0,
+    "reported_pairs": 1
+  },
+  "active_trend_prefix_tests": {
+    "IGV": {
+      "full_residual": 35.13411993104327,
+      "prefix_residual": 29.17788367952192,
+      "future_mutated_residual": -3.3526977713131068
+    },
+    "SMH": {
+      "full_residual": 14.140280981077602,
+      "prefix_residual": 52.333191300698005,
+      "future_mutated_residual": -24.013247239277824
+    }
+  },
+  "now_performance": {
+    "reported_metrics": {
+      "total_injected": 160000.0,
+      "bench_end": 955174.8106054527,
+      "strat_end": 910713.7051719439,
+      "bench_total_ret": 496.984256628408,
+      "strat_total_ret": 469.1960657324649,
+      "bench_cagr": 22.257399354885425,
+      "strat_cagr": 21.670824933975688,
+      "bench_dd": -64.03654196118262,
+      "strat_dd": -66.84532068445391,
+      "alpha": -0.5865744209097379,
+      "trades_count": 168,
+      "rounds_count": 84
+    },
+    "unit_nav_drawdowns_pct": {
+      "bench": -64.54173439572124,
+      "strat": -67.35630276931448
+    },
+    "capital_from_account_equivalent": 170000.0
+  },
+  "now_export": {
+    "overview": [
+      {
+        "标的资产": "NOW",
+        "资产名称": "ServiceNow (NOW)",
+        "定投总本金 (USD)": 0,
+        "买入持有 (B&H) 终值 (USD)": 0,
+        "买入持有累计回报率": "0.00%",
+        "买入持有最大回撤": "0.00%",
+        "微观雷达策略终值 (USD)": 0,
+        "微观雷达策略总回报率": "0.00%",
+        "策略最大回撤": "0.00%",
+        "超额回报率 (Alpha)": "-0.59%",
+        "净多赚现金财富 (USD)": 0,
+        "回撤改善幅度": "+0.00%",
+        "全周期调仓轮次": 0,
+        "波段操作胜率": "0.0%"
+      }
+    ],
+    "manifest_keys": [
+      "asset_name",
+      "metrics",
+      "ticker",
+      "updated_at"
+    ]
+  },
+  "macro_contracts": {
+    "QQQ": {
+      "contract_validation": "daily_accounts 中存在重复的 (date, type) 联合主键！",
+      "account_types": [
+        "strat"
+      ],
+      "metrics_keys": [
+        "total_invested"
+      ],
+      "fills": 211
+    },
+    "SPY": {
+      "contract_validation": "daily_accounts 中存在重复的 (date, type) 联合主键！",
+      "account_types": [
+        "strat"
+      ],
+      "metrics_keys": [
+        "total_invested"
+      ],
+      "fills": 212
+    }
+  }
+}

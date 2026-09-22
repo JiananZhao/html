@@ -181,15 +181,24 @@ def load_radar_data(asset_key):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_last_trading_date():
-    """获取美股最后交易日"""
+    """获取美股最后交易日 (离线逻辑，避免外部 API)"""
+    import pandas as pd
     try:
-        import yfinance as yf
-        hist = yf.download('SPY', period='5d', progress=False)
-        if not hist.empty:
-            return hist.index[-1].strftime('%Y-%m-%d')
-    except:
-        pass
-    return pd.Timestamp.now().strftime('%Y-%m-%d')
+        now_utc = pd.Timestamp.utcnow()
+        ny_time = now_utc.tz_convert('America/New_York')
+        dt = ny_time
+        
+        # 如果当前时间早于美东下午 16:00 收盘，则理论最后交易日为上一天
+        if dt.hour < 16:
+            dt = dt - pd.Timedelta(days=1)
+            
+        # 跳过周末
+        while dt.weekday() >= 5:
+            dt = dt - pd.Timedelta(days=1)
+            
+        return dt.strftime('%Y-%m-%d')
+    except Exception:
+        return pd.Timestamp.now().strftime('%Y-%m-%d')
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_backtest_data(asset_key):

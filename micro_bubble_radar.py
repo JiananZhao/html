@@ -118,11 +118,9 @@ class MicroBubbleRadar:
         # -------------------------------------------------------------
         # 维度 2: 行业专属估值分位数与久期惩罚 (Score_Valuation, 0~100)
         # -------------------------------------------------------------
-        log_p = np.log(df[ticker])
-        t_full = np.arange(len(df))
-        slope, intercept = np.polyfit(t_full, log_p, 1)
-        df['Log_Trend'] = slope * t_full + intercept
-        df['Valuation_Residual'] = (log_p - df['Log_Trend']) * 100.0
+        ols_res = expanding_polyfit_residual(df[ticker], min_periods=252)
+        df['Log_Trend'] = ols_res['Log_Trend']
+        df['Valuation_Residual'] = ols_res['Valuation_Residual']
 
         # 实际利率久期惩罚 (软件平均久期 15-20 年)
         yield_surge = np.clip((df['Real_Yield'] - df['Real_Yield'].rolling(60, min_periods=20).min()) / 0.40, 0.0, 1.0)
@@ -235,25 +233,22 @@ def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthl
         executor.step(dt, p, p, dca_amount=dca_amount)
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
         
-        if i < df_len - 1:
-            if pos > 0 and sub_bt['Sell_Signal'].iloc[i] and cooldown <= 0:
-                pos = 0.0
-                executor.submit_order(pos, '泡沫高点破位预警', dt)
-                exit_reg = 'BUBBLE'
+        if pos > 0 and sub_bt['Sell_Signal'].iloc[i] and cooldown <= 0:
+            pos = 0.0
+            executor.submit_order(pos, '泡沫高点破位预警', dt)
+            exit_reg = 'BUBBLE'
+            cooldown = cooldown_days
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
+            if sub_bt['Cond_Panic'].iloc[i] and cooldown <= 0:
+                can_buy = True
+                b_reason = '恐慌底极值共振抄底'
+                
+            if can_buy:
+                pos = 1.0
+                executor.submit_order(pos, b_reason, dt)
                 cooldown = cooldown_days
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
-                if sub_bt['Cond_Panic'].iloc[i] and cooldown <= 0:
-                    can_buy = True
-                    b_reason = '恐慌底极值共振抄底'
-                    
-                if can_buy:
-                    pos = 1.0
-                    executor.submit_order(pos, b_reason, dt)
-                    cooldown = cooldown_days
-            else:
-                executor.submit_order(pos, 'Standing Order / DCA', dt)
         else:
             executor.submit_order(pos, 'Standing Order / DCA', dt)
             

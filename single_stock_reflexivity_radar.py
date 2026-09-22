@@ -460,22 +460,19 @@ class NOWReflexivityRadar:
             bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
             # T日收盘后产生新信号
-            if i < df_len - 1:
-                action = 'HOLD'
-                if pos > 0 and s:
-                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
-                    pos = 0.0
-                    executor.submit_order(pos, reason, dt)
-                    action = 'SELL'
-                elif pos == 0.0 and b:
-                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
-                    pos = 1.0
-                    executor.submit_order(pos, reason, dt)
-                    action = 'BUY'
-                else:
-                    executor.submit_order(pos, "Standing Order / DCA", dt)
+            # T日收盘后产生新信号
+            action = 'HOLD'
+            if pos > 0 and s:
+                reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                pos = 0.0
+                executor.submit_order(pos, reason, dt)
+                action = 'SELL'
+            elif pos == 0.0 and b:
+                reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                pos = 1.0
+                executor.submit_order(pos, reason, dt)
+                action = 'BUY'
             else:
-                action = 'HOLD'
                 executor.submit_order(pos, "Standing Order / DCA", dt)
 
             action_hist.append(action)
