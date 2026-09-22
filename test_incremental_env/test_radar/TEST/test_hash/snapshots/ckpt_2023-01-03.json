@@ -1,0 +1,20 @@
+{
+  "last_processed_date": "2023-01-03",
+  "config_hash": "test_hash",
+  "executor_state": {
+    "pending_orders": [],
+    "last_sell_p": null,
+    "last_sell_date": null,
+    "last_buy_p": 100.0,
+    "last_buy_date": "2023-01-01T00:00:00",
+    "pending_cash": 0.0,
+    "last_valid_price": 105.0,
+    "account_state": {
+      "shares": 50.0,
+      "cash": 5995.0,
+      "units": 10976.085895558808,
+      "unit_nav": 1.0245000000000002,
+      "is_initialized": true
+    }
+  }
+}

@@ -341,7 +341,7 @@ def run_brokerage_backtest(df, ticker='SMH', start_date='2009-01-01', dca_monthl
     s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
 
     from core_engine.export_utils import generate_trade_pairs
-    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
+    trade_pairs_df = generate_trade_pairs(executor.orders_history, executor.fills, sub_bt, ticker)
 
     metrics = {
         'total_invested': total_invested,
@@ -381,7 +381,7 @@ def plot_radar_chart(result):
     df_daily = result.daily_accounts
     metrics = result.metrics
     ticker = result.metadata.get('ticker', 'SMH')
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, ticker)
 
     # 2. 导出高清 4 层对齐图谱 (Lesson 9: 严禁未转义裸 $ 符号，显式配置中文)
     fig, axes = plt.subplots(4, 1, figsize=(16, 15), sharex=True, gridspec_kw={'height_ratios': [3.0, 2.2, 2.0, 2.5]})
@@ -469,7 +469,7 @@ def main():
     df_daily = result.daily_accounts
     metrics = result.metrics
     from core_engine.export_utils import generate_trade_pairs
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, 'SMH')
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, 'SMH')
 
     print("\n==================================================")
     print("🎯 SMH 半导体微观雷达全周期实证对账审计报告 (2009 - 2026)")

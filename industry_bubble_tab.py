@@ -11,6 +11,7 @@
 import os
 import io
 import requests
+import json
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -178,6 +179,17 @@ def load_radar_data(asset_key):
         return pd.DataFrame(), "无可用数据源"
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_last_trading_date():
+    """获取美股最后交易日"""
+    try:
+        import yfinance as yf
+        hist = yf.download('SPY', period='5d', progress=False)
+        if not hist.empty:
+            return hist.index[-1].strftime('%Y-%m-%d')
+    except:
+        pass
+    return pd.Timestamp.now().strftime('%Y-%m-%d')
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_backtest_data(asset_key):
@@ -708,9 +720,33 @@ def render_industry_bubble_tab():
     latest_date = str(latest_row['date'])[:10]
 
     with col_t2:
+        # Check freshness
+        last_trading_date = get_last_trading_date()
+        freshness_badge = ""
+        if latest_date < last_trading_date:
+            freshness_badge = f"<span style='color: #d63031; font-weight: bold;'>⚠️ 数据陈旧 (滞后于 {last_trading_date})</span> | "
+        else:
+            freshness_badge = f"<span style='color: #00b894; font-weight: bold;'>⚡ 最新数据</span> | "
+            
+        # Manifest parsing
+        manifest_url = config.get('github_radar', '').replace('_radar_local.csv', '_manifest.json')
+        manifest_local = config.get('local_radar', '').replace('_radar_local.csv', '_manifest.json')
+        manifest_info = ""
+        
+        try:
+            if os.path.exists(manifest_local):
+                with open(manifest_local, 'r', encoding='utf-8') as f:
+                    mf = json.load(f)
+                    updated_at = mf.get('updated_at', '')[:16]
+                    manifest_info = f"<br>Manifest 更新时间: <b>{updated_at}</b>"
+        except:
+            pass
+            
         st.markdown(
-            f"<div style='padding-top: 25px; text-align: right; color: gray; font-size: 13px;'>"
-            f"数据源状态: <code>🟢 {source_tag}</code> | 最新数据基准日: <b>{latest_date}</b> | 样本长度: <b>{len(df)} 交易日</b>"
+            f"<div style='padding-top: 15px; text-align: right; color: gray; font-size: 13px;'>"
+            f"数据源状态: <code>🟢 {source_tag}</code><br>"
+            f"{freshness_badge}最新数据基准日: <b>{latest_date}</b> | 样本长度: <b>{len(df)} 交易日</b>"
+            f"{manifest_info}"
             f"</div>",
             unsafe_allow_html=True
         )

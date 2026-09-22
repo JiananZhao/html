@@ -34,34 +34,42 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas requests yfinance numpy lxml html5lib beautifulsoup4 matplotlib scipy plotly openpyxl kaleido
 
+      - name: Cache .states/ directory
+        uses: actions/cache@v4
+        with:
+          path: .states/
+          key: ${{ runner.os }}-states-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-states-
+            
       - name: Run Treasury rates update script
         id: run_treasury_script
         run: |
-          python update_daily-treasury-rates_data.py || true
+          python update_daily-treasury-rates_data.py
 
       - name: Run Market Breadth update script
         id: run_breadth_script
         run: |
-          python update_market_breadth.py || true
+          python update_market_breadth.py
 
       - name: Run Macro Reflexivity Model daily monitor & updater
         id: run_reflexivity_script
         run: |
-          python daily_market_monitor.py || true
+          python daily_market_monitor.py
 
       - name: Run Macro QQQ & SPY 4-Layer Dual-Track Models
         run: |
-          python export_alpha_model_deliverables.py || true
+          python export_alpha_model_deliverables.py
 
       - name: Run Micro Bubble Radar Models
         run: |
-          python micro_bubble_radar.py || true
-          python smh_bubble_radar.py || true
-          python vnq_bubble_radar.py || true
-          python kre_bubble_radar.py || true
-          python energy_bubble_radar.py || true
-          python now_reflexivity_radar.py || true
-          python single_stock_reflexivity_radar.py || true
+          python micro_bubble_radar.py
+          python smh_bubble_radar.py
+          python vnq_bubble_radar.py
+          python kre_bubble_radar.py
+          python energy_bubble_radar.py
+          python now_reflexivity_radar.py
+          python single_stock_reflexivity_radar.py
 
       - name: Commit and Push changes
         run: |

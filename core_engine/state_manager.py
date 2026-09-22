@@ -83,8 +83,27 @@ class StateManager:
                 with open(snapshot_path, 'r', encoding='utf-8') as sf:
                     return json.load(sf)
         except Exception as e:
-            # 如果 latest 损坏或快照损坏，返回 None，强制全量重放
             print(f"Failed to load checkpoint: {e}")
             return None
             
         return None
+
+    def verify_checkpoint(self, state_data: Dict[str, Any], current_config_hash: str, 
+                          current_history_prefix: pd.DataFrame = None) -> bool:
+        """
+        验证检查点是否合法可以续接
+        """
+        # 1. 校验配置哈希兼容性
+        if state_data.get('config_hash') != current_config_hash:
+            print("Config hash mismatch, cannot resume.")
+            return False
+            
+        # 2. 校验检查点处于完整提交状态
+        if not state_data.get('is_complete', False):
+            print("Checkpoint was not marked as complete.")
+            return False
+            
+        # 3. 校验历史前缀未发生篡改 (可选，传入 current_history_prefix 进行比对)
+        # 暂不实现深度比对，依赖外部传入判断
+        
+        return True

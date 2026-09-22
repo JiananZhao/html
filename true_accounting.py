@@ -127,23 +127,11 @@ class UnitizedAccount:
         
     def get_state(self) -> dict:
         """提取可序列化的账户状态"""
-        # 注意 history 中的 Date 是 Timestamp 对象，需要序列化
-        hist = []
-        for h in self.history:
-            h_copy = h.copy()
-            h_copy['Date'] = h_copy['Date'].strftime('%Y-%m-%d')
-            hist.append(h_copy)
-            
-        cfs = []
-        for d, a in self.cash_flows:
-            cfs.append((d.strftime('%Y-%m-%d'), a))
-            
         return {
             'cash': self.cash,
             'shares': self.shares,
             'units': self.units,
-            'history': hist,
-            'cash_flows': cfs
+            'is_initialized': self.is_initialized
         }
 
     def load_state(self, state: dict):
@@ -151,18 +139,8 @@ class UnitizedAccount:
         self.cash = state['cash']
         self.shares = state['shares']
         self.units = state['units']
-        
-        hist = []
-        for h in state['history']:
-            h_copy = h.copy()
-            h_copy['Date'] = pd.Timestamp(h_copy['Date'])
-            hist.append(h_copy)
-        self.history = hist
-        
-        cfs = []
-        for d, a in state['cash_flows']:
-            cfs.append((pd.Timestamp(d), a))
-        self.cash_flows = cfs
+        self.is_initialized = state.get('is_initialized', False)
+        # 历史记录 (history 和 cash_flows) 不从 JSON 恢复，依赖外部流式 CSV 合并
         
     def get_history_df(self) -> pd.DataFrame:
         if not self.history:

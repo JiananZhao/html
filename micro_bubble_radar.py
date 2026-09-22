@@ -291,7 +291,7 @@ def run_brokerage_backtest(df, ticker='IGV', start_date='2012-01-01', dca_monthl
     s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
 
     from core_engine.export_utils import generate_trade_pairs
-    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
+    trade_pairs_df = generate_trade_pairs(executor.orders_history, executor.fills, sub_bt, ticker)
 
     metrics = {
         'total_invested': total_invested,
@@ -330,7 +330,7 @@ def plot_radar_chart(result):
     df_daily = result.daily_accounts
     metrics = result.metrics
     ticker = result.metadata.get('ticker', 'IGV')
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, ticker)
     
     print(f"🎨 正在绘制 4 层高清对齐图谱 ...")
     dates = pd.to_datetime(sub_bt['date'])
