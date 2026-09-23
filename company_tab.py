@@ -899,9 +899,11 @@ def render_company_deep_dive_tab():
                     df_p = df_p.copy()
                     if isinstance(df_p.columns, pd.MultiIndex):
                         df_p.columns = df_p.columns.droplevel(1)
-                    if 'Date' in df_p.columns:
-                        df_p.rename(columns={'Date': 'date'}, inplace=True)
-                    df_p.columns = [c.lower() for c in df_p.columns]
+                    if isinstance(df_p.index, pd.DatetimeIndex):
+                        df_p = df_p.reset_index()
+                        if 'index' in df_p.columns:
+                            df_p.rename(columns={'index': 'date'}, inplace=True)
+                    df_p.columns = [str(c).lower() for c in df_p.columns]
                     if 'date' not in df_p.columns and 'datetime' in df_p.columns:
                         df_p.rename(columns={'datetime': 'date'}, inplace=True)
                     return df_p, meta
@@ -909,21 +911,24 @@ def render_company_deep_dive_tab():
             
             with st.spinner("正在加载底层相空间动力学模块与本地宏观重力数据..."):
                 df_price, radar_meta = load_and_cache_radar_data(active_ticker)
-                if radar_meta.get("is_local_fallback"):
-                    st.caption(f"💡 动力学雷达使用本地离线数据: **{radar_meta.get('source_label')}** (截至 `{radar_meta.get('last_date')}`)。")
-                
-                macro_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data_local.csv")
-                if os.path.exists(macro_path):
-                    df_macro = pd.read_csv(macro_path)
-                    df_bt = run_universal_reflexivity_radar(active_ticker, df_price, df_macro)
-                    
-                    fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker, default_range=selected_radar_range)
-                    if fig_radar:
-                        st.plotly_chart(fig_radar, use_container_width=True)
-                    else:
-                        st.warning("数据不足，无法生成反身性雷达图谱。")
+                if df_price.empty:
+                    st.warning(f"未能获取到标的 `{active_ticker}` 的有效行情数据，无法生成动力学雷达图谱。")
                 else:
-                    st.error(f"本地宏观信用数据集缺失: {macro_path}")
+                    if radar_meta.get("is_local_fallback"):
+                        st.caption(f"💡 动力学雷达使用本地离线数据: **{radar_meta.get('source_label')}** (截至 `{radar_meta.get('last_date')}`)。")
+                    
+                    macro_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data_local.csv")
+                    if os.path.exists(macro_path):
+                        df_macro = pd.read_csv(macro_path)
+                        df_bt = run_universal_reflexivity_radar(active_ticker, df_price, df_macro)
+                        
+                        fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker, default_range=selected_radar_range)
+                        if fig_radar:
+                            st.plotly_chart(fig_radar, use_container_width=True)
+                        else:
+                            st.warning("数据不足，无法生成反身性雷达图谱。")
+                    else:
+                        st.error(f"本地宏观信用数据集缺失: {macro_path}")
         except Exception as e:
             st.error(f"反身性雷达引擎计算异常: {e}")
 

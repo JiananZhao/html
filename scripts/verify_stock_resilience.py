@@ -230,6 +230,42 @@ def test_case_6_local_offline_price_fallback():
         print(f"  ✓ 成功从 {meta['source_file']} 读取 NVDA 离线历史序列 ({len(df)} 交易日)")
         print(f"  ✓ 严格遵循真实性红线：仅包含收盘价序列，未伪造 OHLC K线，标明截至 {meta['last_date']}")
 
+def test_case_7_reflexivity_radar_resilience():
+    """
+    用例 7：验证索罗斯反身性相空间动力学微观雷达容错性
+    - 验证即使行情数据以 DatetimeIndex 形式存在（无显式 date 列），也能正确提取 'date'，杜绝 KeyError: 'date'；
+    - 验证即使行情数据仅包含 Date 和 Close（本地离线降级），也能自适应补全 high/low/volume 并完成相空间动力学测算，杜绝 KeyError: 'high'。
+    """
+    print("\n--- [CASE 7: 反身性雷达引擎日期索引与本地降级容错] ---")
+    from reflexivity_engine import run_universal_reflexivity_radar
+    from core_engine.stock_data_service import get_local_stock_price_fallback
+    
+    macro_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "market_data_local.csv")
+    df_macro = pd.read_csv(macro_path)
+    
+    # 场景 A: 模拟 yfinance 返回的 DatetimeIndex 且列全大写 (无 'date' 列)
+    dates = pd.date_range(end='2026-09-11', periods=300, freq='B')
+    df_yfinance_mock = pd.DataFrame({
+        'Open': np.linspace(100, 150, 300),
+        'High': np.linspace(102, 155, 300),
+        'Low': np.linspace(98, 145, 300),
+        'Close': np.linspace(101, 152, 300),
+        'Volume': np.random.randint(1000000, 5000000, 300)
+    }, index=dates)
+    
+    res_a = run_universal_reflexivity_radar("TEST_A", df_yfinance_mock, df_macro)
+    assert not res_a.empty, "DatetimeIndex mock data must produce valid reflexivity output"
+    assert 'Composite_Score' in res_a.columns, "Composite_Score must be calculated"
+    print("  ✓ DatetimeIndex 索引且无显式 date 列时，引擎自动提取 date 并顺利完成动力学测算 (彻底消除 KeyError: 'date')")
+    
+    # 场景 B: 仅有 Date 和 Close 的本地离线降级数据
+    df_local, local_meta = get_local_stock_price_fallback("NVDA")
+    assert not df_local.empty, "NVDA local fallback must not be empty"
+    res_b = run_universal_reflexivity_radar("NVDA", df_local, df_macro)
+    assert not res_b.empty, "Local fallback close-only data must produce valid reflexivity output"
+    assert 'Composite_Score' in res_b.columns, "Composite_Score must be calculated for local fallback"
+    print("  ✓ 仅有 Date 与 Close 的本地离线降级数据顺利通过引擎运算，未因缺少 high/low/volume 崩溃 (彻底消除 KeyError: 'high')")
+
 def main():
     print("==================================================================")
     print("开始执行个股高可用与容错降级行为实证测试 (Offline Test Suite)")
@@ -242,9 +278,10 @@ def main():
         test_case_4_failure_cooldown_and_recovery()
         test_case_5_repeated_refresh_401_rate_limited()
         test_case_6_local_offline_price_fallback()
+        test_case_7_reflexivity_radar_resilience()
         
         print("\n==================================================================")
-        print("🎉 ALL 6 BEHAVIORAL VERIFICATION TESTS PASSED! (Exit Code: 0)")
+        print("🎉 ALL 7 BEHAVIORAL VERIFICATION TESTS PASSED! (Exit Code: 0)")
         print("==================================================================")
         return 0
     except AssertionError as e:

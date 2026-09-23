@@ -21,11 +21,55 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     # 1. 数据对齐与预处理
     df_price = df_price.copy()
     df_macro = df_macro.copy()
-    
+
+    # 规范化处理 df_price 的多级列头与日期索引
+    if isinstance(df_price.columns, pd.MultiIndex):
+        df_price.columns = df_price.columns.droplevel(1)
+
+    # 若日期在索引中 (如 yfinance 返回的 DatetimeIndex)，提升为普通列
+    if 'date' not in [str(c).lower() for c in df_price.columns]:
+        if isinstance(df_price.index, pd.DatetimeIndex):
+            df_price = df_price.reset_index()
+            if 'index' in df_price.columns:
+                df_price.rename(columns={'index': 'date'}, inplace=True)
+
+    df_price.columns = [str(c).lower() for c in df_price.columns]
+    if 'date' not in df_price.columns:
+        if 'datetime' in df_price.columns:
+            df_price.rename(columns={'datetime': 'date'}, inplace=True)
+        else:
+            raise KeyError("df_price 缺少 'date' 列或可识别的 DatetimeIndex 日期索引")
+
+    # 确保价格关键列存在（若缺失如仅有收盘价的离线降级序列，以 close 兜底）
+    if 'close' not in df_price.columns:
+        raise KeyError("df_price 缺少必须的 'close' 列")
+    if 'open' not in df_price.columns:
+        df_price['open'] = df_price['close']
+    if 'high' not in df_price.columns:
+        df_price['high'] = df_price['close']
+    if 'low' not in df_price.columns:
+        df_price['low'] = df_price['close']
+    if 'volume' not in df_price.columns:
+        df_price['volume'] = 0.0
+
+    # 规范化处理 df_macro 的日期列与宏观字段
+    if 'date' not in [str(c).lower() for c in df_macro.columns]:
+        if isinstance(df_macro.index, pd.DatetimeIndex):
+            df_macro = df_macro.reset_index()
+            if 'index' in df_macro.columns:
+                df_macro.rename(columns={'index': 'date'}, inplace=True)
+    df_macro.columns = [str(c).lower() for c in df_macro.columns]
+
     # 确保日期格式一致且无时区
     df_price['date'] = pd.to_datetime(df_price['date']).dt.tz_localize(None)
     df_macro['date'] = pd.to_datetime(df_macro['date']).dt.tz_localize(None)
-    
+
+    # 宏观列名映射 (兼容大小写)
+    macro_col_map = {'hyg': 'HYG', 'baa10y': 'BAA10Y', 'nfci': 'NFCI', 'real_yield': 'Real_Yield'}
+    for orig_k, upper_k in macro_col_map.items():
+        if upper_k not in df_macro.columns and orig_k in df_macro.columns:
+            df_macro[upper_k] = df_macro[orig_k]
+
     # 使用 left merge 保留所有交易日，并前向填充宏观数据（最多5天），解决个股数据被陈旧宏观数据截断的问题
     df = pd.merge(df_price, df_macro[['date', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='left')
     df = df.sort_values('date').reset_index(drop=True)
