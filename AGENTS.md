@@ -99,4 +99,10 @@
 - **所有图表（Plotly / Matplotlib 等）中的字体大小，尤其是 Legend (图例)、轴标签和标题，必须至少 14pt (号) 以上！**
 - 用户的视觉体验是第一位的！严禁使用默认的微小字体（通常是 10pt 或 12pt）。
 - **空间冲突红线**：在放大字体的同时，**必须严格重新审查和调整图表的布局 (Layout)、内边距 (Margins)、图例位置 (Legend Position / Orientation) 以及行高间距**，严禁因为字体变大而导致**文字互相重叠、遮挡折线、或者被剪裁（Clipping）**。
-- **动态适配**：尽量使用相对比例或多行分布（如 `orientation="h"` 横向排布图例并适当下移）来容纳大字体。
+
+---
+
+## 12. 验收端点强制确认规范 (Mandatory Acceptance Endpoint)
+- **唯一验收环境**：用户**只在云端环境** [https://yield-curve-visualization.streamlit.app/](https://yield-curve-visualization.streamlit.app/) 进行功能验收。
+- **严禁假设环境**：在修改涉及 UI、图表或前端呈现的代码时，严禁假设用户在本地运行。
+- **强制提交流程**：如果修改了涉及前端 UI 或指标计算的核心代码，**必须首先将修改内容合并并推送到 `master` 主分支**，以触发 Streamlit Cloud 的自动重部署。在确保已推送到 `master` 之后，方可提示用户刷新云端网页进行验收。
