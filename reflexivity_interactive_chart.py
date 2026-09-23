@@ -146,6 +146,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
 
         signal_ready = sub.get('signal_ready', pd.Series([True]*len(sub))).iloc[i]
 
+        action_taken = False
         if signal_ready:
             # 卖出逻辑
             if pos > 0 and sub['Sell_Signal'].iloc[i]:
@@ -154,6 +155,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                 r_reason = '宏观黄昏期泡沫止盈' if is_bub else '系统宏观紧缩熊市避险'
                 executor.submit_order(0.0, r_reason, dt)
                 pos = 0.0
+                action_taken = True
             
             # 买入逻辑
             elif pos == 0.0:
@@ -195,12 +197,15 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                     executor.submit_order(1.0, b_reason, dt)
                     pos = 1.0
                     exit_regime = None
-        else:
-            # 保持目标仓位，允许 DCA 资金在下一日自动买入
+                    action_taken = True
+
+        if not action_taken and dca_amount > 0:
+            # 仅在定投日发送维持仓位订单，避免产生几百个冗余订单
             executor.submit_order(pos, "Standing Order / DCA", dt)
 
-        # 基准始终满仓
-        bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+        # 基准始终满仓，仅在首日或定投日发送订单
+        if i == 0 or dca_amount > 0:
+            bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
 
         # 记录日终资产与净值状态
         bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)

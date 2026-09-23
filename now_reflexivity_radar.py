@@ -280,7 +280,7 @@ class NOWReflexivityRadar:
         cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
         cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
         
-        core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'HYG', 'RY_Surge', 'NOW', 'MA200', 'MA50', 'MA10']
+        core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', 'NOW', 'MA200', 'MA50', 'MA10']
         df_bt['signal_ready'] = df_bt[core_cols].notna().all(axis=1)
 
         raw_sell = (cond_bubble | cond_bear) & (~recently_crashed) & df_bt['signal_ready']
@@ -426,27 +426,33 @@ class NOWReflexivityRadar:
             executor.step(dt, p, p, dca_amount=dca_amount)
             bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
-            # T日收盘后产生新信号
             action = 'HOLD'
+            action_taken = False
             if df_bt['signal_ready'].iloc[i]:
                 if pos > 0 and s:
                     reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
                     pos = 0.0
                     executor.submit_order(pos, reason, dt)
                     action = 'SELL'
+                    action_taken = True
                 elif pos == 0.0 and b:
                     reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
                     pos = 1.0
                     executor.submit_order(pos, reason, dt)
                     action = 'BUY'
-                else:
-                    executor.submit_order(pos, "Standing Order / DCA", dt)
+                    action_taken = True
             else:
                 action = 'WAITING'
 
+            if not action_taken and dca_amount > 0:
+                # 仅在定投日发送维持仓位订单，处理闲置定投资金
+                executor.submit_order(pos, "Standing Order / DCA", dt)
+
             action_hist.append(action)
 
-            bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+            # 基准始终满仓，仅在首日或定投日发送订单
+            if i == 0 or dca_amount > 0:
+                bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
 
             bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
             strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
