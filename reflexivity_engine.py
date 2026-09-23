@@ -256,8 +256,6 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
                 pos = 1.0
                 executor.place_order(dt, order_type='BUY', target_weight=1.0, reason='Panic Bottom / Trend Breakout Re-entry')
                 
-        executor.mark_to_market(dt, p_close)
-        
         # 回溯当天的买卖动作供 UI 画图使用
         today_action = 'HOLD'
         # 查找当天是否成交
