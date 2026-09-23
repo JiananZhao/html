@@ -1,0 +1,19 @@
+{
+  "ticker": "NOW",
+  "asset_name": "ServiceNow (NOW)",
+  "metrics": {
+    "total_invested": 170000.0,
+    "bench_final": 956183.6482609719,
+    "strat_final": 475471.80654608295,
+    "bench_return": 462.4609695652776,
+    "strat_return": 179.6892979682841,
+    "bench_cagr": 22.27038587343023,
+    "strat_cagr": 13.598726363738495,
+    "bench_max_dd": -64.5392122061821,
+    "strat_max_dd": -61.90517420884218,
+    "alpha": -8.671659509691734,
+    "trade_count": 214,
+    "trade_rounds": 107
+  },
+  "updated_at": "2026-09-22T23:49:16.607193"
+}

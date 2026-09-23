@@ -2,15 +2,15 @@ import os
 import pandas as pd
 
 
-def generate_trade_pairs(orders, sub_bt, ticker):
+def generate_trade_pairs(orders, fills, sub_bt, ticker):
     """
     统一的交易波段配对生成器
-    从 SharedExecutor 的 orders_history 中提取买卖配对 (过滤掉定投订单)
+    从 SharedExecutor 的 orders_history 和 fills 中提取买卖配对 (过滤掉定投订单)
     """
     trade_pairs = []
     
-    # 过滤掉非策略主观发出的订单 (如定投)
-    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA")]
+    # 过滤掉非策略主观发出的订单 (如定投)，并确保仅配对已实际成交 (FILLED) 的订单，过滤掉 PENDING 与 CANCELLED
+    discretionary = [o for o in orders if o.get('reason') not in ("Standing Order / DCA", "Bench Standing Order / DCA") and o.get('status') == 'FILLED']
     
     # 按照 卖出 -> 买回 的配对结构提取
     for k in range(0, len(discretionary) - 1, 2):
@@ -21,11 +21,21 @@ def generate_trade_pairs(orders, sub_bt, ticker):
             s_dt = pd.to_datetime(s_o['actual_dt'] if s_o['actual_dt'] else s_o['submit_dt'])
             b_dt = pd.to_datetime(b_o['actual_dt'] if b_o['actual_dt'] else b_o['submit_dt'])
             
-            s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), ticker].values
-            b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), ticker].values
+            # 使用 fills 中的实际成交价
+            s_fill = next((f for f in fills if f['order_id'] == s_o['order_id']), None)
+            b_fill = next((f for f in fills if f['order_id'] == b_o['order_id']), None)
             
-            s_p = s_p[0] if len(s_p) > 0 else 0
-            b_p = b_p[0] if len(b_p) > 0 else 0
+            if s_fill:
+                s_p = s_fill['price']
+            else:
+                s_p = sub_bt.loc[sub_bt['date'] == s_dt.strftime('%Y-%m-%d'), ticker].values
+                s_p = s_p[0] if len(s_p) > 0 else 0
+                
+            if b_fill:
+                b_p = b_fill['price']
+            else:
+                b_p = sub_bt.loc[sub_bt['date'] == b_dt.strftime('%Y-%m-%d'), ticker].values
+                b_p = b_p[0] if len(b_p) > 0 else 0
             
             if s_p > 0:
                 p_drop = (b_p - s_p) / s_p * 100.0
@@ -56,7 +66,7 @@ def export_deliverables(result, asset_name="综合基准"):
     df_daily = result.daily_accounts.copy()
     metrics = result.metrics
     ticker = result.metadata.get('ticker', 'UNKNOWN')
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, ticker)
     
     excel_path = f'宏观反身性阿尔法模型_{ticker}微观雷达全周期对账表.xlsx'
     
@@ -96,4 +106,16 @@ def export_deliverables(result, asset_name="综合基准"):
     df_pairs.to_csv(f'{ticker.lower()}_backtest_paired_local.csv', index=False, encoding='utf-8')
     sub_bt.to_csv(f'{ticker.lower()}_backtest_daily_local.csv', index=False, encoding='utf-8')
     
-    print(f"📊 机构级 Excel 与 CSV 审计底稿已生成: {os.path.abspath(excel_path)}")
+    # 导出 manifest.json
+    import json
+    manifest_data = {
+        'ticker': ticker,
+        'asset_name': asset_name,
+        'metrics': metrics,
+        'updated_at': pd.Timestamp.now().isoformat()
+    }
+    manifest_path = f'{ticker.lower()}_manifest.json'
+    with open(manifest_path, 'w', encoding='utf-8') as f:
+        json.dump(manifest_data, f, ensure_ascii=False, indent=2)
+    
+    print(f"📊 机构级 Excel 与 CSV 审计底稿 (含 Manifest) 已生成: {os.path.abspath(excel_path)}")

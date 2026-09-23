@@ -269,48 +269,45 @@ def run_brokerage_backtest(df, ticker='KRE', start_date='2009-01-01', dca_monthl
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
         
         # T 日收盘后产生新信号，传给 T+1
-        if i < df_len - 1:
-            is_bub = sub_bt['Cond_Bubble'].iloc[i]
-            is_bear = sub_bt['Cond_Bear'].iloc[i]
+        # T 日收盘后产生新信号，传给 T+1
+        is_bub = sub_bt['Cond_Bubble'].iloc[i]
+        is_bear = sub_bt['Cond_Bear'].iloc[i]
+        
+        if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
+            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+            pending_reason = '微观雷达泡沫与信贷过热' if is_bub else ('区域银行急性挤兑' if sub_bt['Breadth_Regional_Banks'].iloc[i] <= 0.10 else '系统性信贷紧缩危机')
+            pos = 0.0
+            executor.submit_order(pos, pending_reason, dt)
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
             
-            if pos > 0 and (is_bub or is_bear) and (i - last_buy_idx >= cooldown_days):
-                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-                pending_reason = '微观雷达泡沫与信贷过热' if is_bub else ('区域银行急性挤兑' if sub_bt['Breadth_Regional_Banks'].iloc[i] <= 0.10 else '系统性信贷紧缩危机')
-                pos = 0.0
-                executor.submit_order(pos, pending_reason, dt)
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
-                
-                # 获取最后一次卖出价
-                last_sell_p = executor.last_sell_p if executor.last_sell_p is not None else p
-                
-                if sub_bt['Cond_Panic'].iloc[i]:
-                    can_buy = True
-                    b_reason = '极端出清黄金坑抄底'
-                elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
-                elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    if exit_reg == 'BUBBLE':
-                        radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
-                        if radar_cooled:
-                            can_buy = True
-                            b_reason = '微观雷达降温且右侧重构'
-                    elif exit_reg == 'BEAR':
-                        rb_repaired = (sub_bt['Breadth_Regional_Banks'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
-                        if rb_repaired:
-                            can_buy = True
-                            b_reason = '金融信贷舒缓且区域银行广度修复'
-                if can_buy:
-                    pos = 1.0
-                    last_buy_idx = i
-                    executor.submit_order(pos, b_reason, dt)
-            else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+            # 获取最后一次卖出价
+            last_sell_p = executor.last_sell_p if executor.last_sell_p is not None else p
+            
+            if sub_bt['Cond_Panic'].iloc[i]:
+                can_buy = True
+                b_reason = '极端出清黄金坑抄底'
+            elif (p > last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                can_buy = True
+                b_reason = '突破卖出价右侧防踏空接回'
+            elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                if exit_reg == 'BUBBLE':
+                    radar_cooled = sub_bt['Composite_Radar_Score'].iloc[i] < 50.0
+                    if radar_cooled:
+                        can_buy = True
+                        b_reason = '微观雷达降温且右侧重构'
+                elif exit_reg == 'BEAR':
+                    rb_repaired = (sub_bt['Breadth_Regional_Banks'].iloc[i] > 0.40) or (sub_bt['Dist_200MA'].iloc[i] > 0.0)
+                    if rb_repaired:
+                        can_buy = True
+                        b_reason = '金融信贷舒缓且区域银行广度修复'
+            if can_buy:
+                pos = 1.0
+                last_buy_idx = i
+                executor.submit_order(pos, b_reason, dt)
         else:
             executor.submit_order(pos, "Standing Order / DCA", dt)
-            
         bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
             
         bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
@@ -339,7 +336,7 @@ def run_brokerage_backtest(df, ticker='KRE', start_date='2009-01-01', dca_monthl
     s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
 
     from core_engine.export_utils import generate_trade_pairs
-    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
+    trade_pairs_df = generate_trade_pairs(executor.orders_history, executor.fills, sub_bt, ticker)
 
     metrics = {
         'total_invested': total_invested,
@@ -377,7 +374,7 @@ def plot_radar_chart(result):
     df_daily = result.daily_accounts
     metrics = result.metrics
     ticker = result.metadata.get('ticker', 'KRE')
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, ticker)
     fig, axes = plt.subplots(4, 1, figsize=(16, 15), sharex=True, gridspec_kw={'height_ratios': [3.0, 2.2, 2.2, 2.5]})
     dates = pd.to_datetime(sub_bt['date'])
 
@@ -465,7 +462,7 @@ def main():
     df_daily = result.daily_accounts
     metrics = result.metrics
     from core_engine.export_utils import generate_trade_pairs
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, 'KRE')
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, 'KRE')
 
     print("\n==================================================")
     print("🎯 KRE 区域性银行微观雷达全周期实证对账审计报告 (2009 - 2026)")

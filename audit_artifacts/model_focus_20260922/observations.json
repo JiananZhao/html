@@ -1,0 +1,57 @@
+{
+  "actual_energy_entry": "KeyError: \"['close'] not in index\"",
+  "alias_noop": "ValueError: Length of values (8) does not match length of index (4)",
+  "signal_revision_not_hashed": {
+    "resumed_directions": [
+      "BUY",
+      "SELL"
+    ],
+    "fresh_directions": [
+      "BUY"
+    ],
+    "resumed_equity": 1100.0,
+    "fresh_equity": 800.0
+  },
+  "invalid_hash_replay": "ValueError: Length of values (6) does not match length of index (4)",
+  "tests": {
+    "run": 17,
+    "failures": 2,
+    "errors": 1
+  },
+  "repeat_signal_cancels_order": {
+    "pending": 0,
+    "fills": 0,
+    "order_statuses": [
+      "CANCELLED"
+    ],
+    "shares": 0.0
+  },
+  "macro_missing_factor": {
+    "missing_factor_date": "2020-12-01",
+    "session_existed_before": true,
+    "session_exists_after": false,
+    "removed_account_sessions": 470
+  },
+  "IGV_causality": {
+    "result": "PASS",
+    "first_trend_index": 251
+  },
+  "SMH_causality": {
+    "result": "PASS",
+    "first_trend_index": 251
+  },
+  "fundamentals_source_match": {
+    "matched_rows": 4198,
+    "max_abs_differences": {
+      "diluted_shares_m": 6.46467391304347,
+      "sbc_pct_rev": 1.797282608695653,
+      "insider_net_flow_m": 174.30939226519337
+    }
+  },
+  "fundamentals_future_node_change": {
+    "future_node": "2020-12-31",
+    "historical_date": "2020-09-30",
+    "original_insider_value": -120.0,
+    "after_future_node_change": -47.5
+  }
+}

@@ -539,6 +539,24 @@ def create_interactive_reflexivity_radar(df, symbol: str, default_range: str = '
         df_bear = df[df['Trigger_Bear_Top'] == True]
         fig.add_trace(go.Scatter(x=df_bear[date_col], y=df_bear['close'], mode='markers', name='IV: 熊市逃顶 (Bear Top)', marker=dict(color='orange', size=10, symbol='triangle-down', line=dict(color='white', width=1))), row=1, col=1)
 
+    # Execution markers (Actual SharedExecutor Actions)
+    if 'action' in df.columns:
+        df_buy = df[df['action'] == 'BUY']
+        if not df_buy.empty:
+            fig.add_trace(go.Scatter(
+                x=df_buy[date_col], y=df_buy['close'], mode='markers', 
+                name='【B】实盘买入', 
+                marker=dict(color='green', size=16, symbol='arrow-up', line=dict(color='black', width=1))
+            ), row=1, col=1)
+        
+        df_sell = df[df['action'] == 'SELL']
+        if not df_sell.empty:
+            fig.add_trace(go.Scatter(
+                x=df_sell[date_col], y=df_sell['close'], mode='markers', 
+                name='【S】实盘卖出', 
+                marker=dict(color='red', size=16, symbol='arrow-down', line=dict(color='black', width=1))
+            ), row=1, col=1)
+
     # --- Layer 2: Composite Score & q1_dot ---
     if 'Composite_Score' in df.columns:
         fig.add_trace(go.Scatter(x=df[date_col], y=df['Composite_Score'], mode='lines', name='Composite Score (综合得分)', line=dict(color='purple', width=1.5)), row=2, col=1, secondary_y=False)

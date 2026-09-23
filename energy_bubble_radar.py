@@ -248,6 +248,8 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     from true_accounting import UnitizedAccount, calculate_xirr
     from shared_executor import SharedExecutor
     from core_engine.simulation_result import SimulationResult
+    from core_engine.state_manager import StateManager
+    import os
 
     sub_bt = df[df['date'] >= start_date].copy().reset_index(drop=True)
     if sub_bt.empty:
@@ -256,6 +258,21 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     # 预计算 OIL 的 200 日均线 (策略买回条件需要)
     sub_bt['OIL_MA200'] = sub_bt['OIL'].rolling(200, min_periods=1).mean()
 
+    # 初始化增量管理器
+    sm = StateManager()
+    import hashlib
+    # 动态计算 config_hash，若月定投或费率改变则生成全新目录，天然隔离配置
+    config_str = f"dca={dca_monthly}_fee={cost_config}"
+    config_hash = "energy_v2_" + hashlib.md5(config_str.encode()).hexdigest()[:8]
+    
+    checkpoint = sm.load_latest_checkpoint('energy_radar', ticker, config_hash)
+
+    # 变量初始化
+    curr_m = -1
+    exit_reg = None
+    pos = 1.0
+    total_invested = 0.0
+
     initial_dt = pd.to_datetime(sub_bt['date'].iloc[0])
     acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
     bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=initial_dt)
@@ -263,18 +280,103 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     executor = SharedExecutor(acc, fee_rate=cost_config, execution_mode='NEXT_CLOSE', account_type='strat')
     bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='bench')
 
-    curr_m = -1
-    exit_reg = None
-    pos = 1.0
-    total_invested = 0.0
-
-    bench_eqs = []
-    strat_eqs = []
-    positions = []
-
+    # 尝试恢复快照
+    start_idx = 0
     df_len = len(sub_bt)
+    
+    # 历史记录存储 (如果增量运行，从这读取旧的历史进行拼接)
+    old_daily_accounts = pd.DataFrame()
+    old_orders = []
+    old_fills = []
+    old_cashflows = []
+    old_bench_cfs = []
+    
+    daily_csv_path = sm.get_state_dir('energy_radar', ticker, config_hash) + '/history_daily.csv'
+    orders_csv_path = sm.get_state_dir('energy_radar', ticker, config_hash) + '/history_orders.csv'
+    fills_csv_path = sm.get_state_dir('energy_radar', ticker, config_hash) + '/history_fills.csv'
+    
+    if checkpoint:
+        last_date = checkpoint.get('last_processed_date')
+        current_prefix_hash = None
+        if last_date:
+            # 取出历史截面并计算数据前缀哈希
+            history_slice = sub_bt[sub_bt['date'] <= last_date]
+            if not history_slice.empty:
+                # 仅对核心价格列进行快速哈希运算
+                history_hash_val = pd.util.hash_pandas_object(history_slice[['date', 'close', 'OIL']]).sum()
+                current_prefix_hash = str(history_hash_val)
 
-    for i in range(df_len):
+        if sm.verify_checkpoint(checkpoint, config_hash, current_prefix_hash):
+            if last_date:
+                # 找到上次执行之后的索引
+                matches = sub_bt.index[sub_bt['date'] > last_date].tolist()
+                if matches:
+                    start_idx = matches[0]
+            else:
+                start_idx = df_len # 已经是最新的
+                
+        # 恢复状态标量 (注意：这不会恢复 history/orders 列表)
+        if 'executor_state' in checkpoint:
+            executor.restore_state(checkpoint['executor_state'])
+        if 'bench_executor_state' in checkpoint:
+            bench_executor.restore_state(checkpoint['bench_executor_state'])
+            
+        strat_state = checkpoint.get('strategy_state', {})
+        curr_m = strat_state.get('curr_m', -1)
+        exit_reg = strat_state.get('exit_reg', None)
+        pos = strat_state.get('pos', 1.0)
+        total_invested = strat_state.get('total_invested', 0.0)
+        
+        # 恢复旧的并行序列以供最后出图，并按 last_processed_date 进行事务截断回滚
+        if os.path.exists(daily_csv_path):
+            old_daily_accounts = pd.read_csv(daily_csv_path)
+            if last_date:
+                old_daily_accounts = old_daily_accounts[old_daily_accounts['date'] <= last_date]
+                
+        # 资金流由于用于计算最终的 XIRR，暂时简单处理：我们依然需要完整的资金流水，由于资金流水数据量极小，可以直接放在 JSON 或单独加载。
+        # 为了极简，我们将资金流写入 JSON。我们修改了 true_accounting，这里我们手动从 JSON 恢复:
+        cfs_s = checkpoint.get('cashflows_strat', [])
+        cfs_b = checkpoint.get('cashflows_bench', [])
+        executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_s]
+        bench_executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_b]
+        
+        if os.path.exists(orders_csv_path):
+            import ast
+            old_orders_df = pd.read_csv(orders_csv_path)
+            if last_date:
+                # 剔除未来的越界记录，同时剔除 PENDING，因为 JSON 会独立接管 PENDING
+                old_orders_df = old_orders_df[(old_orders_df['submit_dt'] <= last_date) & (old_orders_df['status'] != 'PENDING')]
+            old_orders = old_orders_df.to_dict('records')
+            
+        if os.path.exists(fills_csv_path):
+            old_fills_df = pd.read_csv(fills_csv_path)
+            if last_date:
+                old_fills_df = old_fills_df[old_fills_df['dt'] <= last_date]
+            old_fills = old_fills_df.to_dict('records')
+            
+        # 并行恢复 bench_eqs, strat_eqs, positions
+        if 'history_columns' in checkpoint:
+            bench_eqs = checkpoint['history_columns'].get('bench_eqs', [])
+            strat_eqs = checkpoint['history_columns'].get('strat_eqs', [])
+            positions = checkpoint['history_columns'].get('positions', [])
+        else:
+            bench_eqs = []
+            strat_eqs = []
+            positions = []
+            
+        # 跳过检测
+        if start_idx == df_len:
+            print("⏭️ 检测到检查点与最新数据日期一致，无新增执行数据，O(1) 跳过增量回放。")
+            is_updated = False
+        else:
+            is_updated = True
+    else:
+        bench_eqs = []
+        strat_eqs = []
+        positions = []
+        is_updated = True
+
+    for i in range(start_idx, df_len):
         d_str = sub_bt['date'].iloc[i]
         p = sub_bt[ticker].iloc[i]
 
@@ -297,46 +399,43 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
         # T 日收盘后产生新信号
-        if i < df_len - 1:
-            is_bub = sub_bt['Cond_Bubble'].iloc[i]
-            is_bear = sub_bt['Cond_Bear'].iloc[i]
+        is_bub = sub_bt['Cond_Bubble'].iloc[i]
+        is_bear = sub_bt['Cond_Bear'].iloc[i]
 
-            if pos > 0 and (is_bub or is_bear):
-                exit_reg = 'BUBBLE' if is_bub else 'BEAR'
-                pending_reason = '微观雷达泡沫与CapEx过热' if is_bub else '油价击穿成本线与宏观熊市'
-                pos = 0.0
-                executor.submit_order(pos, pending_reason, dt)
-            elif pos == 0.0:
-                can_buy = False
-                b_reason = ""
+        if pos > 0 and (is_bub or is_bear):
+            exit_reg = 'BUBBLE' if is_bub else 'BEAR'
+            pending_reason = '微观雷达泡沫与CapEx过热' if is_bub else '油价击穿成本线与宏观熊市'
+            pos = 0.0
+            executor.submit_order(pos, pending_reason, dt)
+        elif pos == 0.0:
+            can_buy = False
+            b_reason = ""
 
-                # 1. 极端出清黄金坑抄底
-                if sub_bt['Cond_Panic'].iloc[i]:
-                    can_buy = True
-                    b_reason = '极端出清黄金坑抄底'
-                # 2. 突破卖出价右侧防踏空接回
-                elif executor.last_sell_p and (p > executor.last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
-                # 3. 体制分化精准重构
-                elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
-                    if exit_reg == 'BUBBLE':
-                        radar_cooled = score < 45.0
-                        if radar_cooled:
-                            can_buy = True
-                            b_reason = '微观雷达降温且右侧重构'
-                    elif exit_reg == 'BEAR':
-                        oil_val = sub_bt['OIL'].iloc[i]
-                        oil_ma = sub_bt['OIL_MA200'].iloc[i]
-                        if (oil_val >= 60.0) or (oil_val > oil_ma):
-                            can_buy = True
-                            b_reason = '油价企稳成本线且趋势重构'
+            # 1. 极端出清黄金坑抄底
+            if sub_bt['Cond_Panic'].iloc[i]:
+                can_buy = True
+                b_reason = '极端出清黄金坑抄底'
+            # 2. 突破卖出价右侧防踏空接回
+            elif executor.last_sell_p and (p > executor.last_sell_p * 1.02) and sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                can_buy = True
+                b_reason = '突破卖出价右侧防踏空接回'
+            # 3. 体制分化精准重构
+            elif sub_bt['Above_MA20_Conf'].iloc[i] and sub_bt['Above_MA50_Conf'].iloc[i]:
+                if exit_reg == 'BUBBLE':
+                    radar_cooled = score < 45.0
+                    if radar_cooled:
+                        can_buy = True
+                        b_reason = '微观雷达降温且右侧重构'
+                elif exit_reg == 'BEAR':
+                    oil_val = sub_bt['OIL'].iloc[i]
+                    oil_ma = sub_bt['OIL_MA200'].iloc[i]
+                    if (oil_val >= 60.0) or (oil_val > oil_ma):
+                        can_buy = True
+                        b_reason = '油价企稳成本线且趋势重构'
 
-                if can_buy:
-                    pos = 1.0
-                    executor.submit_order(pos, b_reason, dt)
-            else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+            if can_buy:
+                pos = 1.0
+                executor.submit_order(pos, b_reason, dt)
         else:
             executor.submit_order(pos, "Standing Order / DCA", dt)
 
@@ -350,8 +449,54 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     sub_bt['Strat_Equity'] = strat_eqs
     sub_bt['Position'] = positions
 
-    all_states = executor.daily_states + bench_executor.daily_states
-    daily_accounts = pd.DataFrame(all_states)
+    # 合并新旧日结状态
+    new_daily_states = executor.daily_states + bench_executor.daily_states
+    if not old_daily_accounts.empty and new_daily_states:
+        daily_accounts = pd.concat([old_daily_accounts, pd.DataFrame(new_daily_states)], ignore_index=True)
+    elif new_daily_states:
+        daily_accounts = pd.DataFrame(new_daily_states)
+    else:
+        daily_accounts = old_daily_accounts
+        
+    # 保存增量数据到 CSV
+    os.makedirs(os.path.dirname(daily_csv_path), exist_ok=True)
+    daily_accounts.to_csv(daily_csv_path, index=False)
+    
+    final_orders = old_orders + executor.orders_history + executor.pending_orders
+    final_fills = old_fills + executor.fills
+    
+    if len(final_orders) > 0:
+        pd.DataFrame(final_orders).to_csv(orders_csv_path, index=False)
+    if len(final_fills) > 0:
+        pd.DataFrame(final_fills).to_csv(fills_csv_path, index=False)
+        
+    # 保存最新快照
+    state_data = {
+        'last_processed_date': sub_bt['date'].iloc[-1],
+        'config_hash': config_hash,
+        'is_complete': True,
+        'executor_state': executor.get_state(),
+        'bench_executor_state': bench_executor.get_state(),
+        'strategy_state': {
+            'curr_m': curr_m,
+            'exit_reg': exit_reg,
+            'pos': pos,
+            'total_invested': total_invested
+        },
+        'history_columns': {
+            'bench_eqs': bench_eqs,
+            'strat_eqs': strat_eqs,
+            'positions': positions
+        },
+        'cashflows_strat': [(d.strftime('%Y-%m-%d'), a) for d, a in executor.acc.cash_flows],
+        'cashflows_bench': [(d.strftime('%Y-%m-%d'), a) for d, a in bench_executor.acc.cash_flows]
+    }
+    
+    # 计算当前运行完成后的全局数据指纹
+    history_hash_val_end = pd.util.hash_pandas_object(sub_bt[['date', 'close', 'OIL']]).sum()
+    final_prefix_hash = str(history_hash_val_end)
+    
+    sm.save_checkpoint('energy_radar', ticker, config_hash, f'ckpt_{sub_bt["date"].iloc[-1]}', state_data, prefix_hash=final_prefix_hash)
 
     b_final = sub_bt['Bench_Equity'].iloc[-1]
     s_final = sub_bt['Strat_Equity'].iloc[-1]
@@ -366,7 +511,7 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     s_dd = (daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'] / daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].cummax() - 1).min() * 100.0
 
     from core_engine.export_utils import generate_trade_pairs
-    trade_pairs_df = generate_trade_pairs(executor.orders_history, sub_bt, ticker)
+    trade_pairs_df = generate_trade_pairs(final_orders, final_fills, sub_bt, ticker)
 
     metrics = {
         'total_invested': total_invested,
@@ -377,7 +522,7 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
         'alpha': alpha,
         'bench_max_dd': b_dd,
         'strat_max_dd': s_dd,
-        'trade_count': len(executor.fills),
+        'trade_count': len(final_fills),
         'trade_rounds': len(trade_pairs_df),
         'win_rounds': sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) if not trade_pairs_df.empty else 0,
         'win_rate': (sum(1 for p in trade_pairs_df.to_dict('records') if '✅' in p.get('波段是否有效避险', '')) / max(1, len(trade_pairs_df)) * 100.0) if not trade_pairs_df.empty else 0.0
@@ -386,15 +531,15 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     result = SimulationResult(
         features=sub_bt,
         signals=sub_bt[['date', 'Position', 'Sell_Signal', 'Cond_Bubble', 'Cond_Bear']],
-        orders=executor.orders_history + executor.pending_orders,
-        fills=executor.fills,
+        orders=final_orders,
+        fills=final_fills,
         cashflows=executor.cashflows,
         daily_accounts=daily_accounts,
         metrics=metrics,
         metadata={'ticker': ticker, 'start_date': start_date, 'end_date': sub_bt['date'].iloc[-1]}
     )
 
-    return result
+    return result, is_updated
 
 
 from core_engine.export_utils import export_deliverables, generate_trade_pairs
@@ -404,7 +549,7 @@ def plot_radar_chart(result):
     df_daily = result.daily_accounts
     metrics = result.metrics
     ticker = result.metadata.get('ticker', 'XLE')
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, ticker)
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, ticker)
 
     fig, axes = plt.subplots(4, 1, figsize=(16, 15), sharex=True, gridspec_kw={'height_ratios': [3.0, 2.2, 2.2, 2.5]})
     dates = pd.to_datetime(sub_bt['date'])
@@ -486,12 +631,12 @@ def main():
     radar.df.to_csv('energy_radar_local.csv', index=False)
     print(f"💾 预计算指标已固化至: energy_radar_local.csv (共 {len(radar.df)} 行)")
 
-    result = run_brokerage_backtest(radar.df, ticker='XLE', start_date='2009-01-01')
+    result, is_updated = run_brokerage_backtest(radar.df, ticker='XLE', start_date='2009-01-01')
     sub_bt = result.features
     df_daily = result.daily_accounts
     metrics = result.metrics
     from core_engine.export_utils import generate_trade_pairs
-    df_pairs = generate_trade_pairs(result.orders, sub_bt, 'XLE')
+    df_pairs = generate_trade_pairs(result.orders, result.fills, sub_bt, 'XLE')
 
     print("\n==================================================")
     print("🎯 Energy 能源全产业链微观雷达全周期实证对账审计报告 (2009 - 2026)")
@@ -505,9 +650,12 @@ def main():
     print(f"波段胜率 (有效低买高卖/防踏空): {metrics.get('win_rate', 0):.1f}%")
     print("==================================================\n")
 
-    export_deliverables(result, "能源全产业链综合基准")
-    plot_radar_chart(result)
-    print("🎉 Energy 微观雷达全套交付物本地生成完毕！")
+    if is_updated:
+        export_deliverables(result, "能源全产业链综合基准")
+        plot_radar_chart(result)
+        print("🎉 Energy 微观雷达全套交付物本地生成完毕！")
+    else:
+        print("⏭️ 跳过生成 Excel 和图表 (数据未变更)")
 
 
 if __name__ == '__main__':

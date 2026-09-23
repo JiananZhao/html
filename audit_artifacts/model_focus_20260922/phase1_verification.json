@@ -1,0 +1,56 @@
+{
+  "now_reflexivity_radar.py": {
+    "constant_200": 50.0,
+    "warmup_prefix_future_tests": "PASS"
+  },
+  "single_stock_reflexivity_radar.py": {
+    "constant_200": 50.0,
+    "warmup_prefix_future_tests": "PASS"
+  },
+  "reflexivity_engine.py": {
+    "constant_200": 50.0,
+    "warmup_prefix_future_tests": "PASS"
+  },
+  "reflexivity_interactive_chart.py": {
+    "constant_negative_score": 15.075,
+    "negative_highest_score": 30.0,
+    "negative_lowest_score": 0.15,
+    "warmup_value": 0.0,
+    "prefix_and_range_tests": "PASS"
+  },
+  "export_multi_asset_deliverables.py": {
+    "constant_negative_score": 15.075,
+    "negative_highest_score": 30.0,
+    "negative_lowest_score": 0.15,
+    "warmup_value": 0.0,
+    "prefix_and_range_tests": "PASS"
+  },
+  "daily_market_monitor.py": {
+    "constant_negative_score": 15.075,
+    "negative_highest_score": 30.0,
+    "negative_lowest_score": 0.15,
+    "warmup_value": 0.0,
+    "prefix_and_range_tests": "PASS"
+  },
+  "宏观反身性阿尔法模型_模型A_Plus.py": {
+    "constant_negative_score": 15.075,
+    "negative_highest_score": 30.0,
+    "negative_lowest_score": 0.15,
+    "warmup_value": 0.0,
+    "prefix_and_range_tests": "PASS"
+  },
+  "micro_bubble_radar.py": {
+    "valid_only_breadth": 1.0,
+    "coverage": 0.5,
+    "raw_missing_valid_count": 1,
+    "ffilled_missing_valid_count": 2,
+    "denominator_warmup_prefix_tests": "PASS"
+  },
+  "smh_bubble_radar.py": {
+    "valid_only_breadth": 1.0,
+    "coverage": 0.5,
+    "raw_missing_valid_count": 1,
+    "ffilled_missing_valid_count": 2,
+    "denominator_warmup_prefix_tests": "PASS"
+  }
+}

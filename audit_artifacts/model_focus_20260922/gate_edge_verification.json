@@ -1,0 +1,99 @@
+{
+  "macro_normal_holding_dca": {
+    "rows": 700,
+    "ready_days": 191,
+    "first_ready_date": "2019-12-13 00:00:00",
+    "target_position_values": [
+      1.0
+    ],
+    "orders_submitted_on_ready_days": 0,
+    "ending_cash": 9000.0,
+    "ending_shares": 194.8450477067859,
+    "ready_period_dca_events": [
+      {
+        "flow_id": "cf_strat_20200101",
+        "planned_dt": "2020-01-01",
+        "actual_dt": "2020-01-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200203",
+        "planned_dt": "2020-02-03",
+        "actual_dt": "2020-02-03",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200302",
+        "planned_dt": "2020-03-02",
+        "actual_dt": "2020-03-02",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200401",
+        "planned_dt": "2020-04-01",
+        "actual_dt": "2020-04-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200501",
+        "planned_dt": "2020-05-01",
+        "actual_dt": "2020-05-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200601",
+        "planned_dt": "2020-06-01",
+        "actual_dt": "2020-06-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200701",
+        "planned_dt": "2020-07-01",
+        "actual_dt": "2020-07-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200803",
+        "planned_dt": "2020-08-03",
+        "actual_dt": "2020-08-03",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20200901",
+        "planned_dt": "2020-09-01",
+        "actual_dt": "2020-09-01",
+        "amount": 1000.0,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      }
+    ]
+  },
+  "now_reflexivity_radar.py": {
+    "real_yield_is_missing": true,
+    "derived_ry_surge": false,
+    "signal_ready": true,
+    "gate_includes_real_yield": false
+  },
+  "single_stock_reflexivity_radar.py": {
+    "real_yield_is_missing": true,
+    "derived_ry_surge": false,
+    "signal_ready": true,
+    "gate_includes_real_yield": false
+  }
+}

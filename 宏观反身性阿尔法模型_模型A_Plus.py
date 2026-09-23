@@ -116,7 +116,19 @@ def simulate_model_a_plus(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_breako
     # 2. 中期年线乖离分 (0-30分)
     dist_score = np.clip((sub['Dist_200MA'] - 5.0) / 15.0 * 30.0, 0.0, 30.0)
     # 3. 反身性估值透支分 (0-30分)
-    gap_score = np.clip((sub['Gap'] / sub['Gap_Upper']) * 15.0, 0.0, 30.0)
+    def mid_rank_pct(s):
+        s_valid = s.dropna()
+        if len(s_valid) < 60:
+            return np.nan
+        val = s.iloc[-1]
+        if np.isnan(val):
+            return np.nan
+        L_t = (s_valid < val).sum()
+        E_t = (s_valid == val).sum()
+        N_t = len(s_valid)
+        return (L_t + 0.5 * E_t) / N_t * 30.0
+        
+    gap_score = sub['Gap'].rolling(252, min_periods=60).apply(mid_rank_pct, raw=False)
     sub['Overheat_Score'] = z_score + dist_score + gap_score
     # 极度过热黄色警戒门禁：评分 >= 70 分 (仅占全历史顶峰 5% 极度亢奋期)
     sub['Overheat_Alert'] = sub['Overheat_Score'] >= 70.0

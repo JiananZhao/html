@@ -110,19 +110,22 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
             v = vals[i]
             if np.isnan(v):
                 continue
-            pos = bisect.bisect_right(sorted_arr, v)
-            sorted_arr.insert(pos, v)
-            if len(sorted_arr) >= min_periods:
-                res[i] = (pos / len(sorted_arr)) * 100.0
+            pos_left = bisect.bisect_left(sorted_arr, v)
+            pos_right = bisect.bisect_right(sorted_arr, v)
+            sorted_arr.insert(pos_right, v)
+            N_t = len(sorted_arr)
+            if N_t >= min_periods:
+                E_t = pos_right - pos_left + 1
+                res[i] = 100.0 * (pos_left + 0.5 * E_t) / N_t
         return pd.Series(res, index=s.index)
 
-    df['Score_Dim1_Pos'] = expanding_rank(df['q1']).fillna(50.0)
-    df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot']).fillna(50.0)
-    df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot']).fillna(50.0)
+    df['Score_Dim1_Pos'] = expanding_rank(df['q1'])
+    df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot'])
+    df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot'])
     # 剥离专用内部人交易 (Score_Dim4_Capital 权重置0)，此处全设为 50中性
     df['Score_Dim4_Capital'] = 50.0 
-    df['Score_Dim5_Liquidity'] = (expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4).fillna(50.0)
-    df['Score_Dim6_Macro'] = (expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5).fillna(50.0)
+    df['Score_Dim5_Liquidity'] = (expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4)
+    df['Score_Dim6_Macro'] = (expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5)
 
     # 重新分配权重 (总和=1.0)
     # Pos: 0.30, Vel: 0.20, Lyapunov: 0.20, Liquidity: 0.10, Macro: 0.20
@@ -200,4 +203,33 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     df['Trigger_Bubble_Top'] = apply_hys(df, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
     df['Trigger_Bear_Top'] = apply_hys(df, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
     
+    # =========================================================================
+    # 第九步：生成轻量化的实盘执行记录 (供 Dashboard 提取绘制 B/S 图标)
+    # =========================================================================
+    core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', 'close', 'MA200', 'MA50', 'MA10']
+    df['signal_ready'] = df[core_cols].notna().all(axis=1)
+
+    cond_trend = (df['close'] > df['MA50']).rolling(3).sum() == 3
+    raw_sell = (df['Trigger_Bubble_Top'] | df['Trigger_Bear_Top']) & df['signal_ready']
+    raw_buy = (df['Trigger_Panic'] | cond_trend) & df['signal_ready']
+
+    action_list = []
+    pos = 1.0
+    for i in range(len(df)):
+        if df['signal_ready'].iloc[i]:
+            s = raw_sell.iloc[i]
+            b = raw_buy.iloc[i]
+            if pos > 0 and s:
+                pos = 0.0
+                action_list.append('SELL')
+            elif pos == 0.0 and b:
+                pos = 1.0
+                action_list.append('BUY')
+            else:
+                action_list.append('HOLD')
+        else:
+            action_list.append('WAITING')
+            
+    df['action'] = action_list
+
     return df

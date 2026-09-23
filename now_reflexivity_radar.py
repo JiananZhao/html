@@ -190,18 +190,21 @@ class NOWReflexivityRadar:
                 v = vals[i]
                 if np.isnan(v):
                     continue
-                pos = bisect.bisect_right(sorted_arr, v)
-                sorted_arr.insert(pos, v)
-                if len(sorted_arr) >= min_periods:
-                    res[i] = (pos / len(sorted_arr)) * 100.0
+                pos_left = bisect.bisect_left(sorted_arr, v)
+                pos_right = bisect.bisect_right(sorted_arr, v)
+                sorted_arr.insert(pos_right, v)
+                N_t = len(sorted_arr)
+                if N_t >= min_periods:
+                    E_t = pos_right - pos_left + 1
+                    res[i] = 100.0 * (pos_left + 0.5 * E_t) / N_t
             return pd.Series(res, index=s.index)
 
         # 维度 1: 势能位置
-        df['Score_Dim1_Pos'] = expanding_rank(df['q1']).fillna(50.0)
+        df['Score_Dim1_Pos'] = expanding_rank(df['q1'])
         # 维度 2: 动能速度
-        df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot']).fillna(50.0)
-        # 维度 3: 李雅普诺夫稳定性导数
-        df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot']).fillna(50.0)
+        df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot'])
+        # 维度 3: 李雅普诺夫加速度
+        df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot'])
         # 维度 4: 资本稀释与高管减持
         insider_roll = df['insider_net_flow_m'].rolling(60).sum()
         shares_growth = df['diluted_shares_m'].pct_change(252)
@@ -211,11 +214,11 @@ class NOWReflexivityRadar:
         # 维度 5: 微观筹码与资金流向
         df['Score_Dim5_Liquidity'] = (
             expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4
-        ).fillna(50.0)
+        )
         # 维度 6: 宏观信用与金融条件收紧
         df['Score_Dim6_Macro'] = (
             expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5
-        ).fillna(50.0)
+        )
 
         # 8. 综合反身性过热得分 (Composite Overheat Score)
         df['Composite_Score'] = (
@@ -269,16 +272,8 @@ class NOWReflexivityRadar:
         )
         cond_bear = macro_crisis & (df_bt['NOW'] < df_bt['MA50']) & (df_bt['NOW'] < df_bt['MA200'])
 
-        # 3. 底部防砸盘过滤：严禁在已深度腰斩的位置被动割肉
-        recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
-        raw_sell = (cond_bubble | cond_bear) & (~recently_crashed)
-
-        # 4. 券商实盘买卖条件 (Execution Layer)
-        cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
-        cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
-        raw_buy = cond_panic | cond_trend
-
-        # -------------------------------------------------------------
+        # Execution signals are now tied directly to the robust Radar Triggers
+        # which properly decouple individual stock crashes from macro dependencies.        # -------------------------------------------------------------
         # 核心解耦：客观雷达高信噪比观测信号层 (Pure High-SNR Observational Signals)
         # 第一性原理设计：
         # 1. 严格状态门禁 (Regime Gating): 彻底杜绝在牛市高位打“抄底”，杜绝在熊市深渊打“逃顶”！
@@ -380,6 +375,20 @@ class NOWReflexivityRadar:
         df_bt['Radar_Alert_Reason'] = alert_reasons
 
         # -------------------------------------------------------------
+        # Rebuild Execution layer decoupling macro crisis constraints
+        # -------------------------------------------------------------
+        core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', 'NOW', 'MA200', 'MA50', 'MA10']
+        df_bt['signal_ready'] = df_bt[core_cols].notna().all(axis=1)
+
+        # Ensure cond_trend is properly computed
+        cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
+
+        # Update execution variables to use the unified Triggers
+        # Triggers already have hysteresis and cool-down applied!
+        raw_sell = (df_bt['Trigger_Bubble_Top'] | df_bt['Trigger_Bear_Top']) & df_bt['signal_ready']
+        raw_buy = (df_bt['Trigger_Panic'] | cond_trend) & df_bt['signal_ready']
+
+        # -------------------------------------------------------------
         # 逐日记账循环 (SharedExecutor)
         # -------------------------------------------------------------
         bench_acc = UnitizedAccount(initial_cash=initial_capital, initial_date=df_bt['date'].iloc[0])
@@ -390,7 +399,7 @@ class NOWReflexivityRadar:
 
         curr_m = -1
         pos = 1.0
-        total_injected = 0.0
+        total_injected = initial_capital
 
         bench_eqs = []
         strat_eqs = []
@@ -418,28 +427,33 @@ class NOWReflexivityRadar:
             executor.step(dt, p, p, dca_amount=dca_amount)
             bench_executor.step(dt, p, p, dca_amount=dca_amount)
 
-            # T日收盘后产生新信号
-            if i < df_len - 1:
-                action = 'HOLD'
+            action = 'HOLD'
+            action_taken = False
+            if df_bt['signal_ready'].iloc[i]:
                 if pos > 0 and s:
-                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                    reason = "极度泡沫破裂" if df_bt['Trigger_Bubble_Top'].iloc[i] else "熊市反弹衰竭"
                     pos = 0.0
                     executor.submit_order(pos, reason, dt)
                     action = 'SELL'
+                    action_taken = True
                 elif pos == 0.0 and b:
-                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                    reason = "恐慌左侧耗竭拐点回补" if df_bt['Trigger_Panic'].iloc[i] else "均线右侧牛市确认建仓"
                     pos = 1.0
                     executor.submit_order(pos, reason, dt)
                     action = 'BUY'
-                else:
-                    executor.submit_order(pos, "Standing Order / DCA", dt)
+                    action_taken = True
             else:
-                action = 'HOLD'
+                action = 'WAITING'
+
+            if not action_taken and dca_amount > 0:
+                # 仅在定投日发送维持仓位订单，处理闲置定投资金
                 executor.submit_order(pos, "Standing Order / DCA", dt)
 
             action_hist.append(action)
 
-            bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
+            # 基准始终满仓，仅在首日或定投日发送订单
+            if i == 0 or dca_amount > 0:
+                bench_executor.submit_order(1.0, "Bench Standing Order / DCA", dt)
 
             bench_eqs.append(bench_executor.acc.shares * p + bench_executor.acc.cash)
             strat_eqs.append(executor.acc.shares * p + executor.acc.cash)
@@ -463,33 +477,36 @@ class NOWReflexivityRadar:
         bench_end = bench_eqs[-1]
         strat_end = strat_eqs[-1]
         
-        bench_cummax = pd.Series(bench_eqs).cummax()
-        bench_dd = ((pd.Series(bench_eqs) - bench_cummax) / bench_cummax).min() * 100.0
+        strat_nav_series = daily_accounts[daily_accounts['type'] == 'strat']['unit_nav'].reset_index(drop=True)
+        bench_nav_series = daily_accounts[daily_accounts['type'] == 'bench']['unit_nav'].reset_index(drop=True)
+        
+        bench_cummax = bench_nav_series.cummax()
+        bench_dd = ((bench_nav_series - bench_cummax) / bench_cummax.clip(lower=1e-8)).min() * 100.0
 
-        strat_cummax = pd.Series(strat_eqs).cummax()
-        strat_dd = ((pd.Series(strat_eqs) - strat_cummax) / strat_cummax).min() * 100.0
+        strat_cummax = strat_nav_series.cummax()
+        strat_dd = ((strat_nav_series - strat_cummax) / strat_cummax.clip(lower=1e-8)).min() * 100.0
 
         final_date = pd.Timestamp(df_bt['date'].iloc[-1])
         bench_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in bench_executor.acc.cash_flows], bench_end, final_date) * 100.0
         strat_cagr = calculate_xirr([(pd.Timestamp(d), a) for d, a in executor.acc.cash_flows], strat_end, final_date) * 100.0
 
         alpha = strat_cagr - bench_cagr
-        bench_total_ret = (bench_end - total_injected) / total_injected * 100.0
-        strat_total_ret = (strat_end - total_injected) / total_injected * 100.0
+        bench_total_ret = (bench_end - total_injected) / max(total_injected, 1e-8) * 100.0
+        strat_total_ret = (strat_end - total_injected) / max(total_injected, 1e-8) * 100.0
 
         metrics = {
-            'total_injected': total_injected,
-            'bench_end': bench_end,
-            'strat_end': strat_end,
-            'bench_total_ret': bench_total_ret,
-            'strat_total_ret': strat_total_ret,
+            'total_invested': total_injected,
+            'bench_final': bench_end,
+            'strat_final': strat_end,
+            'bench_return': bench_total_ret,
+            'strat_return': strat_total_ret,
             'bench_cagr': bench_cagr,
             'strat_cagr': strat_cagr,
-            'bench_dd': bench_dd,
-            'strat_dd': strat_dd,
+            'bench_max_dd': bench_dd,
+            'strat_max_dd': strat_dd,
             'alpha': alpha,
-            'trades_count': len(executor.fills),
-            'rounds_count': len(executor.fills) // 2
+            'trade_count': len(executor.fills),
+            'trade_rounds': len(executor.fills) // 2
         }
 
         self.perf_metrics = metrics
@@ -610,7 +627,7 @@ class NOWReflexivityRadar:
         ax4.plot(dates, df_bt['strat_nav'], label=f"反身性相空间策略 (终值: ${df_bt['strat_nav'].iloc[-1]:,.0f}, CAGR: {self.perf_metrics['strat_cagr']:.1f}%)", color='#d62728', lw=2.2)
         ax4.plot(dates, df_bt['bench_nav'], label=f"买入持有基准 (终值: ${df_bt['bench_nav'].iloc[-1]:,.0f}, CAGR: {self.perf_metrics['bench_cagr']:.1f}%)", color='#7f7f7f', lw=1.5, ls='--')
 
-        ax4.set_title(f"Layer 4: 真实券商记账资产净值曲线对比 (Alpha: {self.perf_metrics['alpha']:+.2f}%, 净超额: +${self.perf_metrics['strat_end'] - self.perf_metrics['bench_end']:,.0f})", fontsize=13, fontweight='bold')
+        ax4.set_title(f"Layer 4: 真实券商记账资产净值曲线对比 (Alpha: {self.perf_metrics['alpha']:+.2f}%, 净超额: +${self.perf_metrics['strat_final'] - self.perf_metrics['bench_final']:,.0f})", fontsize=13, fontweight='bold')
         ax4.set_ylabel("账户净资产 (USD)", fontsize=11)
         ax4.grid(True, alpha=0.3)
         ax4.legend(loc='upper left', frameon=True, fontsize=10)

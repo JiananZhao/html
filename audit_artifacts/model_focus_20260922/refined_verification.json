@@ -1,0 +1,93 @@
+{
+  "now_reflexivity_radar.py": {
+    "constant_rank": 50.0,
+    "warmup_nan": true
+  },
+  "single_stock_reflexivity_radar.py": {
+    "constant_rank": 50.0,
+    "warmup_nan": true
+  },
+  "reflexivity_engine.py": {
+    "constant_rank": 50.0,
+    "warmup_nan": true
+  },
+  "reflexivity_interactive_chart.py": {
+    "constant_gap_component": 15.0,
+    "warmup_and_current_missing_nan": true
+  },
+  "daily_market_monitor.py": {
+    "constant_gap_component": 15.0,
+    "warmup_and_current_missing_nan": true
+  },
+  "export_multi_asset_deliverables.py": {
+    "constant_gap_component": 15.0,
+    "warmup_and_current_missing_nan": true
+  },
+  "宏观反身性阿尔法模型_模型A_Plus.py": {
+    "constant_gap_component": 15.0,
+    "warmup_and_current_missing_nan": true
+  },
+  "smh_current_missing_excluded": true,
+  "full_macro_calls": {
+    "QQQ": {
+      "error_type": "UnboundLocalError",
+      "error": "local variable 'can_buy' referenced before assignment",
+      "line": 193,
+      "date": "2009-03-24 00:00:00",
+      "pos": 1.0,
+      "signal_ready": true
+    },
+    "SPY": {
+      "error_type": "UnboundLocalError",
+      "error": "local variable 'can_buy' referenced before assignment",
+      "line": 193,
+      "date": "2009-03-24 00:00:00",
+      "pos": 1.0,
+      "signal_ready": true
+    }
+  },
+  "missing_nfci_gate": {
+    "date": "2020-01-01 00:00:00",
+    "nfci_is_nan": true,
+    "signal_ready": true
+  },
+  "warmup_trading": {
+    "ready_days": 0,
+    "orders": 100,
+    "fills": 5,
+    "first_fill": {
+      "fill_id": "fill_strat_20200102_410e",
+      "order_id": "ord_strat_20200101",
+      "dt": "2020-01-02",
+      "price": 38.19361877441406,
+      "signed_shares": 26.182384180623934,
+      "fee": 0.0,
+      "direction": "BUY"
+    }
+  },
+  "bear_healed_decision": {
+    "orders": [],
+    "pos": 0.0
+  },
+  "breakout_disabled_decision": {
+    "orders": [
+      [
+        1.0,
+        "突破卖出价右侧防踏空接回",
+        "2020-01-02 00:00:00"
+      ]
+    ],
+    "pos": 1.0
+  },
+  "cache_inventory": {
+    "engine_state_exists": false,
+    "states_exists": true,
+    "states_files": [
+      ".states\\energy_radar\\XLE\\energy_radar_v2\\history_daily.csv",
+      ".states\\energy_radar\\XLE\\energy_radar_v2\\history_fills.csv",
+      ".states\\energy_radar\\XLE\\energy_radar_v2\\history_orders.csv",
+      ".states\\energy_radar\\XLE\\energy_radar_v2\\latest.json",
+      ".states\\energy_radar\\XLE\\energy_radar_v2\\snapshots\\ckpt_2026-09-21.json"
+    ]
+  }
+}

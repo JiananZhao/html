@@ -35,30 +35,31 @@ class StateManager:
             raise e
 
     def save_checkpoint(self, strategy_id: str, symbol: str, config_hash: str, 
-                        checkpoint_id: str, state_data: Dict[str, Any]):
+                        checkpoint_id: str, state_data: Dict[str, Any], prefix_hash: str = None):
         """
         保存检查点（一个完整交易日处理成功后调用）。
-        state_data 需要包含：
-        - last_processed_date: 最后处理日期
-        - last_event_phase: 阶段 (如 'EOD')
-        - accounts_state: 策略和基准账户的股数/现金等
-        - pending_orders: 待执行订单
-        - processed_ids: 已处理的订单/资金流标识（防重）
-        - result_refs: 指向 SimulationResult 全量历史的引用
-        - versions: 版本信息
         """
+        import hashlib
+        if prefix_hash is None:
+            # 如果没有传入前缀哈希，则使用状态内容的哈希作为 fallback
+            state_str = json.dumps(state_data, sort_keys=True, ensure_ascii=False)
+            prefix_hash = hashlib.sha256(state_str.encode('utf-8')).hexdigest()[:16]
+            
+        state_data['prefix_hash'] = prefix_hash
         state_dir = self.get_state_dir(strategy_id, symbol, config_hash)
         snapshots_dir = os.path.join(state_dir, "snapshots")
         os.makedirs(snapshots_dir, exist_ok=True)
         
         # 1. 写入快照文件
-        snapshot_path = os.path.join(snapshots_dir, f"{checkpoint_id}.json")
+        snapshot_filename = f"{strategy_id}_{prefix_hash}.json"
+        snapshot_path = os.path.join(snapshots_dir, snapshot_filename)
         self._atomic_write_json(snapshot_path, state_data)
         
         # 2. 更新 latest.json 指向最新快照
         latest_path = os.path.join(state_dir, "latest.json")
         latest_data = {
             "latest_checkpoint_id": checkpoint_id,
+            "prefix_hash": prefix_hash,
             "snapshot_path": snapshot_path,
             "updated_at": pd.Timestamp.now().isoformat()
         }
@@ -83,8 +84,31 @@ class StateManager:
                 with open(snapshot_path, 'r', encoding='utf-8') as sf:
                     return json.load(sf)
         except Exception as e:
-            # 如果 latest 损坏或快照损坏，返回 None，强制全量重放
             print(f"Failed to load checkpoint: {e}")
             return None
             
         return None
+
+    def verify_checkpoint(self, state_data: Dict[str, Any], current_config_hash: str, 
+                          current_prefix_hash: str = None) -> bool:
+        """
+        验证检查点是否合法可以续接
+        """
+        # 1. 校验配置哈希兼容性
+        if state_data.get('config_hash') != current_config_hash:
+            print("Config hash mismatch, cannot resume.")
+            return False
+            
+        # 2. 校验检查点处于完整提交状态
+        if not state_data.get('is_complete', False):
+            print("Checkpoint was not marked as complete.")
+            return False
+            
+        # 3. 校验历史前缀未发生篡改
+        if current_prefix_hash is not None:
+            saved_prefix_hash = state_data.get('prefix_hash')
+            if saved_prefix_hash != current_prefix_hash:
+                print("Prefix hash mismatch (historical data or config changed), cannot resume.")
+                return False
+                
+        return True
