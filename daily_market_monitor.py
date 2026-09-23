@@ -222,7 +222,19 @@ def compute_latest_signals(df_input=None):
         # 宏观过热雷达综合评分 (0-100)
         z_score = np.clip((sub['Price_Z'] - 0.5) / 1.5 * 40.0, 0.0, 40.0)
         dist_score = np.clip((sub['Dist_200MA'] - 5.0) / 15.0 * 30.0, 0.0, 30.0)
-        gap_score = np.clip((sub['Gap'] / sub['Gap_Upper']) * 15.0, 0.0, 30.0)
+        def mid_rank_pct(s):
+            s_valid = s.dropna()
+            if len(s_valid) < 60:
+                return np.nan
+            val = s.iloc[-1]
+            if np.isnan(val):
+                return np.nan
+            L_t = (s_valid < val).sum()
+            E_t = (s_valid == val).sum()
+            N_t = len(s_valid)
+            return (L_t + 0.5 * E_t) / N_t * 30.0
+            
+        gap_score = sub['Gap'].rolling(252, min_periods=60).apply(mid_rank_pct, raw=False)
         sub['Overheat_Score'] = z_score + dist_score + gap_score
         sub['Overheat_Alert'] = sub['Overheat_Score'] >= 70.0
 

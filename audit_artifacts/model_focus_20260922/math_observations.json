@@ -1,0 +1,99 @@
+{
+  "constant_exponential_growth": {
+    "daily_log_return": 0.001,
+    "lppls_r2": 0.9992376167205779,
+    "log_linear_baseline_r2": 1.0
+  },
+  "breadth": {
+    "IGV": {
+      "comparable_dates": 4179,
+      "changed_dates": 2582,
+      "max_difference_percentage_points": 46.666666666666664,
+      "example": {
+        "date": "2010-03-29",
+        "old": 0.5333333333333333,
+        "valid_only": 1.0,
+        "valid_count": 8,
+        "total_count": 15
+      },
+      "changed_dates_in_backtest_window": 2129,
+      "max_difference_pp_in_backtest_window": 46.666666666666664
+    },
+    "SMH": {
+      "comparable_dates": 5056,
+      "changed_dates": 777,
+      "max_difference_percentage_points": 13.33333333333333,
+      "example": {
+        "date": "2007-06-21",
+        "old": 0.8666666666666667,
+        "valid_only": 1.0,
+        "valid_count": 13,
+        "total_count": 15
+      },
+      "changed_dates_in_backtest_window": 412,
+      "max_difference_pp_in_backtest_window": 13.33333333333333
+    }
+  },
+  "macro_gap": {
+    "QQQ": {
+      "nonpositive_upper_dates": 110,
+      "minimum_upper": -0.8082509901557514,
+      "omitted_intercept_median_abs": 0.5649833908973998,
+      "omitted_intercept_max_abs": 1.9081202897550649,
+      "nonpositive_upper_dates_since_2009": 110,
+      "nonpositive_upper_first_date": "2009-01-27",
+      "nonpositive_upper_last_date": "2009-06-29"
+    },
+    "SPY": {
+      "nonpositive_upper_dates": 146,
+      "minimum_upper": -0.9462584267454988,
+      "omitted_intercept_median_abs": 0.5811388250167613,
+      "omitted_intercept_max_abs": 2.0882192731393667,
+      "nonpositive_upper_dates_since_2009": 146,
+      "nonpositive_upper_first_date": "2009-01-27",
+      "nonpositive_upper_last_date": "2009-08-18"
+    }
+  },
+  "signed_threshold_counterexample": {
+    "gap": -2,
+    "gap_upper": -1,
+    "score": 30.0
+  },
+  "now_crisis_suppression": {
+    "bear_condition_dates": 132,
+    "suppressed_signal_dates": 86,
+    "examples": [
+      "2022-04-22",
+      "2022-04-25",
+      "2022-04-26",
+      "2022-04-27",
+      "2022-04-28",
+      "2022-04-29",
+      "2022-05-02",
+      "2022-05-03"
+    ],
+    "note": "Condition dates, not unique trades or confirmed held-position exits."
+  },
+  "now_price_factor_spearman": {
+    "Score_Dim1_Pos": {
+      "Score_Dim1_Pos": 1.0,
+      "Score_Dim2_Vel": 0.2209987034112856,
+      "Score_Dim3_Lyapunov": -0.012952700040833421
+    },
+    "Score_Dim2_Vel": {
+      "Score_Dim1_Pos": 0.2209987034112856,
+      "Score_Dim2_Vel": 1.0,
+      "Score_Dim3_Lyapunov": 0.3018325016365195
+    },
+    "Score_Dim3_Lyapunov": {
+      "Score_Dim1_Pos": -0.012952700040833421,
+      "Score_Dim2_Vel": 0.3018325016365195,
+      "Score_Dim3_Lyapunov": 1.0
+    }
+  },
+  "now_capital_score": {
+    "min": 15.506409643607162,
+    "max": 99.86830989990163
+  },
+  "constant_series_rank": 50.0
+}

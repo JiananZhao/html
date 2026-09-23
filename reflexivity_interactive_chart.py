@@ -58,7 +58,19 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     # 5. 双轨制宏观过热雷达分 (0 - 100)
     z_score = np.clip((sub['Price_Z'] - 0.5) / 1.5 * 40.0, 0.0, 40.0)
     dist_score = np.clip((sub['Dist_200MA'] - 5.0) / 15.0 * 30.0, 0.0, 30.0)
-    gap_score = np.clip((sub['Gap'] / sub['Gap_Upper']) * 15.0, 0.0, 30.0)
+    def mid_rank_pct(s):
+        s_valid = s.dropna()
+        if len(s_valid) < 60:
+            return np.nan
+        val = s.iloc[-1]
+        if np.isnan(val):
+            return np.nan
+        L_t = (s_valid < val).sum()
+        E_t = (s_valid == val).sum()
+        N_t = len(s_valid)
+        return (L_t + 0.5 * E_t) / N_t * 30.0
+        
+    gap_score = sub['Gap'].rolling(252, min_periods=60).apply(mid_rank_pct, raw=False)
     sub['Overheat_Score'] = z_score + dist_score + gap_score
     sub['Overheat_Alert'] = sub['Overheat_Score'] >= 70.0
 
@@ -85,7 +97,9 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     sub['Above_MA20_Conf'] = (sub[ticker] > sub['MA20']).rolling(3, min_periods=1).sum() == 3
     sub['Cond_Panic'] = (sub['Dist_200MA'].rolling(10, min_periods=1).min() < -10.0) & (sub[ticker] > sub['MA10'])
 
-    sub = sub.dropna().reset_index(drop=True)
+    core_cols = ['Overheat_Score', 'Gap', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', ticker, 'MA200']
+    sub['signal_ready'] = sub[core_cols].notna().all(axis=1)
+    # No dropna() here to preserve the timeline
     sub = sub[sub['date'] >= '2009-01-01'].reset_index(drop=True)
 
     # 7. 接入共享执行器与单位化核算 (T+1 延迟执行, 新版账户)
@@ -130,51 +144,57 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
         gap_med = sub['Gap_Median'].iloc[i]
         p_val = p
 
-        # 卖出逻辑
-        if pos > 0 and sub['Sell_Signal'].iloc[i]:
-            is_bub = sub['Cond_Bubble'].iloc[i]
-            exit_regime = 'BUBBLE' if is_bub else 'BEAR'
-            r_reason = '宏观黄昏期泡沫止盈' if is_bub else '系统宏观紧缩熊市避险'
-            executor.submit_order(0.0, r_reason, dt)
-            pos = 0.0
+        signal_ready = sub.get('signal_ready', pd.Series([True]*len(sub))).iloc[i]
 
-        # 买入逻辑
-        elif pos == 0.0:
-            can_buy = False
-            b_reason = ""
-
-            if exit_regime == 'BUBBLE':
-                is_panic = sub['Cond_Panic'].iloc[i]
-                gap_cooled = (gap < gap_med)
-                trend_conf = sub['Above_MA20_Conf'].iloc[i] and sub['Above_MA50_Conf'].iloc[i]
-                
-                # 必须使用已实际成交的 last_sell_p
-                last_sell_p = executor.last_sell_p
+        if signal_ready:
+            # 卖出逻辑
+            if pos > 0 and sub['Sell_Signal'].iloc[i]:
+                is_bub = sub['Cond_Bubble'].iloc[i]
+                exit_regime = 'BUBBLE' if is_bub else 'BEAR'
+                r_reason = '宏观黄昏期泡沫止盈' if is_bub else '系统宏观紧缩熊市避险'
+                executor.submit_order(0.0, r_reason, dt)
+                pos = 0.0
+            
+            # 买入逻辑
+            elif pos == 0.0:
+                can_buy = False
+                b_reason = ""
+                is_panic = False
+                gap_cooled = False
+                trend_conf = False
                 breakout_higher = False
-                if last_sell_p is not None:
-                    breakout_higher = (p_val > last_sell_p * 1.02) and trend_conf
 
-                if is_panic:
-                    can_buy = True
-                    b_reason = '泡沫急跌杀出极值黄金坑'
-                elif gap_cooled and trend_conf:
-                    can_buy = True
-                    b_reason = '估值出清且右侧重构主升'
-                elif allow_breakout and breakout_higher:
-                    can_buy = True
-                    b_reason = '突破卖出价右侧防踏空接回'
+                if exit_regime == 'BUBBLE':
+                    is_panic = sub['Cond_Panic'].iloc[i]
+                    gap_cooled = (gap < gap_med)
+                    trend_conf = sub['Above_MA20_Conf'].iloc[i] and sub['Above_MA50_Conf'].iloc[i]
+                    
+                    # 必须使用已实际成交的 last_sell_p
+                    last_sell_p = executor.last_sell_p
+                    if last_sell_p is not None:
+                        breakout_higher = (p_val > last_sell_p * 1.02) and trend_conf
 
-            elif exit_regime == 'BEAR':
-                hyg_healed = (sub['HYG'].iloc[i] > sub['HYG_MA200'].iloc[i])
-                price_healed = sub['Above_MA50_Conf'].iloc[i]
-                if hyg_healed and price_healed:
-                    can_buy = True
-                    b_reason = '信用债先导修复且趋势重构'
+                    if is_panic:
+                        can_buy = True
+                        b_reason = '泡沫急跌杀出极值黄金坑'
+                    elif gap_cooled and trend_conf:
+                        can_buy = True
+                        b_reason = '估值出清且右侧重构主升'
+                    elif allow_breakout and breakout_higher:
+                        can_buy = True
+                        b_reason = '突破卖出价右侧防踏空接回'
 
-            if can_buy:
-                executor.submit_order(1.0, b_reason, dt)
-                pos = 1.0
-                exit_regime = None
+                elif exit_regime == 'BEAR':
+                    hyg_healed = (sub['HYG'].iloc[i] > sub['HYG_MA200'].iloc[i])
+                    price_healed = sub['Above_MA50_Conf'].iloc[i]
+                    if hyg_healed and price_healed:
+                        can_buy = True
+                        b_reason = '信用债先导修复且趋势重构'
+
+                if can_buy:
+                    executor.submit_order(1.0, b_reason, dt)
+                    pos = 1.0
+                    exit_regime = None
         else:
             # 保持目标仓位，允许 DCA 资金在下一日自动买入
             executor.submit_order(pos, "Standing Order / DCA", dt)

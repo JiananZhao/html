@@ -110,19 +110,22 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
             v = vals[i]
             if np.isnan(v):
                 continue
-            pos = bisect.bisect_right(sorted_arr, v)
-            sorted_arr.insert(pos, v)
-            if len(sorted_arr) >= min_periods:
-                res[i] = (pos / len(sorted_arr)) * 100.0
+            pos_left = bisect.bisect_left(sorted_arr, v)
+            pos_right = bisect.bisect_right(sorted_arr, v)
+            sorted_arr.insert(pos_right, v)
+            N_t = len(sorted_arr)
+            if N_t >= min_periods:
+                E_t = pos_right - pos_left + 1
+                res[i] = 100.0 * (pos_left + 0.5 * E_t) / N_t
         return pd.Series(res, index=s.index)
 
-    df['Score_Dim1_Pos'] = expanding_rank(df['q1']).fillna(50.0)
-    df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot']).fillna(50.0)
-    df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot']).fillna(50.0)
+    df['Score_Dim1_Pos'] = expanding_rank(df['q1'])
+    df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot'])
+    df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot'])
     # 剥离专用内部人交易 (Score_Dim4_Capital 权重置0)，此处全设为 50中性
     df['Score_Dim4_Capital'] = 50.0 
-    df['Score_Dim5_Liquidity'] = (expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4).fillna(50.0)
-    df['Score_Dim6_Macro'] = (expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5).fillna(50.0)
+    df['Score_Dim5_Liquidity'] = (expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4)
+    df['Score_Dim6_Macro'] = (expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5)
 
     # 重新分配权重 (总和=1.0)
     # Pos: 0.30, Vel: 0.20, Lyapunov: 0.20, Liquidity: 0.10, Macro: 0.20

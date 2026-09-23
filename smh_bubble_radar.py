@@ -52,6 +52,9 @@ class SMHBubbleRadar:
 
         df = pd.merge(df_m, df_c, on='date', how='left').sort_values('date').reset_index(drop=True)
         const_cols = [c for c in df_c.columns if c != 'date']
+        
+        self.fresh_mask = df[const_cols].notna()
+        
         df[const_cols] = df[const_cols].ffill()
         self.df = df
         self.const_cols = const_cols
@@ -129,8 +132,11 @@ class SMHBubbleRadar:
         # -------------------------------------------------------------
         # 维度 3: 内部成分股广度高位顶背离 (Score_Breadth, 25%)
         # -------------------------------------------------------------
+        is_valid = pd.DataFrame({c: self.fresh_mask[c] & df[c].rolling(50, min_periods=20).mean().notna() for c in self.const_cols})
         above = pd.DataFrame({c: df[c] > df[c].rolling(50, min_periods=20).mean() for c in self.const_cols})
-        df['Breadth_50'] = above.sum(axis=1) / above.notna().sum(axis=1)
+        df['Breadth_Valid_Count'] = is_valid.sum(axis=1)
+        df['Breadth_Coverage'] = df['Breadth_Valid_Count'] / len(self.const_cols)
+        df['Breadth_50'] = (above & is_valid).sum(axis=1) / df['Breadth_Valid_Count'].replace(0, np.nan)
         df['High_60'] = df[ticker].rolling(60, min_periods=20).max()
         df['Price_Ratio_High'] = df[ticker] / df['High_60']
 

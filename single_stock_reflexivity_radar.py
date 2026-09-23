@@ -208,18 +208,21 @@ class NOWReflexivityRadar:
                 v = vals[i]
                 if np.isnan(v):
                     continue
-                pos = bisect.bisect_right(sorted_arr, v)
-                sorted_arr.insert(pos, v)
-                if len(sorted_arr) >= min_periods:
-                    res[i] = (pos / len(sorted_arr)) * 100.0
+                pos_left = bisect.bisect_left(sorted_arr, v)
+                pos_right = bisect.bisect_right(sorted_arr, v)
+                sorted_arr.insert(pos_right, v)
+                N_t = len(sorted_arr)
+                if N_t >= min_periods:
+                    E_t = pos_right - pos_left + 1
+                    res[i] = 100.0 * (pos_left + 0.5 * E_t) / N_t
             return pd.Series(res, index=s.index)
 
         # 维度 1: 势能位置
-        df['Score_Dim1_Pos'] = expanding_rank(df['q1']).fillna(50.0)
+        df['Score_Dim1_Pos'] = expanding_rank(df['q1'])
         # 维度 2: 动能速度
-        df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot']).fillna(50.0)
-        # 维度 3: 李雅普诺夫稳定性导数
-        df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot']).fillna(50.0)
+        df['Score_Dim2_Vel'] = expanding_rank(df['q1_dot'])
+        # 维度 3: 李雅普诺夫加速度
+        df['Score_Dim3_Lyapunov'] = expanding_rank(df['v_dot'])
         # 维度 4: 资本稀释与高管减持
         insider_roll = df['insider_net_flow_m'].rolling(60).sum()
         shares_growth = df['diluted_shares_m'].pct_change(252)
@@ -228,12 +231,15 @@ class NOWReflexivityRadar:
         ).fillna(50.0)
         # 维度 5: 微观筹码与资金流向
         df['Score_Dim5_Liquidity'] = (
-            expanding_rank(df['CMF20']) * 0.6 + expanding_rank(df['Vol_Ratio50']) * 0.4
-        ).fillna(50.0)
-        # 维度 6: 宏观信用与金融条件收紧
+            expanding_rank(df['CMF20']) * 0.6 + 
+            expanding_rank(df['Vol_Ratio50']) * 0.4
+        )
+        
+        # 维度 6: 宏观反身性环境 (NFCI 越低，流动性越好)
         df['Score_Dim6_Macro'] = (
-            expanding_rank(df['BAA10Y']) * 0.5 + expanding_rank(df['NFCI']) * 0.5
-        ).fillna(50.0)
+            expanding_rank(df['BAA10Y']) * 0.5 + 
+            expanding_rank(df['NFCI']) * 0.5
+        )
 
         # 8. 综合反身性过热得分 (Composite Overheat Score)
         df['Composite_Score'] = (
@@ -294,7 +300,12 @@ class NOWReflexivityRadar:
         # 4. 券商实盘买卖条件 (Execution Layer)
         cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
         cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
-        raw_buy = cond_panic | cond_trend
+        
+        core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'HYG', 'RY_Surge', 'NOW', 'MA200', 'MA50', 'MA10']
+        df_bt['signal_ready'] = df_bt[core_cols].notna().all(axis=1)
+
+        raw_sell = (cond_bubble | cond_bear) & (~recently_crashed) & df_bt['signal_ready']
+        raw_buy = (cond_panic | cond_trend) & df_bt['signal_ready']
 
         # -------------------------------------------------------------
         # 核心解耦：客观雷达高信噪比观测信号层 (Pure High-SNR Observational Signals)
@@ -462,18 +473,21 @@ class NOWReflexivityRadar:
             # T日收盘后产生新信号
             # T日收盘后产生新信号
             action = 'HOLD'
-            if pos > 0 and s:
-                reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
-                pos = 0.0
-                executor.submit_order(pos, reason, dt)
-                action = 'SELL'
-            elif pos == 0.0 and b:
-                reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
-                pos = 1.0
-                executor.submit_order(pos, reason, dt)
-                action = 'BUY'
+            if df_bt['signal_ready'].iloc[i]:
+                if pos > 0 and s:
+                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
+                    pos = 0.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'SELL'
+                elif pos == 0.0 and b:
+                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
+                    pos = 1.0
+                    executor.submit_order(pos, reason, dt)
+                    action = 'BUY'
+                else:
+                    executor.submit_order(pos, "Standing Order / DCA", dt)
             else:
-                executor.submit_order(pos, "Standing Order / DCA", dt)
+                action = 'WAITING'
 
             action_hist.append(action)
 

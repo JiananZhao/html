@@ -1,0 +1,15 @@
+{
+  "rows": 4198,
+  "max_abs_differences": {
+    "diluted_shares_m": 0.0,
+    "sbc_pct_rev": 0.0,
+    "insider_net_flow_m": 0.0
+  },
+  "source": "scripts/fetch_now_sec_via_gemini.py: hardcoded quarters + merge_asof(period date) + bfill",
+  "local_columns": [
+    "date",
+    "diluted_shares_m",
+    "sbc_pct_rev",
+    "insider_net_flow_m"
+  ]
+}
