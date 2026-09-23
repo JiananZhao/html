@@ -103,19 +103,6 @@ with contextlib.redirect_stdout(io.StringIO()):
     model = env["NOWReflexivityRadar"]()
     model.load_and_preprocess()
     df = model.compute_all_dimensions()
-df_bt = df[df["date"] >= "2013-06-01"].copy().reset_index(drop=True)
-original = source_class("now_reflexivity_radar.py")
-backtest = next(node for node in original.body if getattr(node, "name", "") == "run_backtest")
-conditions = [node for node in backtest.body if 255 <= node.lineno <= 277]
-env = {"df_bt": df_bt}
-execute(conditions, env)
-suppressed = env["cond_bear"] & env["recently_crashed"]
-observations["now_crisis_suppression"] = {
-    "bear_condition_dates": int(env["cond_bear"].sum()),
-    "suppressed_signal_dates": int(suppressed.sum()),
-    "examples": df_bt.loc[suppressed, "date"].dt.strftime("%Y-%m-%d").head(8).tolist(),
-    "note": "Condition dates, not unique trades or confirmed held-position exits.",
-}
 observations["now_price_factor_spearman"] = df[["Score_Dim1_Pos", "Score_Dim2_Vel", "Score_Dim3_Lyapunov"]].corr(method="spearman").to_dict()
 observations["now_capital_score"] = {
     "min": float(df["Score_Dim4_Capital"].min()),
