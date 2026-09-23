@@ -80,8 +80,18 @@ class VNQBubbleRadar:
         df_m = pd.read_csv(self.macro_file)
         df_c = pd.read_csv(self.const_file)
 
-        df = pd.merge(df_m, df_c, on='date', how='inner').sort_values('date').reset_index(drop=True)
+        # 使用 left merge 保留所有个股成分最新报价，前向填充滞后的宏观数据
+        df = pd.merge(df_c, df_m, on='date', how='left').sort_values('date').reset_index(drop=True)
+        const_cols = [c for c in df_c.columns if c != 'date']
+        
+        self.fresh_mask = df[const_cols].notna()
+        
+        # 前向填充最多 5 天的宏观数据与部分缺失个股数据
+        fill_cols = [c for c in df_m.columns if c != 'date'] + const_cols
+        df[fill_cols] = df[fill_cols].ffill(limit=5)
+        df = df.dropna(subset=['HYG', 'BAA10Y', 'NFCI', 'Real_Yield']).reset_index(drop=True)
         self.df = df
+        self.const_cols = const_cols
         return df
 
     def compute_all_dimensions(self):

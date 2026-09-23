@@ -126,10 +126,16 @@ class NOWReflexivityRadar:
         df_s = pd.read_csv(self.sec_file)
         df_s['date'] = pd.to_datetime(df_s['date'])
 
-        df = pd.merge(df_p, df_m[['date', 'SPY', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='inner')
+        # 使用 left merge 保留个股所有的最新交易日，并前向填充滞后的宏观数据，防止最新 K 线被截断
+        df = pd.merge(df_p, df_m[['date', 'SPY', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='left')
         df = pd.merge(df, df_s, on='date', how='left')
         df.rename(columns={'close': 'NOW'}, inplace=True)
         df = df.sort_values('date').reset_index(drop=True)
+
+        # 前向填充最多 5 天的宏观与基本面数据
+        fill_cols = ['SPY', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield'] + list(df_s.columns.drop('date', errors='ignore'))
+        df[fill_cols] = df[fill_cols].ffill(limit=5)
+        df = df.dropna(subset=['HYG', 'BAA10Y', 'NFCI', 'Real_Yield']).reset_index(drop=True)
 
         print(f"✅ 成功合并数据，跨度从 {df['date'].iloc[0].strftime('%Y-%m-%d')} 到 {df['date'].iloc[-1].strftime('%Y-%m-%d')} (共 {len(df)} 个交易日)")
         self.df = df

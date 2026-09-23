@@ -211,32 +211,66 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     df['Trigger_Bear_Top'] = apply_hys(df, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
     
     # =========================================================================
-    # 第九步：生成轻量化的实盘执行记录 (供 Dashboard 提取绘制 B/S 图标)
+    # 第九步：集成真实券商账本系统 (SharedExecutor Single Source of Truth)
     # =========================================================================
     core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', 'close', 'MA200', 'MA50', 'MA10']
     df['signal_ready'] = df[core_cols].notna().all(axis=1)
 
     cond_trend = (df['close'] > df['MA50']).rolling(3).sum() == 3
+    
+    # 统一使用带有迟滞抗震荡机制的 Trigger 信号作为买卖输入
     raw_sell = (df['Trigger_Bubble_Top'] | df['Trigger_Bear_Top']) & df['signal_ready']
     raw_buy = (df['Trigger_Panic'] | cond_trend) & df['signal_ready']
 
-    action_list = []
-    pos = 1.0
+    from shared_executor import SharedExecutor
+    from true_accounting import UnitizedAccount
+    
+    strat_acc = UnitizedAccount(initial_cash=100000.0, initial_date=df['date'].iloc[0])
+    executor = SharedExecutor(strat_acc, fee_rate=0.0, execution_mode='NEXT_CLOSE', account_type='strat')
+    
+    actions = []
+    pos = 1.0  # 初始默认满仓
+    curr_m = -1
+
     for i in range(len(df)):
-        if df['signal_ready'].iloc[i]:
+        dt = df['date'].iloc[i]
+        p_close = df['close'].iloc[i]
+        is_valid = not np.isnan(p_close)
+        
+        # 记录本月初定投 (模拟每月1号定投1000)
+        m = dt.month
+        if m != curr_m and df['signal_ready'].iloc[i]:
+            executor.schedule_cashflow(dt, 1000.0)
+            curr_m = m
+
+        executor.step(dt, p_open=p_close, p_close=p_close, is_p_open_valid=is_valid, is_p_close_valid=is_valid)
+
+        if df['signal_ready'].iloc[i] and is_valid:
             s = raw_sell.iloc[i]
             b = raw_buy.iloc[i]
+
             if pos > 0 and s:
                 pos = 0.0
-                action_list.append('SELL')
+                executor.place_order(dt, order_type='SELL', target_weight=0.0, reason='Macro Reflexivity Risk / Bear Exhaustion')
             elif pos == 0.0 and b:
                 pos = 1.0
-                action_list.append('BUY')
-            else:
-                action_list.append('HOLD')
-        else:
-            action_list.append('WAITING')
+                executor.place_order(dt, order_type='BUY', target_weight=1.0, reason='Panic Bottom / Trend Breakout Re-entry')
+                
+        executor.mark_to_market(dt, p_close)
+        
+        # 回溯当天的买卖动作供 UI 画图使用
+        today_action = 'HOLD'
+        # 查找当天是否成交
+        for tr in executor.trades:
+            if tr['date'].strftime('%Y-%m-%d') == dt.strftime('%Y-%m-%d'):
+                today_action = tr['type']
+                break
+                
+        if not df['signal_ready'].iloc[i]:
+            today_action = 'WAITING'
             
-    df['action'] = action_list
+        actions.append(today_action)
+        
+    df['action'] = actions
 
     return df
