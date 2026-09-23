@@ -26,9 +26,16 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     df_price['date'] = pd.to_datetime(df_price['date']).dt.tz_localize(None)
     df_macro['date'] = pd.to_datetime(df_macro['date']).dt.tz_localize(None)
     
-    # 使用 inner merge 严格对齐交易日
-    df = pd.merge(df_price, df_macro[['date', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='inner')
+    # 使用 left merge 保留所有交易日，并前向填充宏观数据（最多5天），解决个股数据被陈旧宏观数据截断的问题
+    df = pd.merge(df_price, df_macro[['date', 'HYG', 'BAA10Y', 'NFCI', 'Real_Yield']], on='date', how='left')
     df = df.sort_values('date').reset_index(drop=True)
+    
+    # 前向填充最新几天的缺失宏观数据
+    macro_cols = ['HYG', 'BAA10Y', 'NFCI', 'Real_Yield']
+    df[macro_cols] = df[macro_cols].ffill(limit=5)
+    
+    # 剔除完全没有宏观数据的早期历史
+    df = df.dropna(subset=macro_cols).reset_index(drop=True)
     
     if len(df) < 252:
         # 数据过少，直接返回原数据
