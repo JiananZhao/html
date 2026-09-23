@@ -397,30 +397,34 @@ def get_risk_ratios_data():
 # ------------------------------------------------------------------
 # 3. 个股量化、财务报表与半导体产业链数据获取函数
 # ------------------------------------------------------------------
-@st.cache_data(ttl=60 * 60 * 4)
 def get_stock_historical_data(symbol: str, period="5y"):
+    """
+    通过 stock_data_service 获取个股行情，自动享受冷却保护与本地历史数据兜底，不长期缓存空结果
+    """
     try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period)
+        from core_engine.stock_data_service import get_stock_price_data
+        df, meta = get_stock_price_data(symbol, period=period)
         if not df.empty:
-            df = df.reset_index()
+            df = df.copy()
+            if 'Date' not in df.columns and 'date' in df.columns:
+                df.rename(columns={'date': 'Date'}, inplace=True)
             if 'Date' in df.columns:
                 df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
             return df
     except Exception as e:
-        print(f"yfinance fetch error for {symbol}: {e}")
+        print(f"stock_data_service fetch error for {symbol}: {e}")
     return pd.DataFrame()
 
-@st.cache_data(ttl=60 * 60 * 6)
 def get_stock_fundamentals(symbol: str):
+    """
+    通过 stock_data_service 获取个股基础资料，具备 401/429 分级冷却，不长期缓存空字典
+    """
     try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        return info
+        from core_engine.stock_data_service import get_stock_profile
+        res = get_stock_profile(symbol)
+        return res.get("data", {})
     except Exception as e:
-        print(f"yfinance info fetch error for {symbol}: {e}")
+        print(f"stock_data_service profile error for {symbol}: {e}")
         return {}
 
 @st.cache_data(ttl=60 * 60 * 12)
