@@ -837,7 +837,7 @@ def render_company_deep_dive_tab():
             from visualization import create_interactive_reflexivity_radar
             import os
             
-            @st.cache_data(ttl=3600)
+            @st.cache_data(ttl=600)
             def load_and_cache_radar_data(sym):
                 df_p = yf.download(sym, period="10y", interval="1d", progress=False)
                 if isinstance(df_p.columns, pd.MultiIndex):
