@@ -240,10 +240,10 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
         # 记录本月初定投 (模拟每月1号定投1000)
         m = dt.month
         if m != curr_m and df['signal_ready'].iloc[i]:
-            executor.schedule_cashflow(dt, 1000.0)
+            executor.step(dt, p_open=p_close, p_close=p_close, dca_amount=1000.0)
             curr_m = m
-
-        executor.step(dt, p_open=p_close, p_close=p_close, is_p_open_valid=is_valid, is_p_close_valid=is_valid)
+        else:
+            executor.step(dt, p_open=p_close, p_close=p_close)
 
         if df['signal_ready'].iloc[i] and is_valid:
             s = raw_sell.iloc[i]
