@@ -203,4 +203,33 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
     df['Trigger_Bubble_Top'] = apply_hys(df, raw_bubble_top, min_days=25, price_step=0.08, is_top=True)
     df['Trigger_Bear_Top'] = apply_hys(df, raw_bear_top, min_days=20, price_step=0.06, is_top=True)
     
+    # =========================================================================
+    # 第九步：生成轻量化的实盘执行记录 (供 Dashboard 提取绘制 B/S 图标)
+    # =========================================================================
+    core_cols = ['Composite_Score', 'Gap_Max_45', 'Dist_200MA', 'NFCI', 'BAA10Y', 'HYG', 'Real_Yield', 'close', 'MA200', 'MA50', 'MA10']
+    df['signal_ready'] = df[core_cols].notna().all(axis=1)
+
+    cond_trend = (df['close'] > df['MA50']).rolling(3).sum() == 3
+    raw_sell = (df['Trigger_Bubble_Top'] | df['Trigger_Bear_Top']) & df['signal_ready']
+    raw_buy = (df['Trigger_Panic'] | cond_trend) & df['signal_ready']
+
+    action_list = []
+    pos = 1.0
+    for i in range(len(df)):
+        if df['signal_ready'].iloc[i]:
+            s = raw_sell.iloc[i]
+            b = raw_buy.iloc[i]
+            if pos > 0 and s:
+                pos = 0.0
+                action_list.append('SELL')
+            elif pos == 0.0 and b:
+                pos = 1.0
+                action_list.append('BUY')
+            else:
+                action_list.append('HOLD')
+        else:
+            action_list.append('WAITING')
+            
+    df['action'] = action_list
+
     return df
