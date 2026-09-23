@@ -251,17 +251,17 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
 
             if pos > 0 and s:
                 pos = 0.0
-                executor.place_order(dt, order_type='SELL', target_weight=0.0, reason='Macro Reflexivity Risk / Bear Exhaustion')
+                executor.submit_order(target_position=0.0, reason='Macro Reflexivity Risk / Bear Exhaustion', dt=dt)
             elif pos == 0.0 and b:
                 pos = 1.0
-                executor.place_order(dt, order_type='BUY', target_weight=1.0, reason='Panic Bottom / Trend Breakout Re-entry')
+                executor.submit_order(target_position=1.0, reason='Panic Bottom / Trend Breakout Re-entry', dt=dt)
                 
         # 回溯当天的买卖动作供 UI 画图使用
         today_action = 'HOLD'
         # 查找当天是否成交
-        for tr in executor.trades:
-            if tr['date'].strftime('%Y-%m-%d') == dt.strftime('%Y-%m-%d'):
-                today_action = tr['type']
+        for fill in executor.fills:
+            if fill['dt'] == dt.strftime('%Y-%m-%d'):
+                today_action = fill['direction']
                 break
                 
         if not df['signal_ready'].iloc[i]:
