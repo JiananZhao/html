@@ -1,0 +1,34 @@
+{
+  "now_ohlcv_local.csv": {
+    "sha256": "2bb09ae39ce32e454b54768571ae2f0acc440925d958707cd4e0addabe2c3f4e",
+    "size": 328336
+  },
+  "market_data_local.csv": {
+    "sha256": "3211d2c01a6a0137ca15e701aa7da1907f32afa1beb75333eca268e7a5cc5fce",
+    "size": 1152110
+  },
+  "audit_artifacts/gemini_review_20260923/run_factorial_experiment.py": {
+    "sha256": "52c8a15cf7c9c222471618118e1cd5e017dc2cf4b51dde731a8afe0ef4493e92",
+    "size": 27764
+  },
+  "reflexivity_engine.py": {
+    "sha256": "029871848e3b6bae84d6aa90d0599e14074b43e19d71e009ecdc23d5c50a143c",
+    "size": 16259
+  },
+  "shared_executor.py": {
+    "sha256": "ecbdb72e912f6196f8bcdd52135e1f94697b50d58239c695b8d4588942ee2fe9",
+    "size": 11697
+  },
+  "true_accounting.py": {
+    "sha256": "c6e85c646545a696872501522c844b6815a1092124edc23883d2e575391a1118",
+    "size": 8266
+  },
+  "audit_artifacts/gemini_review_20260923/v2_1_independent_review/REVIEW.md": {
+    "sha256": "2c1b814258f6742fba3dd636e6630234e24b0dc4c8bab3550926be4844e1756e",
+    "size": 6623
+  },
+  "audit_artifacts/gemini_review_20260923/v2_1_independent_review/findings.json": {
+    "sha256": "ac33ec895954997a5866d26f3df35d2159c33067093c9770de17d0c25f232675",
+    "size": 4588
+  }
+}

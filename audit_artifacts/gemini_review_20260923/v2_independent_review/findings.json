@@ -1,0 +1,92 @@
+{
+  "benchmark_first_month_counterexample": {
+    "fills": 0,
+    "cash": 11000.0,
+    "orders": [
+      {
+        "order_id": "ord_bench_20230102",
+        "status": "CANCELLED",
+        "submit_dt": "2023-01-02",
+        "planned_dt": null,
+        "target": 1.0,
+        "reason": "Benchmark Initial Buy",
+        "validity": "GTC"
+      }
+    ],
+    "pending": []
+  },
+  "factor_c_disabled_stop_orders": [
+    {
+      "order_id": "ord_strat_20230111",
+      "status": "FILLED",
+      "submit_dt": "2023-01-11",
+      "planned_dt": null,
+      "target": 0.0,
+      "reason": "STOP_LOSS_5PCT",
+      "validity": "GTC",
+      "actual_dt": "2023-01-12"
+    }
+  ],
+  "disabled_stop_and_bubble_reentry_test_suite": {
+    "tests_run": 6,
+    "passed": true,
+    "log": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.042s\n\nOK\n"
+  },
+  "latch_consumed_before_hysteresis": {
+    "raw_candidate_indices": [
+      1,
+      5
+    ],
+    "final_signal_indices": [
+      1
+    ]
+  },
+  "main_generated_csvs": [
+    "factorial_ablation_results_v2_qqq.csv",
+    "factorial_ablation_results_v2_spy.csv"
+  ],
+  "cross_asset_csv_exact_matches": {
+    "qqq": true,
+    "spy": true
+  },
+  "main_exports_now_csv": false,
+  "now_selected_reproduction": {
+    "C0": {
+      "strat_final": 327067.32,
+      "bench_final": 757398.63,
+      "strat_xirr": 10.25,
+      "bench_xirr": 21.57,
+      "alpha_xirr_diff": -11.32,
+      "alpha_cagr": -11.32,
+      "strat_mdd": -54.06,
+      "bench_mdd": -64.54,
+      "round_trips": 66,
+      "short_term_round_trips": 14,
+      "short_term_rate": 21.21,
+      "avg_trade_pnl": 2.95,
+      "benchmark_terminal_cash": -0.0,
+      "stop_orders": 15,
+      "benchmark_first_fill": "2014-05-02"
+    },
+    "C7": {
+      "strat_final": 358869.15,
+      "bench_final": 757398.63,
+      "strat_xirr": 11.53,
+      "bench_xirr": 21.57,
+      "alpha_xirr_diff": -10.04,
+      "alpha_cagr": -10.04,
+      "strat_mdd": -55.29,
+      "bench_mdd": -64.54,
+      "round_trips": 56,
+      "short_term_round_trips": 15,
+      "short_term_rate": 26.79,
+      "avg_trade_pnl": 3.57,
+      "benchmark_terminal_cash": -0.0,
+      "stop_orders": 11,
+      "benchmark_first_fill": "2014-05-02"
+    }
+  },
+  "old_verifier_c7_missing_flags": 589160.8,
+  "c7_with_execution_flags": 517268.63,
+  "original_files_unchanged": true
+}

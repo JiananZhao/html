@@ -1,0 +1,130 @@
+{
+  "model_equivalence": {
+    "row_2020_03_20": {
+      "q1": -9.694703,
+      "q1_dot": -2.252796,
+      "q1_ddot": -0.160734,
+      "v_dot": 58.05033,
+      "Composite_Score_M0": 47.325476,
+      "Score_Overheat_A": 14.773641,
+      "Score_PanicDepth_A": 97.103233
+    },
+    "all_35_masks_equal": true,
+    "max_diffs_valid_rows": {
+      "close": 0.0,
+      "high": 0.0,
+      "low": 0.0,
+      "open": 0.0,
+      "volume": 0.0,
+      "HYG": 0.0,
+      "BAA10Y": 0.0,
+      "NFCI": 0.0,
+      "Real_Yield": 0.0,
+      "MA10": 0.0,
+      "MA20": 0.0,
+      "MA50": 0.0,
+      "MA200": 0.0,
+      "Dist_200MA": 0.0,
+      "Dist_50MA": 0.0,
+      "MA200_Slope": 0.0,
+      "q1": 0.0,
+      "q1_dot": 0.0,
+      "q1_ddot": 0.0,
+      "v_dot": 0.0,
+      "Quadrant": 0.0,
+      "CMF20": 0.0,
+      "Vol_Ratio50": 0.0,
+      "Score_Dim1_Pos": 0.0,
+      "Score_Dim2_Vel": 0.0,
+      "Score_Dim3_Lyapunov": 0.0,
+      "Score_Dim5_Liquidity": 0.0,
+      "Score_Dim6_Macro": 0.0,
+      "Composite_Score_M0": 0.0,
+      "Score_Overheat_A": 0.0,
+      "Score_MacroStress_A": 0.0,
+      "Score_PanicDepth_A": 0.0,
+      "Macro_MA200": 0.0,
+      "RY_Surge": 0.0,
+      "macro_crisis_regime": 0.0
+    },
+    "c0_signals_100pct_match": true,
+    "status": "PASS"
+  },
+  "production_baseline": {
+    "production_signal_ready_start": "2014-04-16",
+    "v2_3_signal_ready_start": "2014-04-16",
+    "full_history_parity": true,
+    "status": "PASS"
+  },
+  "stop_clock_advancement": {
+    "day_10_valid_stop_triggered": true,
+    "day_12_expired_stop_ignored": true,
+    "status": "PASS"
+  },
+  "dca_and_pending_sell_protection": {
+    "dca_cash_fully_invested": true,
+    "final_cash": -1.1368683772161603e-13,
+    "pending_sell_protected": true,
+    "mutation_verified": true,
+    "status": "PASS"
+  },
+  "open_position_and_forward_returns": {
+    "stale_open_position_value": 12000.0,
+    "reconciles_with_executor_equity": true,
+    "missing_horizon_quote_sets_valid_false": true,
+    "status": "PASS"
+  },
+  "extrema_evaluation_window": {
+    "s_40_misses_peak_50": true,
+    "s_60_hits_peak_50": true,
+    "cross_boundary_fdr_zero": true,
+    "status": "PASS"
+  },
+  "subperiod_deliverable": {
+    "modes_covered": [
+      "Mode_A_Continuous_Inherited",
+      "Mode_B_Fresh_Reset"
+    ],
+    "segments_covered": [
+      "Calibration_Segment_2014_2019",
+      "Historical_Verification_2020_2026"
+    ],
+    "assets_covered": [
+      "NOW",
+      "QQQ",
+      "SPY"
+    ],
+    "total_rows": 96,
+    "now_c7_mode_a_reconciled": true,
+    "mode_b_first_dca_included": true,
+    "flat_no_fee_xirr_zero": true,
+    "status": "PASS"
+  },
+  "factor_c_isolation": {
+    "after_stop_removed": true,
+    "control_group_stop_orders": {
+      "NOW_C0_Baseline": 0,
+      "NOW_C1_Decoupled_Scores": 0,
+      "NOW_C2_Panic_Latch": 0,
+      "NOW_C4_A_plus_B": 0,
+      "QQQ_C0_Baseline": 0,
+      "QQQ_C1_Decoupled_Scores": 0,
+      "QQQ_C2_Panic_Latch": 0,
+      "QQQ_C4_A_plus_B": 0,
+      "SPY_C0_Baseline": 0,
+      "SPY_C1_Decoupled_Scores": 0,
+      "SPY_C2_Panic_Latch": 0,
+      "SPY_C4_A_plus_B": 0
+    },
+    "status": "PASS"
+  },
+  "event_counts": {
+    "DCA_ADDITION": 3150,
+    "EXIT_SELL": 701,
+    "TREND_BUY": 285,
+    "PANIC_BUY": 245,
+    "REENTRY_BUY": 195
+  },
+  "total_events": 4576,
+  "unique_entry_events": 201
+}

@@ -1,0 +1,1154 @@
+{
+  "report_reproduced": true,
+  "censor_probes_fixed": true,
+  "late_recall_counterexample": {
+    "total_events": 1,
+    "caught_events": 1,
+    "recall_pct": 100.0,
+    "lead_times": [
+      {
+        "type": "confirmation",
+        "days_after_peak": "4"
+      }
+    ]
+  },
+  "real_recall_details": [
+    {
+      "signal": "Baseline_Signal",
+      "result": {
+        "total_events": 21,
+        "caught_events": 14,
+        "recall_pct": 66.67,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "40"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "31"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "19"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "54"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "45"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "37"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "54"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "50"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "57"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2014-03-04",
+          "trough": "2014-04-14",
+          "first_10pct_date": "2014-03-21",
+          "matches": [
+            "2013-12-06",
+            "2014-01-27",
+            "2014-01-29",
+            "2014-03-07",
+            "2014-03-13",
+            "2014-03-19"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-04-22",
+          "trough": "2014-04-28",
+          "first_10pct_date": "2014-04-25",
+          "matches": [
+            "2014-01-27",
+            "2014-01-29",
+            "2014-03-07",
+            "2014-03-13",
+            "2014-03-19"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-05-05",
+          "trough": "2014-05-09",
+          "first_10pct_date": "2014-05-08",
+          "matches": [
+            "2014-03-07",
+            "2014-03-13",
+            "2014-03-19"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-01",
+          "trough": "2014-07-08",
+          "first_10pct_date": "2014-07-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-30",
+          "trough": "2014-08-12",
+          "first_10pct_date": "2014-08-06",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-09-08",
+          "trough": "2014-10-13",
+          "first_10pct_date": "2014-10-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-11-10",
+          "trough": "2014-12-12",
+          "first_10pct_date": "2014-12-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-04-16",
+          "trough": "2015-05-05",
+          "first_10pct_date": "2015-04-17",
+          "matches": [
+            "2015-03-03",
+            "2015-03-25",
+            "2015-04-01",
+            "2015-04-17"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-07-30",
+          "trough": "2015-08-24",
+          "first_10pct_date": "2015-08-20",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-04",
+          "trough": "2016-02-08",
+          "first_10pct_date": "2016-01-07",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-06-08",
+          "trough": "2016-06-27",
+          "first_10pct_date": "2016-06-27",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-10-31",
+          "trough": "2016-12-30",
+          "first_10pct_date": "2016-12-01",
+          "matches": [
+            "2016-11-28"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-02-15",
+          "trough": "2017-03-21",
+          "first_10pct_date": "2017-03-21",
+          "matches": [
+            "2016-11-28",
+            "2017-02-27"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-11-24",
+          "trough": "2017-12-04",
+          "first_10pct_date": "2017-12-04",
+          "matches": [
+            "2017-09-21",
+            "2017-09-25",
+            "2017-11-14",
+            "2017-11-29"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-13",
+          "trough": "2018-10-10",
+          "first_10pct_date": "2018-10-08",
+          "matches": [
+            "2018-06-21",
+            "2018-07-25",
+            "2018-07-27",
+            "2018-08-13",
+            "2018-09-17",
+            "2018-09-26",
+            "2018-10-01",
+            "2018-10-04"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-10-16",
+          "trough": "2018-10-29",
+          "first_10pct_date": "2018-10-24",
+          "matches": [
+            "2018-07-25",
+            "2018-07-27",
+            "2018-08-13",
+            "2018-09-17",
+            "2018-09-26",
+            "2018-10-01",
+            "2018-10-04"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-11-07",
+          "trough": "2018-11-19",
+          "first_10pct_date": "2018-11-13",
+          "matches": [
+            "2018-09-17",
+            "2018-09-26",
+            "2018-10-01",
+            "2018-10-04"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-12-13",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-21",
+          "matches": [
+            "2018-09-26",
+            "2018-10-01",
+            "2018-10-04"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-16",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [
+            "2019-03-06",
+            "2019-04-04",
+            "2019-04-16",
+            "2019-05-20",
+            "2019-05-23"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-07-11",
+          "trough": "2019-10-02",
+          "first_10pct_date": "2019-08-02",
+          "matches": [
+            "2019-04-16",
+            "2019-05-20",
+            "2019-05-23",
+            "2019-06-11",
+            "2019-07-19",
+            "2019-07-25"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-10-15",
+          "trough": "2019-10-23",
+          "first_10pct_date": "2019-10-18",
+          "matches": [
+            "2019-07-25"
+          ],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 8
+    },
+    {
+      "signal": "Dyn_Var_Sig",
+      "result": {
+        "total_events": 21,
+        "caught_events": 4,
+        "recall_pct": 19.05,
+        "lead_times": [
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2014-03-04",
+          "trough": "2014-04-14",
+          "first_10pct_date": "2014-03-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-04-22",
+          "trough": "2014-04-28",
+          "first_10pct_date": "2014-04-25",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-05-05",
+          "trough": "2014-05-09",
+          "first_10pct_date": "2014-05-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-01",
+          "trough": "2014-07-08",
+          "first_10pct_date": "2014-07-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-30",
+          "trough": "2014-08-12",
+          "first_10pct_date": "2014-08-06",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-09-08",
+          "trough": "2014-10-13",
+          "first_10pct_date": "2014-10-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-11-10",
+          "trough": "2014-12-12",
+          "first_10pct_date": "2014-12-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-04-16",
+          "trough": "2015-05-05",
+          "first_10pct_date": "2015-04-17",
+          "matches": [
+            "2015-04-17",
+            "2015-04-23",
+            "2015-04-30"
+          ],
+          "caught_only_after_10pct": true
+        },
+        {
+          "peak": "2015-07-30",
+          "trough": "2015-08-24",
+          "first_10pct_date": "2015-08-20",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-04",
+          "trough": "2016-02-08",
+          "first_10pct_date": "2016-01-07",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-06-08",
+          "trough": "2016-06-27",
+          "first_10pct_date": "2016-06-27",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-10-31",
+          "trough": "2016-12-30",
+          "first_10pct_date": "2016-12-01",
+          "matches": [
+            "2016-11-01",
+            "2016-11-09",
+            "2016-11-16",
+            "2016-11-18"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-02-15",
+          "trough": "2017-03-21",
+          "first_10pct_date": "2017-03-21",
+          "matches": [
+            "2016-11-18",
+            "2017-02-13",
+            "2017-02-16",
+            "2017-02-22",
+            "2017-03-02",
+            "2017-03-06",
+            "2017-03-14"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-11-24",
+          "trough": "2017-12-04",
+          "first_10pct_date": "2017-12-04",
+          "matches": [
+            "2017-09-01",
+            "2017-09-06",
+            "2017-09-08",
+            "2017-09-12",
+            "2017-09-19",
+            "2017-09-25",
+            "2017-10-02",
+            "2017-10-04",
+            "2017-10-09",
+            "2017-10-16",
+            "2017-10-18",
+            "2017-10-23",
+            "2017-10-25",
+            "2017-10-27",
+            "2017-11-01",
+            "2017-11-06",
+            "2017-11-09",
+            "2017-11-13",
+            "2017-11-20",
+            "2017-11-22",
+            "2017-11-27"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-13",
+          "trough": "2018-10-10",
+          "first_10pct_date": "2018-10-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-10-16",
+          "trough": "2018-10-29",
+          "first_10pct_date": "2018-10-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-11-07",
+          "trough": "2018-11-19",
+          "first_10pct_date": "2018-11-13",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-12-13",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-16",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-07-11",
+          "trough": "2019-10-02",
+          "first_10pct_date": "2019-08-02",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-10-15",
+          "trough": "2019-10-23",
+          "first_10pct_date": "2019-10-18",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Dynamical_Signal",
+      "result": {
+        "total_events": 21,
+        "caught_events": 4,
+        "recall_pct": 19.05,
+        "lead_times": [
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2014-03-04",
+          "trough": "2014-04-14",
+          "first_10pct_date": "2014-03-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-04-22",
+          "trough": "2014-04-28",
+          "first_10pct_date": "2014-04-25",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-05-05",
+          "trough": "2014-05-09",
+          "first_10pct_date": "2014-05-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-01",
+          "trough": "2014-07-08",
+          "first_10pct_date": "2014-07-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-07-30",
+          "trough": "2014-08-12",
+          "first_10pct_date": "2014-08-06",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-09-08",
+          "trough": "2014-10-13",
+          "first_10pct_date": "2014-10-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2014-11-10",
+          "trough": "2014-12-12",
+          "first_10pct_date": "2014-12-01",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-04-16",
+          "trough": "2015-05-05",
+          "first_10pct_date": "2015-04-17",
+          "matches": [
+            "2015-04-17",
+            "2015-04-23",
+            "2015-04-30"
+          ],
+          "caught_only_after_10pct": true
+        },
+        {
+          "peak": "2015-07-30",
+          "trough": "2015-08-24",
+          "first_10pct_date": "2015-08-20",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-04",
+          "trough": "2016-02-08",
+          "first_10pct_date": "2016-01-07",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-06-08",
+          "trough": "2016-06-27",
+          "first_10pct_date": "2016-06-27",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2016-10-31",
+          "trough": "2016-12-30",
+          "first_10pct_date": "2016-12-01",
+          "matches": [
+            "2016-11-01",
+            "2016-11-09",
+            "2016-11-16",
+            "2016-11-18"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-02-15",
+          "trough": "2017-03-21",
+          "first_10pct_date": "2017-03-21",
+          "matches": [
+            "2016-11-18",
+            "2017-02-16",
+            "2017-02-22",
+            "2017-03-02",
+            "2017-03-06",
+            "2017-03-14"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2017-11-24",
+          "trough": "2017-12-04",
+          "first_10pct_date": "2017-12-04",
+          "matches": [
+            "2017-09-01",
+            "2017-09-06",
+            "2017-09-08",
+            "2017-09-12",
+            "2017-09-19",
+            "2017-09-25",
+            "2017-10-02",
+            "2017-10-04",
+            "2017-10-09",
+            "2017-10-13",
+            "2017-10-18",
+            "2017-10-23",
+            "2017-10-25",
+            "2017-10-27",
+            "2017-11-01",
+            "2017-11-06",
+            "2017-11-09",
+            "2017-11-13",
+            "2017-11-20",
+            "2017-11-22",
+            "2017-11-27"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-13",
+          "trough": "2018-10-10",
+          "first_10pct_date": "2018-10-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-10-16",
+          "trough": "2018-10-29",
+          "first_10pct_date": "2018-10-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-11-07",
+          "trough": "2018-11-19",
+          "first_10pct_date": "2018-11-13",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-12-13",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-16",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-07-11",
+          "trough": "2019-10-02",
+          "first_10pct_date": "2019-08-02",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-10-15",
+          "trough": "2019-10-23",
+          "first_10pct_date": "2019-10-18",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Baseline_Signal",
+      "result": {
+        "total_events": 6,
+        "caught_events": 0,
+        "recall_pct": 0.0,
+        "lead_times": []
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-01",
+          "trough": "2016-02-09",
+          "first_10pct_date": "2016-01-13",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-03-12",
+          "trough": "2018-04-02",
+          "first_10pct_date": "2018-04-02",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-08-29",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-10-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-03",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Dyn_Var_Sig",
+      "result": {
+        "total_events": 6,
+        "caught_events": 2,
+        "recall_pct": 33.33,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "56"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-21",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-01",
+          "trough": "2016-02-09",
+          "first_10pct_date": "2016-01-13",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-12",
+            "2017-12-14",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-03-12",
+          "trough": "2018-04-02",
+          "first_10pct_date": "2018-04-02",
+          "matches": [
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07",
+            "2018-02-16"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-08-29",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-10-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-03",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Dynamical_Signal",
+      "result": {
+        "total_events": 6,
+        "caught_events": 3,
+        "recall_pct": 50.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "60"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "56"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-21",
+          "matches": [
+            "2015-04-27",
+            "2015-05-05",
+            "2015-05-11"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-12-01",
+          "trough": "2016-02-09",
+          "first_10pct_date": "2016-01-13",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-12",
+            "2017-12-14",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-03-12",
+          "trough": "2018-04-02",
+          "first_10pct_date": "2018-04-02",
+          "matches": [
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07",
+            "2018-02-16"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-08-29",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-10-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2019-05-03",
+          "trough": "2019-06-03",
+          "first_10pct_date": "2019-06-03",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Baseline_Signal",
+      "result": {
+        "total_events": 4,
+        "caught_events": 0,
+        "recall_pct": 0.0,
+        "lead_times": []
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-11-03",
+          "trough": "2016-02-11",
+          "first_10pct_date": "2016-01-15",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-20",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-14",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Dyn_Var_Sig",
+      "result": {
+        "total_events": 4,
+        "caught_events": 1,
+        "recall_pct": 25.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-11-03",
+          "trough": "2016-02-11",
+          "first_10pct_date": "2016-01-15",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [
+            "2017-11-07",
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-22",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-13",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-08",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-23",
+            "2018-01-29",
+            "2018-02-07"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-20",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-14",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    },
+    {
+      "signal": "Dynamical_Signal",
+      "result": {
+        "total_events": 4,
+        "caught_events": 1,
+        "recall_pct": 25.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "events": [
+        {
+          "peak": "2015-07-20",
+          "trough": "2015-08-25",
+          "first_10pct_date": "2015-08-24",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2015-11-03",
+          "trough": "2016-02-11",
+          "first_10pct_date": "2016-01-15",
+          "matches": [],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-01-26",
+          "trough": "2018-02-08",
+          "first_10pct_date": "2018-02-08",
+          "matches": [
+            "2017-11-07",
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-22",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-13",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-08",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-23",
+            "2018-01-29",
+            "2018-02-07"
+          ],
+          "caught_only_after_10pct": false
+        },
+        {
+          "peak": "2018-09-20",
+          "trough": "2018-12-24",
+          "first_10pct_date": "2018-12-14",
+          "matches": [],
+          "caught_only_after_10pct": false
+        }
+      ],
+      "alerts_before_common_ready": 0
+    }
+  ],
+  "submitted_files_unchanged": true
+}

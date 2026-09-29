@@ -1,0 +1,74 @@
+{
+  "all_non_ci_summary_values_reproduced": true,
+  "both_ledgers_reproduced": true,
+  "pre2014_alerts": [
+    {
+      "Asset": "QQQ",
+      "Model": "B1: dV<=0 (Energy)",
+      "alerts": 75,
+      "tp": 10
+    },
+    {
+      "Asset": "QQQ",
+      "Model": "B2: v<0 (Velocity)",
+      "alerts": 29,
+      "tp": 3
+    },
+    {
+      "Asset": "QQQ",
+      "Model": "B3: P<MA20 (Baseline)",
+      "alerts": 15,
+      "tp": 3
+    },
+    {
+      "Asset": "SPY",
+      "Model": "B1: dV<=0 (Energy)",
+      "alerts": 87,
+      "tp": 9
+    },
+    {
+      "Asset": "SPY",
+      "Model": "B2: v<0 (Velocity)",
+      "alerts": 39,
+      "tp": 4
+    },
+    {
+      "Asset": "SPY",
+      "Model": "B3: P<MA20 (Baseline)",
+      "alerts": 19,
+      "tp": 3
+    }
+  ],
+  "pre2014_events": {
+    "QQQ": 5,
+    "SPY": 2
+  },
+  "bootstrap_degenerate_probes": {
+    "17": {
+      "distinct_returns": 17,
+      "median": 0.0,
+      "lower": 0.0,
+      "upper": 0.0
+    },
+    "25": {
+      "distinct_returns": 25,
+      "median": 0.0,
+      "lower": 0.0,
+      "upper": 0.0
+    },
+    "44": {
+      "distinct_returns": 44,
+      "median": 0.0,
+      "lower": 0.0,
+      "upper": 0.0
+    },
+    "60": {
+      "distinct_returns": 60,
+      "median": -2.7755575615628914e-17,
+      "lower": -2.7755575615628914e-17,
+      "upper": -2.7755575615628914e-17
+    }
+  },
+  "audit_seed": 20260924,
+  "submitted_files_unchanged": true
+}

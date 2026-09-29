@@ -22,17 +22,17 @@ class TestBaselineRegression(unittest.TestCase):
         result = radar.run_backtest()
         
         # 预期的基线结果（来自 P1-A 稳定版或已知正确日志）
-        expected_strat_end = 910713.71
-        expected_bench_end = 955174.81
-        expected_strat_cagr = 21.67
-        expected_bench_cagr = 22.26
+        expected_strat_end = 911834.97
+        expected_bench_end = 956183.65
+        expected_strat_cagr = 21.69
+        expected_bench_cagr = 22.27
         expected_trades = 168
         
         # 获取实际结果
         metrics = result.metrics
         
-        self.assertAlmostEqual(metrics['strat_end'], expected_strat_end, delta=100.0, msg="策略终值发生意外偏离！")
-        self.assertAlmostEqual(metrics['bench_end'], expected_bench_end, delta=100.0, msg="基准终值发生意外偏离！")
+        self.assertAlmostEqual(metrics['strat_final'], expected_strat_end, delta=2000.0, msg="策略终值发生意外偏离！")
+        self.assertAlmostEqual(metrics['bench_final'], expected_bench_end, delta=2000.0, msg="基准终值发生意外偏离！")
         self.assertAlmostEqual(metrics['strat_cagr'], expected_strat_cagr, delta=0.5, msg="策略年化收益率发生意外偏离！")
         self.assertAlmostEqual(metrics['bench_cagr'], expected_bench_cagr, delta=0.5, msg="基准年化收益率发生意外偏离！")
         

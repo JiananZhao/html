@@ -28,26 +28,26 @@ class TestMissingDataProtection(unittest.TestCase):
         executor.step(self.df_mock['date'].iloc[0], self.df_mock['close'].iloc[0], self.df_mock['close'].iloc[0])
         executor.submit_order(1.0, "Init Buy", self.df_mock['date'].iloc[0])
         
-        self.assertEqual(acc.shares, 0.0)
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0)
-        self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
+        self.assertAlmostEqual(acc.shares, 0.0)
+        self.assertAlmostEqual(executor.daily_states[-1]['unit_nav'], 1.0)
+        self.assertAlmostEqual(executor.daily_states[-1]['equity'], 1000.0)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good')
 
         # Day 1: Price = 102
         executor.step(self.df_mock['date'].iloc[1], self.df_mock['close'].iloc[1], self.df_mock['close'].iloc[1])
         # Executes at 102
         expected_shares = 1000.0 / 102.0
-        self.assertEqual(acc.shares, expected_shares)
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0) # Equity is 1000, units is 1000
-        self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
+        self.assertAlmostEqual(acc.shares, expected_shares)
+        self.assertAlmostEqual(executor.daily_states[-1]['unit_nav'], 1.0) # Equity is 1000, units is 1000
+        self.assertAlmostEqual(executor.daily_states[-1]['equity'], 1000.0)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'good')
 
         # Day 2: Price = NaN (Missing)
         executor.step(self.df_mock['date'].iloc[2], self.df_mock['close'].iloc[2], self.df_mock['close'].iloc[2])
         # Expected: use Day 1 price for valuation (102)
-        self.assertEqual(acc.shares, expected_shares) # Not changed
-        self.assertEqual(executor.daily_states[-1]['unit_nav'], 1.0)
-        self.assertEqual(executor.daily_states[-1]['equity'], 1000.0)
+        self.assertAlmostEqual(acc.shares, expected_shares) # Not changed
+        self.assertAlmostEqual(executor.daily_states[-1]['unit_nav'], 1.0)
+        self.assertAlmostEqual(executor.daily_states[-1]['equity'], 1000.0)
         self.assertEqual(executor.daily_states[-1].get('valuation_quality'), 'stale')
 
         # Day 3: Price = 105 (Recovery)

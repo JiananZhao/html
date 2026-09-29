@@ -1,0 +1,42 @@
+{
+  "production_dual_track_verified": true,
+  "production_baseline": {
+    "production_total_rows": 3571,
+    "production_signal_ready_start": "2014-04-16",
+    "production_initial_cash": 100000.0,
+    "production_fee_rate": 0.0,
+    "production_final_equity": 997560.95,
+    "production_final_unit_nav": 6.3594,
+    "production_fills_count": 105,
+    "production_first_fill_dt": "2014-10-22",
+    "production_buy_fills": 53,
+    "production_sell_fills": 52
+  },
+  "c0_isolated_stop_loss_orders": 0,
+  "c7_stop_loss_orders": 21,
+  "benchmark_first_fill_dt": "2014-04-17",
+  "reproduced_metrics": {
+    "C0": {
+      "strat_final": 445675.48,
+      "bench_final": 751430.36,
+      "strat_xirr": 14.47,
+      "bench_xirr": 21.46,
+      "alpha_xirr_diff": -6.99,
+      "strat_mdd": -54.42,
+      "round_trips": 90,
+      "stop_orders": 0
+    },
+    "C7": {
+      "strat_final": 283472.11,
+      "bench_final": 751430.36,
+      "strat_xirr": 8.27,
+      "bench_xirr": 21.46,
+      "alpha_xirr_diff": -13.2,
+      "strat_mdd": -64.38,
+      "round_trips": 98,
+      "stop_orders": 21
+    }
+  },
+  "cross_asset_control_isolation_passed": true,
+  "audit_conclusion": "V2_1_REMEDIATION_VERIFICATION_PASSED"
+}

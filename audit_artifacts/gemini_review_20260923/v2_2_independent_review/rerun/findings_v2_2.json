@@ -1,0 +1,128 @@
+{
+  "model_equivalence": {
+    "row_2020_03_20": {
+      "q1": -9.694703,
+      "q1_dot": -2.252796,
+      "q1_ddot": -0.160734,
+      "v_dot": 58.05033,
+      "Composite_Score_M0": 47.325476,
+      "Score_Overheat_A": 14.773641,
+      "Score_PanicDepth_A": 97.103233
+    },
+    "max_absolute_differences_full_history": {
+      "q1": 0.0,
+      "q1_dot": 0.0,
+      "q1_ddot": 0.0,
+      "v_dot": 0.0,
+      "Composite_Score_M0": 0.0,
+      "Score_Overheat_A": 0.0,
+      "Score_PanicDepth_A": 0.0
+    },
+    "c0_signals_100pct_match": {
+      "Trigger_Panic": true,
+      "Trigger_Bubble_Top": true,
+      "Trigger_Bear_Top": true,
+      "cond_trend": true
+    },
+    "status": "PASS"
+  },
+  "production_baseline": {
+    "production_signal_ready_start": "2014-04-16",
+    "v2_2_signal_ready_start": "2014-04-16",
+    "fills_count": 105,
+    "final_equity": 997560.95,
+    "final_unit_nav": 6.3594,
+    "status": "PASS"
+  },
+  "missing_price_pipeline": {
+    "raw_missing_date": "2020-10-21",
+    "prepared_quote_nan": true,
+    "fill_date": "2020-10-22",
+    "execution_delayed_to_next_valid": true,
+    "missing_day_valuation_quality": "stale",
+    "status": "PASS"
+  },
+  "wave_accounting_and_ledgers": {
+    "round_trip_records": 697,
+    "round_trip_assets": [
+      "NOW",
+      "QQQ",
+      "SPY"
+    ],
+    "cash_interval_records": 721,
+    "cash_interval_assets": [
+      "NOW",
+      "QQQ",
+      "SPY"
+    ],
+    "open_positions_records": 24,
+    "max_pnl_formula_deviation": 0.010000000154832378,
+    "status": "PASS"
+  },
+  "factor_c_isolation": {
+    "C0_stops": {
+      "NOW": 0,
+      "QQQ": 0,
+      "SPY": 0
+    },
+    "C1_stops": {
+      "NOW": 0,
+      "QQQ": 0,
+      "SPY": 0
+    },
+    "C2_stops": {
+      "NOW": 0,
+      "QQQ": 0,
+      "SPY": 0
+    },
+    "C4_stops": {
+      "NOW": 0,
+      "QQQ": 0,
+      "SPY": 0
+    },
+    "status": "PASS"
+  },
+  "mutation_and_test_suite": {
+    "tests_run": 8,
+    "tests_passed": true,
+    "status": "PASS"
+  },
+  "discrete_trade_events_summary": {
+    "TREND_BUY": {
+      "total_events": 260,
+      "valid_20d_count": 260,
+      "mean_20d_ret_from_fill%": 2.36,
+      "win_rate_20d%": 67.31,
+      "valid_60d_count": 260,
+      "mean_60d_ret_from_fill%": 5.5,
+      "win_rate_60d%": 71.15
+    },
+    "REENTRY_BUY": {
+      "total_events": 215,
+      "valid_20d_count": 215,
+      "mean_20d_ret_from_fill%": 1.25,
+      "win_rate_20d%": 55.35,
+      "valid_60d_count": 215,
+      "mean_60d_ret_from_fill%": 4.96,
+      "win_rate_60d%": 70.23
+    },
+    "PANIC_BUY": {
+      "total_events": 246,
+      "valid_20d_count": 246,
+      "mean_20d_ret_from_fill%": 2.36,
+      "win_rate_20d%": 59.35,
+      "valid_60d_count": 234,
+      "mean_60d_ret_from_fill%": 3.25,
+      "win_rate_60d%": 65.38
+    },
+    "DCA_ADDITION": {
+      "total_events": 3143,
+      "valid_20d_count": 3119,
+      "mean_20d_ret_from_fill%": 1.43,
+      "win_rate_20d%": 62.1,
+      "valid_60d_count": 3071,
+      "mean_60d_ret_from_fill%": 4.69,
+      "win_rate_60d%": 74.7
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "production_total_rows": 3571,
+  "production_signal_ready_start": "2014-04-16",
+  "production_initial_cash": 100000.0,
+  "production_fee_rate": 0.0,
+  "production_final_equity": 997560.95,
+  "production_final_unit_nav": 6.3594,
+  "production_fills_count": 105,
+  "production_first_fill_dt": "2014-10-22",
+  "production_buy_fills": 53,
+  "production_sell_fills": 52
+}

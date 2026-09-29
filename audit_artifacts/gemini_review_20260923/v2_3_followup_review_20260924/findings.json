@@ -1,0 +1,581 @@
+{
+  "frozen_input_hashes_match_manifest": true,
+  "all_csv_reproduction": {
+    "cash_intervals_v2_3.csv": true,
+    "factorial_ablation_results_v2_3_now.csv": true,
+    "factorial_ablation_results_v2_3_qqq.csv": true,
+    "factorial_ablation_results_v2_3_spy.csv": true,
+    "forward_return_evaluations_v2_3.csv": true,
+    "open_cash_intervals_v2_3.csv": true,
+    "open_positions_v2_3.csv": true,
+    "round_trip_ledgers_v2_3.csv": true,
+    "subperiod_evaluation_v2_3.csv": true
+  },
+  "symmetric_boundary_probes": [
+    {
+      "type": "peak",
+      "E": 102,
+      "S": 99,
+      "result": {
+        "panic_signals_count": 0,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 0.0,
+        "sell_signals_count": 1,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 0.0,
+        "total_eval_days": 80,
+        "true_minima": 0,
+        "true_maxima": 0
+      }
+    },
+    {
+      "type": "peak",
+      "E": 99,
+      "S": 102,
+      "result": {
+        "panic_signals_count": 0,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 0.0,
+        "sell_signals_count": 0,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 100.0,
+        "total_eval_days": 80,
+        "true_minima": 0,
+        "true_maxima": 1
+      }
+    },
+    {
+      "type": "peak",
+      "E": 20,
+      "S": 18,
+      "result": {
+        "panic_signals_count": 0,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 0.0,
+        "sell_signals_count": 0,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 100.0,
+        "total_eval_days": 80,
+        "true_minima": 0,
+        "true_maxima": 1
+      }
+    },
+    {
+      "type": "trough",
+      "E": 102,
+      "S": 99,
+      "result": {
+        "panic_signals_count": 1,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 0.0,
+        "sell_signals_count": 0,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 0.0,
+        "total_eval_days": 80,
+        "true_minima": 0,
+        "true_maxima": 0
+      }
+    },
+    {
+      "type": "trough",
+      "E": 99,
+      "S": 102,
+      "result": {
+        "panic_signals_count": 0,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 100.0,
+        "sell_signals_count": 0,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 0.0,
+        "total_eval_days": 80,
+        "true_minima": 1,
+        "true_maxima": 0
+      }
+    },
+    {
+      "type": "trough",
+      "E": 20,
+      "S": 18,
+      "result": {
+        "panic_signals_count": 0,
+        "panic_buy_fdr": 0.0,
+        "bottom_miss_rate": 100.0,
+        "sell_signals_count": 0,
+        "sell_fdr": 0.0,
+        "top_miss_rate": 0.0,
+        "total_eval_days": 80,
+        "true_minima": 1,
+        "true_maxima": 0
+      }
+    }
+  ],
+  "mode_a_timestamp_checks": [
+    {
+      "Asset": "NOW",
+      "Config": "C0_Baseline",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C0_Baseline",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C4_A_plus_B",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C4_A_plus_B",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C5_A_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C5_A_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C6_B_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C6_B_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-02",
+      "actual_first_fill_in_segment": "2020-01-03",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C0_Baseline",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C0_Baseline",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C4_A_plus_B",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C4_A_plus_B",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C5_A_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C5_A_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C6_B_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-22",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C6_B_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-05-15",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C0_Baseline",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C0_Baseline",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C1_Decoupled_Scores",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C2_Panic_Latch",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C3_Reentry_Stop",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C4_A_plus_B",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C4_A_plus_B",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C5_A_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C5_A_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C6_B_plus_C",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C6_B_plus_C",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Calibration_Segment_2014_2019",
+      "reported_first_fill": "2014-04-16",
+      "actual_first_fill_in_segment": "2014-04-21",
+      "reported_actual_deposit_dt": "2014-04-16",
+      "cashflow_on_reported_deposit_date": 101000.0
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C7_Full_Candidate",
+      "Segment": "Historical_Verification_2020_2026",
+      "reported_first_fill": "2020-01-01",
+      "actual_first_fill_in_segment": "2020-01-02",
+      "reported_actual_deposit_dt": "2019-12-31",
+      "cashflow_on_reported_deposit_date": 0
+    }
+  ],
+  "incorrect_mode_a_first_fill_rows": 48,
+  "no_cashflow_on_declared_deposit_date_rows": 24,
+  "cost_guard_mutations_flat_scenario_pass": true,
+  "full_period_financial_metrics_unchanged": {
+    "now": true,
+    "qqq": true,
+    "spy": true
+  },
+  "mode_b_dca_totals": [
+    69000.0,
+    81000.0
+  ],
+  "now_c7_mode_a_historical": {
+    "Asset": "NOW",
+    "Config": "C7_Full_Candidate",
+    "Segment": "Historical_Verification_2020_2026",
+    "Mode": "Mode_A_Continuous_Inherited",
+    "Start_Dt": "2020-01-01",
+    "End_Dt": "2026-09-14",
+    "Strat_Start_Equity": 412487.19,
+    "Strat_Total_DCA": 81000.0,
+    "Strat_End_Equity": 885536.71,
+    "Strat_XIRR%": 9.81,
+    "Strat_MDD%": -55.02,
+    "Bench_Start_Equity": 734340.24,
+    "Bench_Total_DCA": 81000.0,
+    "Bench_End_Equity": 1953936.7,
+    "Bench_XIRR%": 14.51,
+    "Bench_MDD%": -64.54,
+    "Alpha_XIRR%": -4.7,
+    "Actual_Deposit_Dt": "2019-12-31",
+    "First_DCA_Dt": "2020-01-02",
+    "First_Fill_Dt": "2020-01-02"
+  },
+  "files_unchanged_by_review": true
+}

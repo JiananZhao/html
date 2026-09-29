@@ -1,0 +1,265 @@
+{
+  "scope": "descriptive probes; no tuning and no candidate acceptance",
+  "assets": {
+    "NOW": {
+      "input_start": "2012-06-29",
+      "common_ready_start": "2015-04-16",
+      "Baseline": {
+        "submitted_reproduced": {
+          "n": 53,
+          "TP": 11,
+          "FP": 39,
+          "Null": 3,
+          "precision_pct": 20.75,
+          "fwd60_median_pct": 10.72
+        },
+        "pre2014": {
+          "n": 10,
+          "TP": 1,
+          "FP": 9,
+          "Null": 0,
+          "precision_pct": 10.0,
+          "fwd60_median_pct": 22.62
+        },
+        "labels_cross_2020": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "same_period_common_ready_purged": {
+          "n": 35,
+          "TP": 7,
+          "FP": 28,
+          "Null": 0,
+          "precision_pct": 20.0,
+          "fwd60_median_pct": 10.72
+        },
+        "first_signal": "2013-05-21",
+        "adjacent_alert_gaps_le15_rows": 30,
+        "negative_x_signals": 0,
+        "positive_v_signals": 6
+      },
+      "Dynamical_M2_Candidate": {
+        "submitted_reproduced": {
+          "n": 72,
+          "TP": 7,
+          "FP": 52,
+          "Null": 13,
+          "precision_pct": 9.72,
+          "fwd60_median_pct": 10.46
+        },
+        "pre2014": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "labels_cross_2020": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "same_period_common_ready_purged": {
+          "n": 72,
+          "TP": 7,
+          "FP": 52,
+          "Null": 13,
+          "precision_pct": 9.72,
+          "fwd60_median_pct": 10.46
+        },
+        "first_signal": "2015-04-17",
+        "adjacent_alert_gaps_le15_rows": 66,
+        "negative_x_signals": 0,
+        "positive_v_signals": 34
+      },
+      "median_potential_to_kinetic_ratio_positive_x": 82256.66664556954
+    },
+    "QQQ": {
+      "input_start": "2007-04-11",
+      "common_ready_start": "2009-12-17",
+      "Baseline": {
+        "submitted_reproduced": {
+          "n": 5,
+          "TP": 0,
+          "FP": 4,
+          "Null": 1,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 12.1
+        },
+        "pre2014": {
+          "n": 5,
+          "TP": 0,
+          "FP": 4,
+          "Null": 1,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 12.1
+        },
+        "labels_cross_2020": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "same_period_common_ready_purged": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "first_signal": "2009-08-17",
+        "adjacent_alert_gaps_le15_rows": 1,
+        "negative_x_signals": 0,
+        "positive_v_signals": 0
+      },
+      "Dynamical_M2_Candidate": {
+        "submitted_reproduced": {
+          "n": 191,
+          "TP": 10,
+          "FP": 17,
+          "Null": 164,
+          "precision_pct": 5.24,
+          "fwd60_median_pct": 3.38
+        },
+        "pre2014": {
+          "n": 75,
+          "TP": 10,
+          "FP": 4,
+          "Null": 61,
+          "precision_pct": 13.33,
+          "fwd60_median_pct": 2.99
+        },
+        "labels_cross_2020": {
+          "n": 3,
+          "TP": 0,
+          "FP": 3,
+          "Null": 0,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 6.28
+        },
+        "same_period_common_ready_purged": {
+          "n": 113,
+          "TP": 0,
+          "FP": 10,
+          "Null": 103,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 3.44
+        },
+        "first_signal": "2010-03-19",
+        "adjacent_alert_gaps_le15_rows": 179,
+        "negative_x_signals": 0,
+        "positive_v_signals": 101
+      },
+      "median_potential_to_kinetic_ratio_positive_x": 639220.4869044416
+    },
+    "SPY": {
+      "input_start": "2007-04-11",
+      "common_ready_start": "2009-12-17",
+      "Baseline": {
+        "submitted_reproduced": {
+          "n": 2,
+          "TP": 0,
+          "FP": 0,
+          "Null": 2,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 8.35
+        },
+        "pre2014": {
+          "n": 2,
+          "TP": 0,
+          "FP": 0,
+          "Null": 2,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 8.35
+        },
+        "labels_cross_2020": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "same_period_common_ready_purged": {
+          "n": 0,
+          "TP": 0,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": null,
+          "fwd60_median_pct": null
+        },
+        "first_signal": "2009-10-01",
+        "adjacent_alert_gaps_le15_rows": 0,
+        "negative_x_signals": 0,
+        "positive_v_signals": 0
+      },
+      "Dynamical_M2_Candidate": {
+        "submitted_reproduced": {
+          "n": 168,
+          "TP": 10,
+          "FP": 11,
+          "Null": 147,
+          "precision_pct": 5.95,
+          "fwd60_median_pct": 2.9
+        },
+        "pre2014": {
+          "n": 87,
+          "TP": 9,
+          "FP": 3,
+          "Null": 75,
+          "precision_pct": 10.34,
+          "fwd60_median_pct": 2.59
+        },
+        "labels_cross_2020": {
+          "n": 1,
+          "TP": 1,
+          "FP": 0,
+          "Null": 0,
+          "precision_pct": 100.0,
+          "fwd60_median_pct": -30.15
+        },
+        "same_period_common_ready_purged": {
+          "n": 80,
+          "TP": 0,
+          "FP": 8,
+          "Null": 72,
+          "precision_pct": 0.0,
+          "fwd60_median_pct": 3.04
+        },
+        "first_signal": "2010-04-02",
+        "adjacent_alert_gaps_le15_rows": 156,
+        "negative_x_signals": 0,
+        "positive_v_signals": 84
+      },
+      "median_potential_to_kinetic_ratio_positive_x": 1204143.7258412074
+    }
+  },
+  "right_censor_probe": {
+    "n": 1,
+    "TP": 0,
+    "FP": 0,
+    "Null": 1,
+    "precision_pct": 0.0,
+    "fwd60_median_pct": null
+  },
+  "missing_path_probe": {
+    "n": 1,
+    "TP": 1,
+    "FP": 0,
+    "Null": 0,
+    "precision_pct": 100.0,
+    "fwd60_median_pct": -11.0
+  },
+  "submitted_files_unchanged": true
+}

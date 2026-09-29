@@ -61,7 +61,8 @@ class TestP1AMacroAccounting(unittest.TestCase):
         acc = UnitizedAccount(initial_cash=1000, initial_date=self.df_mock['date'].iloc[0])
         executor = SharedExecutor(acc, fee_rate=0.01) # 1% fee for easy math
         
-        executor.submit_order(1.0, "Buy", self.df_mock['date'].iloc[0])
+        submit_date = self.df_mock['date'].iloc[0] - pd.Timedelta(days=1)
+        executor.submit_order(1.0, "Buy", submit_date)
         # Executes at price=100.
         # Total cost = Shares * P + Shares * P * fee_rate = Cash
         # Shares * P * 1.01 = 1000 => Shares * P = 1000 / 1.01

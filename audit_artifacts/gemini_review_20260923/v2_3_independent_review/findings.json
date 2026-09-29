@@ -1,0 +1,675 @@
+{
+  "frozen_input_provenance": {
+    "now_ohlcv_local.csv": {
+      "live_sha256": "2bb09ae39ce32e454b54768571ae2f0acc440925d958707cd4e0addabe2c3f4e",
+      "frozen_sha256": "2bb09ae39ce32e454b54768571ae2f0acc440925d958707cd4e0addabe2c3f4e",
+      "trailing_lines_removed": 0
+    },
+    "market_data_local.csv": {
+      "live_sha256": "f8000662e160310b429cdf6644d6bcff94b074fc7285af7dfb1410a3343864cb",
+      "frozen_sha256": "3211d2c01a6a0137ca15e701aa7da1907f32afa1beb75333eca268e7a5cc5fce",
+      "trailing_lines_removed": 1
+    }
+  },
+  "csv_reproduction": {
+    "cash_intervals_v2_3.csv": true,
+    "factorial_ablation_results_v2_3_now.csv": true,
+    "factorial_ablation_results_v2_3_qqq.csv": true,
+    "factorial_ablation_results_v2_3_spy.csv": true,
+    "forward_return_evaluations_v2_3.csv": true,
+    "open_cash_intervals_v2_3.csv": true,
+    "open_positions_v2_3.csv": true,
+    "round_trip_ledgers_v2_3.csv": true,
+    "subperiod_evaluation_v2_3.csv": true
+  },
+  "mode_a_opening_cashflow_audit": [
+    {
+      "Asset": "NOW",
+      "Config": "C0_Baseline",
+      "Strat": {
+        "reported_opening": 577000.5,
+        "previous_close_opening": 558358.9516434097,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 6.68,
+        "corrected_xirr_pre_first_session": 7.173602,
+        "reported_mdd": -50.92,
+        "corrected_mdd_with_opening_anchor": -50.916566
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C1_Decoupled_Scores",
+      "Strat": {
+        "reported_opening": 616378.83,
+        "previous_close_opening": 596531.213224506,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 6.69,
+        "corrected_xirr_pre_first_session": 7.182857,
+        "reported_mdd": -50.92,
+        "corrected_mdd_with_opening_anchor": -50.916327
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C2_Panic_Latch",
+      "Strat": {
+        "reported_opening": 603668.2,
+        "previous_close_opening": 584209.8817263098,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 7.46,
+        "corrected_xirr_pre_first_session": 7.957816,
+        "reported_mdd": -61.66,
+        "corrected_mdd_with_opening_anchor": -61.656975
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C3_Reentry_Stop",
+      "Strat": {
+        "reported_opening": 419745.26,
+        "previous_close_opening": 405920.06733910594,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 3.53,
+        "corrected_xirr_pre_first_session": 4.008046,
+        "reported_mdd": -47.76,
+        "corrected_mdd_with_opening_anchor": -47.759342
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C4_A_plus_B",
+      "Strat": {
+        "reported_opening": 603668.2,
+        "previous_close_opening": 584209.8817263098,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 6.37,
+        "corrected_xirr_pre_first_session": 6.861532,
+        "reported_mdd": -61.33,
+        "corrected_mdd_with_opening_anchor": -61.327136
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C5_A_plus_C",
+      "Strat": {
+        "reported_opening": 447713.06,
+        "previous_close_opening": 433031.2802126224,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 2.07,
+        "corrected_xirr_pre_first_session": 2.534687,
+        "reported_mdd": -49.77,
+        "corrected_mdd_with_opening_anchor": -49.768379
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C6_B_plus_C",
+      "Strat": {
+        "reported_opening": 501197.19,
+        "previous_close_opening": 484877.3146995285,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 8.59,
+        "corrected_xirr_pre_first_session": 9.097367,
+        "reported_mdd": -55.86,
+        "corrected_mdd_with_opening_anchor": -55.861925
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "NOW",
+      "Config": "C7_Full_Candidate",
+      "Strat": {
+        "reported_opening": 426519.87,
+        "previous_close_opening": 412487.18926769577,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 9.3,
+        "corrected_xirr_pre_first_session": 9.80962,
+        "reported_mdd": -55.02,
+        "corrected_mdd_with_opening_anchor": -55.019966
+      },
+      "Bench": {
+        "reported_opening": 758541.98,
+        "previous_close_opening": 734340.2378238211,
+        "actual_first_snapshot_date": "2020-01-02",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.98,
+        "corrected_xirr_pre_first_session": 14.505795,
+        "reported_mdd": -64.54,
+        "corrected_mdd_with_opening_anchor": -64.540627
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C0_Baseline",
+      "Strat": {
+        "reported_opening": 372334.56,
+        "previous_close_opening": 371334.5600506037,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 14.48,
+        "corrected_xirr_pre_first_session": 14.478861,
+        "reported_mdd": -44.53,
+        "corrected_mdd_with_opening_anchor": -44.528963
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C1_Decoupled_Scores",
+      "Strat": {
+        "reported_opening": 372334.56,
+        "previous_close_opening": 371334.5600506037,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 14.48,
+        "corrected_xirr_pre_first_session": 14.478861,
+        "reported_mdd": -44.53,
+        "corrected_mdd_with_opening_anchor": -44.528963
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C2_Panic_Latch",
+      "Strat": {
+        "reported_opening": 323572.46,
+        "previous_close_opening": 322572.45566110476,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.42,
+        "corrected_xirr_pre_first_session": 15.423527,
+        "reported_mdd": -44.38,
+        "corrected_mdd_with_opening_anchor": -44.380635
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C3_Reentry_Stop",
+      "Strat": {
+        "reported_opening": 367525.45,
+        "previous_close_opening": 366525.44831670466,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.21,
+        "corrected_xirr_pre_first_session": 12.212363,
+        "reported_mdd": -44.83,
+        "corrected_mdd_with_opening_anchor": -44.832647
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C4_A_plus_B",
+      "Strat": {
+        "reported_opening": 328335.39,
+        "previous_close_opening": 327335.3880805872,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.42,
+        "corrected_xirr_pre_first_session": 15.42233,
+        "reported_mdd": -44.38,
+        "corrected_mdd_with_opening_anchor": -44.380663
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C5_A_plus_C",
+      "Strat": {
+        "reported_opening": 367525.45,
+        "previous_close_opening": 366525.44831670466,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.21,
+        "corrected_xirr_pre_first_session": 12.212363,
+        "reported_mdd": -44.83,
+        "corrected_mdd_with_opening_anchor": -44.832647
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C6_B_plus_C",
+      "Strat": {
+        "reported_opening": 321865.75,
+        "previous_close_opening": 320865.7496398042,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.8,
+        "corrected_xirr_pre_first_session": 13.801946,
+        "reported_mdd": -46.27,
+        "corrected_mdd_with_opening_anchor": -46.267656
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "QQQ",
+      "Config": "C7_Full_Candidate",
+      "Strat": {
+        "reported_opening": 326602.66,
+        "previous_close_opening": 325602.65718482615,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.8,
+        "corrected_xirr_pre_first_session": 13.799784,
+        "reported_mdd": -46.27,
+        "corrected_mdd_with_opening_anchor": -46.26768
+      },
+      "Bench": {
+        "reported_opening": 379541.42,
+        "previous_close_opening": 378541.41611304757,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 20.33,
+        "corrected_xirr_pre_first_session": 20.3334,
+        "reported_mdd": -35.12,
+        "corrected_mdd_with_opening_anchor": -35.123067
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C0_Baseline",
+      "Strat": {
+        "reported_opening": 290007.0,
+        "previous_close_opening": 289007.0005684224,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 14.77,
+        "corrected_xirr_pre_first_session": 14.771365,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710424
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C1_Decoupled_Scores",
+      "Strat": {
+        "reported_opening": 290007.0,
+        "previous_close_opening": 289007.0005684224,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 14.77,
+        "corrected_xirr_pre_first_session": 14.771365,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710424
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C2_Panic_Latch",
+      "Strat": {
+        "reported_opening": 269554.46,
+        "previous_close_opening": 268554.4560742075,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.81,
+        "corrected_xirr_pre_first_session": 13.805264,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.709908
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C3_Reentry_Stop",
+      "Strat": {
+        "reported_opening": 277802.42,
+        "previous_close_opening": 276802.4242273803,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.59,
+        "corrected_xirr_pre_first_session": 12.590627,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710125
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C4_A_plus_B",
+      "Strat": {
+        "reported_opening": 278314.86,
+        "previous_close_opening": 277314.8608313506,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 13.77,
+        "corrected_xirr_pre_first_session": 13.770693,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710138
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C5_A_plus_C",
+      "Strat": {
+        "reported_opening": 277802.42,
+        "previous_close_opening": 276802.4242273803,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.59,
+        "corrected_xirr_pre_first_session": 12.590627,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710125
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C6_B_plus_C",
+      "Strat": {
+        "reported_opening": 258257.27,
+        "previous_close_opening": 257257.2685234601,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.89,
+        "corrected_xirr_pre_first_session": 12.892255,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.709589
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    },
+    {
+      "Asset": "SPY",
+      "Config": "C7_Full_Candidate",
+      "Strat": {
+        "reported_opening": 271010.4,
+        "previous_close_opening": 270010.39507401077,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 12.85,
+        "corrected_xirr_pre_first_session": 12.850647,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.709947
+      },
+      "Bench": {
+        "reported_opening": 296157.57,
+        "previous_close_opening": 295157.5680402572,
+        "actual_first_snapshot_date": "2020-01-01",
+        "double_included_first_day_deposit": 1000.0,
+        "reported_xirr": 15.41,
+        "corrected_xirr_pre_first_session": 15.406736,
+        "reported_mdd": -33.71,
+        "corrected_mdd_with_opening_anchor": -33.710565
+      }
+    }
+  ],
+  "flat_no_fee_mode_a_counterexample": {
+    "Asset": "FLAT",
+    "Config": "C0",
+    "Segment": "Historical_Verification_2020_2026",
+    "Mode": "Mode_A_Continuous_Inherited",
+    "Start_Dt": "2020-01-01",
+    "End_Dt": "2026-09-14",
+    "Strat_Start_Equity": 102000.0,
+    "Strat_Total_DCA": 5000.0,
+    "Strat_End_Equity": 106000.0,
+    "Strat_XIRR%": -2.56,
+    "Strat_MDD%": 0.0,
+    "Bench_Start_Equity": 102000.0,
+    "Bench_Total_DCA": 5000.0,
+    "Bench_End_Equity": 106000.0,
+    "Bench_XIRR%": -2.56,
+    "Bench_MDD%": 0.0,
+    "Alpha_XIRR%": 0.0
+  },
+  "mode_b_first_day_deposit_omission": {
+    "reported_initial": 100000,
+    "actual_initial_cashflow_plus_first_dca": 101000,
+    "omitted_first_day_dca": 1000,
+    "affected_mode_b_rows": 48
+  },
+  "pending_sell_actual_loop_pass": {
+    "order_id": "ord_strat_20230131",
+    "status": "FILLED",
+    "submit_dt": "2023-01-31",
+    "planned_dt": null,
+    "target": 0.0,
+    "reason": "BEAR",
+    "validity": "GTC",
+    "actual_dt": "2023-02-02"
+  },
+  "removed_pending_sell_guard_mutation": {
+    "all_tests_still_pass": true,
+    "tests": 10,
+    "output": "..........\n----------------------------------------------------------------------\nRan 10 tests in 0.691s\n\nOK\n"
+  },
+  "removed_guard_actual_consequence": {
+    "order_id": "ord_strat_20230131",
+    "status": "CANCELLED",
+    "submit_dt": "2023-01-31",
+    "planned_dt": null,
+    "target": 0.0,
+    "reason": "BEAR",
+    "validity": "GTC"
+  },
+  "cross_cutoff_matching_counterexample": {
+    "panic_signals_count": 0,
+    "panic_buy_fdr": 0.0,
+    "bottom_miss_rate": 0.0,
+    "sell_signals_count": 1,
+    "sell_fdr": 100.0,
+    "top_miss_rate": 0.0,
+    "total_eval_days": 80,
+    "true_minima": 0,
+    "true_maxima": 0
+  },
+  "actual_nan_dca_stop_clock": {
+    "10": 1,
+    "11": 0,
+    "12": 0
+  },
+  "all_four_missing_horizon_paths": {
+    "valid_sig_20": false,
+    "valid_fill_20": false,
+    "valid_sig_60": false,
+    "valid_fill_60": false
+  },
+  "files_unchanged": true
+}

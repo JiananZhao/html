@@ -1,0 +1,66 @@
+{
+  "factorial_ablation_results.csv": {
+    "bytes": 1147,
+    "sha256": "ca73e629b90be8ce549a7d4108051e825400c96bbc9540dc20c500cc1e2e458d"
+  },
+  "factorial_ablation_results_v2.csv": {
+    "bytes": 1575,
+    "sha256": "a4173404b9218bb6d875d668601c20643f10b5596d0fa1905d3f43252495eb27"
+  },
+  "factorial_ablation_results_v2_qqq.csv": {
+    "bytes": 997,
+    "sha256": "02463a01d6d58d22056143ce0321641a5cdbbe8e2a76ce6996bbe3d92486276a"
+  },
+  "factorial_ablation_results_v2_spy.csv": {
+    "bytes": 970,
+    "sha256": "b28b72bc2ea7bdd084e0512cb9775464dd74f51950b0e1f1d440ad1943feb26b"
+  },
+  "factorial_claims_verification.json": {
+    "bytes": 1188,
+    "sha256": "ac6c56dd434608c069fc89bdb7948f110e0c896f906d89051ec30f7b67cc2095"
+  },
+  "FACTORIAL_REVIEW.md": {
+    "bytes": 3962,
+    "sha256": "cb069c7dfcc7049cf09c89882e09ed4bdebe20087162c02329631b35785558c9"
+  },
+  "FROZEN_SPEC_AND_BENCHMARK_PROTOCOL.md": {
+    "bytes": 10709,
+    "sha256": "248b8327b7b1e9795b11c69399de5d2fc014630d5182227fda70b5aefab8ff51"
+  },
+  "NOW_dedicated_pandemic.csv": {
+    "bytes": 5360,
+    "sha256": "8fcfe20852bdd169c592b91b902bd3d08fbcf629909e3716749692aab4382b97"
+  },
+  "NOW_discretionary_fills.csv": {
+    "bytes": 9702,
+    "sha256": "1dc484716481a9a528e49ecd6d951ad101897beadc5a3cf612bbdc31ca0b4bf6"
+  },
+  "NOW_universal_fills.csv": {
+    "bytes": 10676,
+    "sha256": "1500391fd86c0b881c8c48a222917b4a4de8cdc1a23be4b59bcec1a958357a25"
+  },
+  "NOW_universal_pandemic.csv": {
+    "bytes": 5364,
+    "sha256": "f63805004af6e15e3d86d2be58f426d75944e1908bb2632ab23cd04c7242a891"
+  },
+  "reproduce.py": {
+    "bytes": 3629,
+    "sha256": "3c9260cfae98a4478ab7681618878e1a5d37bb35e8f32684c1b1166b123a680b"
+  },
+  "review_v2_claims.py": {
+    "bytes": 6728,
+    "sha256": "549f213250dbbade446d6787585df9414f701a1be452e1617941200a883e6e0f"
+  },
+  "run_factorial_experiment.py": {
+    "bytes": 27764,
+    "sha256": "52c8a15cf7c9c222471618118e1cd5e017dc2cf4b51dde731a8afe0ef4493e92"
+  },
+  "test_experiment_engine.py": {
+    "bytes": 13728,
+    "sha256": "72c613a0fe768f8220d88e48b359736eb015366f5a6e7610cbe2776943f17ee1"
+  },
+  "verify_factorial_claims.py": {
+    "bytes": 4399,
+    "sha256": "497d1e782e21d5cb7a04358c13608e44919510bddae163adc98f53a37a5373f8"
+  }
+}

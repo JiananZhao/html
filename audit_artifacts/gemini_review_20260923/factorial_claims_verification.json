@@ -1,0 +1,42 @@
+{
+  "actual_full_start": "2012-06-29",
+  "C0": {
+    "reported_final": 455851.68,
+    "reported_alpha_pct": -12.13,
+    "reported_equity_mdd_pct": -54.05,
+    "unit_nav_mdd_pct": -54.0536,
+    "strategy_xirr_pct": 11.357,
+    "benchmark_fills": 171,
+    "benchmark_cashflows": 172,
+    "benchmark_terminal_cash": -0.0,
+    "benchmark_final": 1313423.13,
+    "first_strategy_fill": "2012-09-13"
+  },
+  "production_first_ready": "2014-04-16",
+  "C0_buys_before_production_ready": 257,
+  "C7": {
+    "reported_final": 589160.8,
+    "reported_alpha_pct": -9.14,
+    "reported_equity_mdd_pct": -56.36,
+    "unit_nav_mdd_pct": -56.358,
+    "strategy_xirr_pct": 14.3464,
+    "benchmark_fills": 171,
+    "benchmark_cashflows": 172,
+    "benchmark_terminal_cash": -0.0,
+    "benchmark_final": 1313423.13,
+    "first_strategy_fill": "2012-09-13"
+  },
+  "monthly_invested_benchmark_countercheck": {
+    "terminal_equity": 1320772.48,
+    "terminal_cash": -0.0,
+    "fills": 171
+  },
+  "signal_offset_-10_days": {
+    "buy_fdr_pct": 100.0,
+    "bottom_miss_pct": 100.0
+  },
+  "signal_offset_10_days": {
+    "buy_fdr_pct": 0.0,
+    "bottom_miss_pct": 0.0
+  }
+}

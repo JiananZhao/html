@@ -387,12 +387,14 @@ class NOWReflexivityRadar:
         df_bt['signal_ready'] = df_bt[core_cols].notna().all(axis=1)
 
         # Ensure cond_trend is properly computed
+        cond_panic = (df_bt['Dist_200MA'].rolling(15).min() < -15.0) & (df_bt['NOW'] > df_bt['MA10']) & (df_bt['q1_dot'] > 0)
         cond_trend = (df_bt['NOW'] > df_bt['MA50']).rolling(3).sum() == 3
+        recently_crashed = df_bt['Dist_200MA'].rolling(20).min() < -20.0
 
         # Update execution variables to use the unified Triggers
         # Triggers already have hysteresis and cool-down applied!
-        raw_sell = (df_bt['Trigger_Bubble_Top'] | df_bt['Trigger_Bear_Top']) & df_bt['signal_ready']
-        raw_buy = (df_bt['Trigger_Panic'] | cond_trend) & df_bt['signal_ready']
+        raw_sell = (cond_bubble | cond_bear) & (~recently_crashed) & df_bt['signal_ready']
+        raw_buy = (cond_panic | cond_trend) & df_bt['signal_ready']
 
         # -------------------------------------------------------------
         # 逐日记账循环 (SharedExecutor)
@@ -437,13 +439,13 @@ class NOWReflexivityRadar:
             action_taken = False
             if df_bt['signal_ready'].iloc[i]:
                 if pos > 0 and s:
-                    reason = "极度泡沫破裂" if df_bt['Trigger_Bubble_Top'].iloc[i] else "熊市反弹衰竭"
+                    reason = "反身性相变高位破位" if cond_bubble.iloc[i] else "宏观信用危机防守"
                     pos = 0.0
                     executor.submit_order(pos, reason, dt)
                     action = 'SELL'
                     action_taken = True
                 elif pos == 0.0 and b:
-                    reason = "恐慌左侧耗竭拐点回补" if df_bt['Trigger_Panic'].iloc[i] else "均线右侧牛市确认建仓"
+                    reason = "恐慌左侧耗竭拐点回补" if cond_panic.iloc[i] else "均线右侧牛市确认建仓"
                     pos = 1.0
                     executor.submit_order(pos, reason, dt)
                     action = 'BUY'

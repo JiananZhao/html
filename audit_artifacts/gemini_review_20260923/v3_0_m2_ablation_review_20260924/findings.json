@@ -1,0 +1,1205 @@
+{
+  "reproduced": true,
+  "checks": [
+    {
+      "asset": "NOW",
+      "signal": "Signal_B1_dV",
+      "first_ready_idx": 701,
+      "first_ready_date": "2015-04-16",
+      "reported_recall": {
+        "total_events": 21,
+        "caught_events": 4,
+        "recall_pct": 19.05,
+        "lead_times": [
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "strict_caught": 3,
+      "common_scope_strict_caught": 3,
+      "events": [
+        {
+          "peak_date": "2014-03-04",
+          "break_date": "2014-03-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-04-22",
+          "break_date": "2014-04-25",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-05-05",
+          "break_date": "2014-05-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-01",
+          "break_date": "2014-07-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-30",
+          "break_date": "2014-08-06",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-09-08",
+          "break_date": "2014-10-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-11-10",
+          "break_date": "2014-12-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2015-04-16",
+          "break_date": "2015-04-17",
+          "hits": [
+            "2015-04-17"
+          ],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-07-30",
+          "break_date": "2015-08-20",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-04",
+          "break_date": "2016-01-07",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-06-08",
+          "break_date": "2016-06-27",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-10-31",
+          "break_date": "2016-12-01",
+          "hits": [
+            "2016-11-01",
+            "2016-11-09",
+            "2016-11-16",
+            "2016-11-18"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-02-15",
+          "break_date": "2017-03-21",
+          "hits": [
+            "2016-11-18",
+            "2017-02-16",
+            "2017-02-22",
+            "2017-03-02",
+            "2017-03-06",
+            "2017-03-14"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-11-24",
+          "break_date": "2017-12-04",
+          "hits": [
+            "2017-09-01",
+            "2017-09-06",
+            "2017-09-08",
+            "2017-09-12",
+            "2017-09-19",
+            "2017-09-25",
+            "2017-10-02",
+            "2017-10-04",
+            "2017-10-09",
+            "2017-10-13",
+            "2017-10-18",
+            "2017-10-23",
+            "2017-10-25",
+            "2017-10-27",
+            "2017-11-01",
+            "2017-11-06",
+            "2017-11-09",
+            "2017-11-13",
+            "2017-11-20",
+            "2017-11-22",
+            "2017-11-27"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-13",
+          "break_date": "2018-10-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-10-16",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-11-07",
+          "break_date": "2018-11-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-12-13",
+          "break_date": "2018-12-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-16",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-07-11",
+          "break_date": "2019-08-02",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-10-15",
+          "break_date": "2019-10-18",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "NOW",
+      "signal": "Signal_B2_v",
+      "first_ready_idx": 701,
+      "first_ready_date": "2015-04-16",
+      "reported_recall": {
+        "total_events": 21,
+        "caught_events": 4,
+        "recall_pct": 19.05,
+        "lead_times": [
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "3"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "54"
+          }
+        ]
+      },
+      "strict_caught": 3,
+      "common_scope_strict_caught": 3,
+      "events": [
+        {
+          "peak_date": "2014-03-04",
+          "break_date": "2014-03-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-04-22",
+          "break_date": "2014-04-25",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-05-05",
+          "break_date": "2014-05-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-01",
+          "break_date": "2014-07-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-30",
+          "break_date": "2014-08-06",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-09-08",
+          "break_date": "2014-10-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-11-10",
+          "break_date": "2014-12-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2015-04-16",
+          "break_date": "2015-04-17",
+          "hits": [
+            "2015-04-17"
+          ],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-07-30",
+          "break_date": "2015-08-20",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-04",
+          "break_date": "2016-01-07",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-06-08",
+          "break_date": "2016-06-27",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-10-31",
+          "break_date": "2016-12-01",
+          "hits": [
+            "2016-11-03",
+            "2016-11-10"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-02-15",
+          "break_date": "2017-03-21",
+          "hits": [
+            "2017-02-16",
+            "2017-02-22",
+            "2017-03-14"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-11-24",
+          "break_date": "2017-12-04",
+          "hits": [
+            "2017-09-08",
+            "2017-09-12",
+            "2017-09-14",
+            "2017-10-13",
+            "2017-10-18",
+            "2017-10-27",
+            "2017-11-09",
+            "2017-11-27"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-13",
+          "break_date": "2018-10-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-10-16",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-11-07",
+          "break_date": "2018-11-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-12-13",
+          "break_date": "2018-12-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-16",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-07-11",
+          "break_date": "2019-08-02",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-10-15",
+          "break_date": "2019-10-18",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "NOW",
+      "signal": "Signal_B3_MA20",
+      "first_ready_idx": 701,
+      "first_ready_date": "2015-04-16",
+      "reported_recall": {
+        "total_events": 21,
+        "caught_events": 3,
+        "recall_pct": 14.29,
+        "lead_times": [
+          {
+            "type": "confirmation",
+            "days_after_peak": "1"
+          },
+          {
+            "type": "confirmation",
+            "days_after_peak": "7"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "45"
+          }
+        ]
+      },
+      "strict_caught": 2,
+      "common_scope_strict_caught": 2,
+      "events": [
+        {
+          "peak_date": "2014-03-04",
+          "break_date": "2014-03-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-04-22",
+          "break_date": "2014-04-25",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-05-05",
+          "break_date": "2014-05-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-01",
+          "break_date": "2014-07-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-07-30",
+          "break_date": "2014-08-06",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-09-08",
+          "break_date": "2014-10-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2014-11-10",
+          "break_date": "2014-12-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": true
+        },
+        {
+          "peak_date": "2015-04-16",
+          "break_date": "2015-04-17",
+          "hits": [
+            "2015-04-17"
+          ],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-07-30",
+          "break_date": "2015-08-20",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-04",
+          "break_date": "2016-01-07",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-06-08",
+          "break_date": "2016-06-27",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2016-10-31",
+          "break_date": "2016-12-01",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-02-15",
+          "break_date": "2017-03-21",
+          "hits": [
+            "2017-02-27"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2017-11-24",
+          "break_date": "2017-12-04",
+          "hits": [
+            "2017-09-21",
+            "2017-09-25",
+            "2017-11-14",
+            "2017-11-29"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-13",
+          "break_date": "2018-10-08",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-10-16",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-11-07",
+          "break_date": "2018-11-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-12-13",
+          "break_date": "2018-12-21",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-16",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-07-11",
+          "break_date": "2019-08-02",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-10-15",
+          "break_date": "2019-10-18",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "QQQ",
+      "signal": "Signal_B1_dV",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 6,
+        "caught_events": 3,
+        "recall_pct": 50.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "60"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "56"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "59"
+          }
+        ]
+      },
+      "strict_caught": 3,
+      "common_scope_strict_caught": 3,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-21",
+          "hits": [
+            "2015-04-27",
+            "2015-05-05",
+            "2015-05-11"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-01",
+          "break_date": "2016-01-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-12",
+            "2017-12-14",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-03-12",
+          "break_date": "2018-04-02",
+          "hits": [
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-09",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-24",
+            "2018-01-29",
+            "2018-02-01",
+            "2018-02-07",
+            "2018-02-16"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-08-29",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-03",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "QQQ",
+      "signal": "Signal_B2_v",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 6,
+        "caught_events": 3,
+        "recall_pct": 50.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "57"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "55"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "56"
+          }
+        ]
+      },
+      "strict_caught": 3,
+      "common_scope_strict_caught": 3,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-21",
+          "hits": [
+            "2015-04-30"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-01",
+          "break_date": "2016-01-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-10",
+            "2017-11-17",
+            "2017-11-29",
+            "2017-12-22",
+            "2018-01-30"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-03-12",
+          "break_date": "2018-04-02",
+          "hits": [
+            "2017-12-22",
+            "2018-01-30",
+            "2018-02-13"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-08-29",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-03",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "QQQ",
+      "signal": "Signal_B3_MA20",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 6,
+        "caught_events": 3,
+        "recall_pct": 50.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "57"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "42"
+          },
+          {
+            "type": "early_warning",
+            "days_before_peak": "51"
+          }
+        ]
+      },
+      "strict_caught": 3,
+      "common_scope_strict_caught": 3,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-21",
+          "hits": [
+            "2015-04-30",
+            "2015-05-05",
+            "2015-05-11"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-12-01",
+          "break_date": "2016-01-13",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-29",
+            "2018-02-02"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-03-12",
+          "break_date": "2018-04-02",
+          "hits": [
+            "2017-12-29",
+            "2018-02-02"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-08-29",
+          "break_date": "2018-10-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2019-05-03",
+          "break_date": "2019-06-03",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "SPY",
+      "signal": "Signal_B1_dV",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 4,
+        "caught_events": 1,
+        "recall_pct": 25.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "58"
+          }
+        ]
+      },
+      "strict_caught": 1,
+      "common_scope_strict_caught": 1,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-11-03",
+          "break_date": "2016-01-15",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-07",
+            "2017-11-09",
+            "2017-11-14",
+            "2017-11-17",
+            "2017-11-22",
+            "2017-11-27",
+            "2017-11-29",
+            "2017-12-01",
+            "2017-12-13",
+            "2017-12-19",
+            "2017-12-22",
+            "2017-12-29",
+            "2018-01-08",
+            "2018-01-15",
+            "2018-01-18",
+            "2018-01-23",
+            "2018-01-29",
+            "2018-02-07"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-20",
+          "break_date": "2018-12-14",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "SPY",
+      "signal": "Signal_B2_v",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 4,
+        "caught_events": 1,
+        "recall_pct": 25.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "60"
+          }
+        ]
+      },
+      "strict_caught": 1,
+      "common_scope_strict_caught": 1,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-11-03",
+          "break_date": "2016-01-15",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-03",
+            "2017-11-09",
+            "2017-12-05",
+            "2017-12-25",
+            "2018-01-30"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-20",
+          "break_date": "2018-12-14",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    },
+    {
+      "asset": "SPY",
+      "signal": "Signal_B3_MA20",
+      "first_ready_idx": 701,
+      "first_ready_date": "2009-12-17",
+      "reported_recall": {
+        "total_events": 4,
+        "caught_events": 1,
+        "recall_pct": 25.0,
+        "lead_times": [
+          {
+            "type": "early_warning",
+            "days_before_peak": "52"
+          }
+        ]
+      },
+      "strict_caught": 1,
+      "common_scope_strict_caught": 1,
+      "events": [
+        {
+          "peak_date": "2015-07-20",
+          "break_date": "2015-08-24",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2015-11-03",
+          "break_date": "2016-01-15",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-01-26",
+          "break_date": "2018-02-08",
+          "hits": [
+            "2017-11-15",
+            "2018-02-02"
+          ],
+          "strictly_before_break": true,
+          "common_scope_strict": true,
+          "peak_before_feature_ready": false
+        },
+        {
+          "peak_date": "2018-09-20",
+          "break_date": "2018-12-14",
+          "hits": [],
+          "strictly_before_break": false,
+          "common_scope_strict": false,
+          "peak_before_feature_ready": false
+        }
+      ]
+    }
+  ],
+  "caught_event_sets": {
+    "NOW": {
+      "Signal_B1_dV": [
+        "2015-04-16",
+        "2016-10-31",
+        "2017-02-15",
+        "2017-11-24"
+      ],
+      "Signal_B2_v": [
+        "2015-04-16",
+        "2016-10-31",
+        "2017-02-15",
+        "2017-11-24"
+      ],
+      "Signal_B3_MA20": [
+        "2015-04-16",
+        "2017-02-15",
+        "2017-11-24"
+      ]
+    },
+    "QQQ": {
+      "Signal_B1_dV": [
+        "2015-07-20",
+        "2018-01-26",
+        "2018-03-12"
+      ],
+      "Signal_B2_v": [
+        "2015-07-20",
+        "2018-01-26",
+        "2018-03-12"
+      ],
+      "Signal_B3_MA20": [
+        "2015-07-20",
+        "2018-01-26",
+        "2018-03-12"
+      ]
+    },
+    "SPY": {
+      "Signal_B1_dV": [
+        "2018-01-26"
+      ],
+      "Signal_B2_v": [
+        "2018-01-26"
+      ],
+      "Signal_B3_MA20": [
+        "2018-01-26"
+      ]
+    }
+  },
+  "same_close_break_counterexample": {
+    "total_events": 1,
+    "caught_events": 1,
+    "recall_pct": 100.0,
+    "lead_times": [
+      {
+        "type": "confirmation",
+        "days_after_peak": "2"
+      }
+    ]
+  },
+  "submitted_files_unchanged": true
+}

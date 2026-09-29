@@ -1,0 +1,1010 @@
+[
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Strat_Final",
+    "value": 991843.88
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Strat_XIRR%",
+    "value": 15.2
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Strat_MDD%",
+    "value": -50.92
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Alpha_XIRR%",
+    "value": -7.43
+  },
+  {
+    "asset": "NOW",
+    "config": 0,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Strat_Final",
+    "value": 1053175.67
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Strat_XIRR%",
+    "value": 15.85
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Strat_MDD%",
+    "value": -50.92
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Alpha_XIRR%",
+    "value": -6.78
+  },
+  {
+    "asset": "NOW",
+    "config": 1,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Strat_Final",
+    "value": 1082357.31
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Strat_XIRR%",
+    "value": 16.15
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Strat_MDD%",
+    "value": -61.66
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Alpha_XIRR%",
+    "value": -6.48
+  },
+  {
+    "asset": "NOW",
+    "config": 2,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Strat_Final",
+    "value": 621074.04
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Strat_XIRR%",
+    "value": 10.1
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Strat_MDD%",
+    "value": -47.76
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Alpha_XIRR%",
+    "value": -12.52
+  },
+  {
+    "asset": "NOW",
+    "config": 3,
+    "column": "Stop_Loss_Orders",
+    "value": 12.0
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Strat_Final",
+    "value": 1013891.33
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Strat_XIRR%",
+    "value": 15.43
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Strat_MDD%",
+    "value": -61.33
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Alpha_XIRR%",
+    "value": -7.19
+  },
+  {
+    "asset": "NOW",
+    "config": 4,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Strat_Final",
+    "value": 600421.7
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Strat_XIRR%",
+    "value": 9.74
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Strat_MDD%",
+    "value": -49.77
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Alpha_XIRR%",
+    "value": -12.89
+  },
+  {
+    "asset": "NOW",
+    "config": 5,
+    "column": "Stop_Loss_Orders",
+    "value": 13.0
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Strat_Final",
+    "value": 979652.31
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Strat_XIRR%",
+    "value": 15.06
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Strat_MDD%",
+    "value": -55.86
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Alpha_XIRR%",
+    "value": -7.56
+  },
+  {
+    "asset": "NOW",
+    "config": 6,
+    "column": "Stop_Loss_Orders",
+    "value": 10.0
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Strat_Final",
+    "value": 885536.71
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Strat_XIRR%",
+    "value": 13.96
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Strat_MDD%",
+    "value": -55.02
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Bench_Final",
+    "value": 1953936.7
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Bench_XIRR%",
+    "value": 22.62
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Alpha_XIRR%",
+    "value": -8.66
+  },
+  {
+    "asset": "NOW",
+    "config": 7,
+    "column": "Stop_Loss_Orders",
+    "value": 12.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Strat_Final",
+    "value": 1108698.83
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Strat_XIRR%",
+    "value": 16.37
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Strat_MDD%",
+    "value": -44.53
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Alpha_XIRR%",
+    "value": -3.66
+  },
+  {
+    "asset": "QQQ",
+    "config": 0,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Strat_Final",
+    "value": 1108698.83
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Strat_XIRR%",
+    "value": 16.37
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Strat_MDD%",
+    "value": -44.53
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Alpha_XIRR%",
+    "value": -3.66
+  },
+  {
+    "asset": "QQQ",
+    "config": 1,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Strat_Final",
+    "value": 1033658.05
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Strat_XIRR%",
+    "value": 15.61
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Strat_MDD%",
+    "value": -44.38
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Alpha_XIRR%",
+    "value": -4.42
+  },
+  {
+    "asset": "QQQ",
+    "config": 2,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Strat_Final",
+    "value": 965755.55
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Strat_XIRR%",
+    "value": 14.87
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Strat_MDD%",
+    "value": -44.83
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Alpha_XIRR%",
+    "value": -5.16
+  },
+  {
+    "asset": "QQQ",
+    "config": 3,
+    "column": "Stop_Loss_Orders",
+    "value": 2.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Strat_Final",
+    "value": 1046726.71
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Strat_XIRR%",
+    "value": 15.75
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Strat_MDD%",
+    "value": -44.38
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Alpha_XIRR%",
+    "value": -4.29
+  },
+  {
+    "asset": "QQQ",
+    "config": 4,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Strat_Final",
+    "value": 965755.55
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Strat_XIRR%",
+    "value": 14.87
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Strat_MDD%",
+    "value": -44.83
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Alpha_XIRR%",
+    "value": -5.16
+  },
+  {
+    "asset": "QQQ",
+    "config": 5,
+    "column": "Stop_Loss_Orders",
+    "value": 2.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Strat_Final",
+    "value": 941138.42
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Strat_XIRR%",
+    "value": 14.59
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Strat_MDD%",
+    "value": -46.27
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Alpha_XIRR%",
+    "value": -5.44
+  },
+  {
+    "asset": "QQQ",
+    "config": 6,
+    "column": "Stop_Loss_Orders",
+    "value": 3.0
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Strat_Final",
+    "value": 952907.04
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Strat_XIRR%",
+    "value": 14.73
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Strat_MDD%",
+    "value": -46.27
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Bench_Final",
+    "value": 1550551.06
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Bench_XIRR%",
+    "value": 20.03
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Alpha_XIRR%",
+    "value": -5.31
+  },
+  {
+    "asset": "QQQ",
+    "config": 7,
+    "column": "Stop_Loss_Orders",
+    "value": 3.0
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Strat_Final",
+    "value": 875851.96
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Strat_XIRR%",
+    "value": 13.81
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Alpha_XIRR%",
+    "value": -0.57
+  },
+  {
+    "asset": "SPY",
+    "config": 0,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Strat_Final",
+    "value": 875851.96
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Strat_XIRR%",
+    "value": 13.81
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Alpha_XIRR%",
+    "value": -0.57
+  },
+  {
+    "asset": "SPY",
+    "config": 1,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Strat_Final",
+    "value": 781201.48
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Strat_XIRR%",
+    "value": 12.57
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Alpha_XIRR%",
+    "value": -1.81
+  },
+  {
+    "asset": "SPY",
+    "config": 2,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Strat_Final",
+    "value": 749352.21
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Strat_XIRR%",
+    "value": 12.12
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Alpha_XIRR%",
+    "value": -2.26
+  },
+  {
+    "asset": "SPY",
+    "config": 3,
+    "column": "Stop_Loss_Orders",
+    "value": 1.0
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Strat_Final",
+    "value": 800878.73
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Strat_XIRR%",
+    "value": 12.84
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Alpha_XIRR%",
+    "value": -1.54
+  },
+  {
+    "asset": "SPY",
+    "config": 4,
+    "column": "Stop_Loss_Orders",
+    "value": 0.0
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Strat_Final",
+    "value": 749352.21
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Strat_XIRR%",
+    "value": 12.12
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Alpha_XIRR%",
+    "value": -2.26
+  },
+  {
+    "asset": "SPY",
+    "config": 5,
+    "column": "Stop_Loss_Orders",
+    "value": 1.0
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Strat_Final",
+    "value": 717127.44
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Strat_XIRR%",
+    "value": 11.64
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Alpha_XIRR%",
+    "value": -2.74
+  },
+  {
+    "asset": "SPY",
+    "config": 6,
+    "column": "Stop_Loss_Orders",
+    "value": 1.0
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Strat_Final",
+    "value": 744654.49
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Strat_XIRR%",
+    "value": 12.05
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Strat_MDD%",
+    "value": -33.71
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Bench_Final",
+    "value": 923065.34
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Bench_XIRR%",
+    "value": 14.38
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Alpha_XIRR%",
+    "value": -2.33
+  },
+  {
+    "asset": "SPY",
+    "config": 7,
+    "column": "Stop_Loss_Orders",
+    "value": 2.0
+  }
+]

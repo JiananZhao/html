@@ -1,0 +1,769 @@
+{
+  "input_manifest_matches": {
+    "now_ohlcv_local.csv": true,
+    "market_data_local.csv": true,
+    "audit_artifacts/gemini_review_20260923/run_factorial_experiment.py": true,
+    "reflexivity_engine.py": true,
+    "shared_executor.py": true,
+    "true_accounting.py": true,
+    "audit_artifacts/gemini_review_20260923/v2_1_independent_review/REVIEW.md": true,
+    "audit_artifacts/gemini_review_20260923/v2_1_independent_review/findings.json": true
+  },
+  "all_submitted_csvs_reproduced": {
+    "cash_intervals_v2_2.csv": true,
+    "factorial_ablation_results_v2_2_now.csv": true,
+    "factorial_ablation_results_v2_2_qqq.csv": true,
+    "factorial_ablation_results_v2_2_spy.csv": true,
+    "forward_return_evaluations_v2_2.csv": true,
+    "open_cash_intervals_v2_2.csv": true,
+    "open_positions_v2_2.csv": true,
+    "round_trip_ledgers_v2_2.csv": true
+  },
+  "all_common_numeric_features": {
+    "close": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "high": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "low": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "open": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "volume": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "HYG": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "BAA10Y": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "NFCI": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Real_Yield": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "MA10": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "MA20": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "MA50": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "MA200": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Dist_200MA": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Dist_50MA": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "MA200_Slope": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "q1": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "q1_dot": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "q1_ddot": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "v_dot": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Quadrant": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "CMF20": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Vol_Ratio50": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Dim1_Pos": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Dim2_Vel": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Dim3_Lyapunov": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Dim5_Liquidity": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Dim6_Macro": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Composite_Score_M0": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_Overheat_A": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_MacroStress_A": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Score_PanicDepth_A": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "Macro_MA200": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "RY_Surge": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    },
+    "macro_crisis_regime": {
+      "missing_mask_equal": true,
+      "max_abs_diff": 0.0
+    }
+  },
+  "full_history_ready_parity": true,
+  "signal_continuity": [
+    {
+      "asset": "NOW",
+      "config": "C0",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 991843.88,
+      "continuous_signals_final": 991843.88,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C1",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1053175.67,
+      "continuous_signals_final": 1053175.67,
+      "continuous_first_fill": "2014-05-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C2",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1082357.31,
+      "continuous_signals_final": 1082357.31,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C3",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 642110.92,
+      "continuous_signals_final": 642110.92,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C4",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1013891.33,
+      "continuous_signals_final": 1013891.33,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C5",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 621023.49,
+      "continuous_signals_final": 621023.49,
+      "continuous_first_fill": "2014-05-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C6",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 956371.87,
+      "continuous_signals_final": 956371.87,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "NOW",
+      "config": "C7",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 896272.85,
+      "continuous_signals_final": 896272.85,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C0",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1108698.83,
+      "continuous_signals_final": 1108698.83,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C1",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1108698.83,
+      "continuous_signals_final": 1108698.83,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C2",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1033658.05,
+      "continuous_signals_final": 1033658.05,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C3",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 965755.55,
+      "continuous_signals_final": 965755.55,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C4",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 1046726.71,
+      "continuous_signals_final": 1046726.71,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C5",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 965755.55,
+      "continuous_signals_final": 965755.55,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C6",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 941138.42,
+      "continuous_signals_final": 941138.42,
+      "continuous_first_fill": "2014-04-22"
+    },
+    {
+      "asset": "QQQ",
+      "config": "C7",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 952907.04,
+      "continuous_signals_final": 952907.04,
+      "continuous_first_fill": "2014-05-15"
+    },
+    {
+      "asset": "SPY",
+      "config": "C0",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 875851.96,
+      "continuous_signals_final": 875851.96,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C1",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 875851.96,
+      "continuous_signals_final": 875851.96,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C2",
+      "signal_differences": {
+        "Trigger_Panic": [
+          "2014-04-21"
+        ],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 781201.48,
+      "continuous_signals_final": 781201.48,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C3",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 749352.21,
+      "continuous_signals_final": 749352.21,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C4",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 800878.73,
+      "continuous_signals_final": 800878.73,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C5",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 749352.21,
+      "continuous_signals_final": 749352.21,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C6",
+      "signal_differences": {
+        "Trigger_Panic": [
+          "2014-04-21"
+        ],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 717127.44,
+      "continuous_signals_final": 717127.44,
+      "continuous_first_fill": "2014-04-21"
+    },
+    {
+      "asset": "SPY",
+      "config": "C7",
+      "signal_differences": {
+        "Trigger_Panic": [],
+        "Trigger_Bubble_Top": [],
+        "Trigger_Bear_Top": [],
+        "cond_trend": []
+      },
+      "submitted_final": 744654.49,
+      "continuous_signals_final": 744654.49,
+      "continuous_first_fill": "2014-04-21"
+    }
+  ],
+  "unapproved_after_stop_cooldown_counterfactual": [
+    {
+      "asset": "NOW",
+      "config": "C3",
+      "submitted_final": 642110.92,
+      "only_remove_added_after_stop_mode_final": 621074.04,
+      "counterfactual_stop_orders": 12
+    },
+    {
+      "asset": "NOW",
+      "config": "C5",
+      "submitted_final": 621023.49,
+      "only_remove_added_after_stop_mode_final": 600421.7,
+      "counterfactual_stop_orders": 13
+    },
+    {
+      "asset": "NOW",
+      "config": "C6",
+      "submitted_final": 956371.87,
+      "only_remove_added_after_stop_mode_final": 979652.31,
+      "counterfactual_stop_orders": 10
+    },
+    {
+      "asset": "NOW",
+      "config": "C7",
+      "submitted_final": 896272.85,
+      "only_remove_added_after_stop_mode_final": 885536.71,
+      "counterfactual_stop_orders": 12
+    },
+    {
+      "asset": "QQQ",
+      "config": "C3",
+      "submitted_final": 965755.55,
+      "only_remove_added_after_stop_mode_final": 965755.55,
+      "counterfactual_stop_orders": 2
+    },
+    {
+      "asset": "QQQ",
+      "config": "C5",
+      "submitted_final": 965755.55,
+      "only_remove_added_after_stop_mode_final": 965755.55,
+      "counterfactual_stop_orders": 2
+    },
+    {
+      "asset": "QQQ",
+      "config": "C6",
+      "submitted_final": 941138.42,
+      "only_remove_added_after_stop_mode_final": 941138.42,
+      "counterfactual_stop_orders": 3
+    },
+    {
+      "asset": "QQQ",
+      "config": "C7",
+      "submitted_final": 952907.04,
+      "only_remove_added_after_stop_mode_final": 952907.04,
+      "counterfactual_stop_orders": 3
+    },
+    {
+      "asset": "SPY",
+      "config": "C3",
+      "submitted_final": 749352.21,
+      "only_remove_added_after_stop_mode_final": 749352.21,
+      "counterfactual_stop_orders": 1
+    },
+    {
+      "asset": "SPY",
+      "config": "C5",
+      "submitted_final": 749352.21,
+      "only_remove_added_after_stop_mode_final": 749352.21,
+      "counterfactual_stop_orders": 1
+    },
+    {
+      "asset": "SPY",
+      "config": "C6",
+      "submitted_final": 717127.44,
+      "only_remove_added_after_stop_mode_final": 717127.44,
+      "counterfactual_stop_orders": 1
+    },
+    {
+      "asset": "SPY",
+      "config": "C7",
+      "submitted_final": 744654.49,
+      "only_remove_added_after_stop_mode_final": 744654.49,
+      "counterfactual_stop_orders": 2
+    }
+  ],
+  "missing_monthly_dca": {
+    "dates": [
+      "2018-01-29",
+      "2018-01-30",
+      "2018-01-31",
+      "2018-02-01",
+      "2018-02-02",
+      "2018-02-05",
+      "2018-02-06",
+      "2018-02-07"
+    ],
+    "readiness": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "fills": [
+      {
+        "fill_id": "fill_strat_20180130_02bb",
+        "order_id": "ord_strat_20180129",
+        "dt": "2018-01-30",
+        "price": 29.31800079345703,
+        "signed_shares": 375.00861078765496,
+        "fee": 5.497251374312844,
+        "direction": "BUY"
+      }
+    ],
+    "cashflows": [
+      {
+        "flow_id": "cf_strat_20180129",
+        "planned_dt": "2018-01-29",
+        "actual_dt": "2018-01-29",
+        "amount": 1000,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      },
+      {
+        "flow_id": "cf_strat_20180201",
+        "planned_dt": "2018-02-01",
+        "actual_dt": "2018-02-02",
+        "amount": 1000,
+        "status": "COMPLETED",
+        "reason": "Scheduled DCA"
+      }
+    ],
+    "final_cash": 1000.0,
+    "orders": [
+      {
+        "order_id": "ord_strat_20180129",
+        "status": "FILLED",
+        "submit_dt": "2018-01-29",
+        "planned_dt": null,
+        "target": 1.0,
+        "reason": "PANIC_BUY",
+        "validity": "GTC",
+        "actual_dt": "2018-01-30"
+      }
+    ]
+  },
+  "stop_timer_freezes_on_unready_days": {
+    "reentry_fill": "2023-01-20",
+    "late_stop_signal": "2023-02-07",
+    "elapsed_trading_rows": 12,
+    "stop_orders": 1,
+    "orders": [
+      {
+        "order_id": "ord_strat_20230104",
+        "status": "FILLED",
+        "submit_dt": "2023-01-04",
+        "planned_dt": null,
+        "target": 1.0,
+        "reason": "PANIC_BUY",
+        "validity": "GTC",
+        "actual_dt": "2023-01-05"
+      },
+      {
+        "order_id": "ord_strat_20230109",
+        "status": "FILLED",
+        "submit_dt": "2023-01-09",
+        "planned_dt": null,
+        "target": 0.0,
+        "reason": "BUBBLE",
+        "validity": "GTC",
+        "actual_dt": "2023-01-10"
+      },
+      {
+        "order_id": "ord_strat_20230119",
+        "status": "FILLED",
+        "submit_dt": "2023-01-19",
+        "planned_dt": null,
+        "target": 1.0,
+        "reason": "REENTRY_AFTER_BUBBLE",
+        "validity": "GTC",
+        "actual_dt": "2023-01-20"
+      },
+      {
+        "order_id": "ord_strat_20230207",
+        "status": "FILLED",
+        "submit_dt": "2023-02-07",
+        "planned_dt": null,
+        "target": 0.0,
+        "reason": "STOP_LOSS_5PCT",
+        "validity": "GTC",
+        "actual_dt": "2023-02-08"
+      }
+    ]
+  },
+  "open_wave_missing_terminal_quote": {
+    "ledger": {
+      "Asset": "NOW",
+      "Config": "C0",
+      "entry_dt": "2023-01-04",
+      "entry_vwap": 100.0,
+      "holding_trading_days_to_end": "2",
+      "total_buy_shares": 100.0,
+      "total_buy_cost": 10000.0,
+      "latest_market_val": 10000.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "num_dca_additions": 0
+    },
+    "account_state": {
+      "date": "2023-01-06",
+      "shares": 100.0,
+      "cash": 0.0,
+      "units": 10000.0,
+      "unit_nav": 1.2,
+      "equity": 12000.0,
+      "type": "strat",
+      "valuation_quality": "stale"
+    }
+  },
+  "sell_extrema_window_reversed": {
+    "40": {
+      "panic_signals_count": 0,
+      "panic_buy_fdr": 0.0,
+      "bottom_miss_rate": 0.0,
+      "sell_signals_count": 1,
+      "sell_fdr": 0.0,
+      "top_miss_rate": 0.0
+    },
+    "60": {
+      "panic_signals_count": 0,
+      "panic_buy_fdr": 0.0,
+      "bottom_miss_rate": 0.0,
+      "sell_signals_count": 1,
+      "sell_fdr": 100.0,
+      "top_miss_rate": 100.0
+    }
+  },
+  "nan_mask_mutation_survives_test08": true,
+  "forward_valid_flag_with_missing_horizon_quote": {
+    "Asset": "NOW",
+    "Config": "C0",
+    "event_type": "PANIC_BUY",
+    "signal_dt": "2023-01-03",
+    "fill_dt": "2023-01-04",
+    "signal_price": 100.0,
+    "fill_price": 100.0,
+    "valid_fill_20": true,
+    "fwd_ret_fill_20d": null,
+    "valid_fill_60": false,
+    "fwd_ret_fill_60d": null,
+    "valid_sig_20": true,
+    "fwd_ret_sig_20d": 0.0,
+    "valid_sig_60": false,
+    "fwd_ret_sig_60d": null
+  },
+  "actual_benchmark_metrics": {
+    "NOW": {
+      "Bench_Final": 1953936.7,
+      "Bench_XIRR%": 22.62,
+      "Bench_MDD%": -64.54
+    },
+    "QQQ": {
+      "Bench_Final": 1550551.06,
+      "Bench_XIRR%": 20.03,
+      "Bench_MDD%": -35.12
+    },
+    "SPY": {
+      "Bench_Final": 923065.34,
+      "Bench_XIRR%": 14.38,
+      "Bench_MDD%": -33.71
+    }
+  },
+  "event_counts": {
+    "DCA_ADDITION": 3143,
+    "EXIT_SELL": 697,
+    "TREND_BUY": 260,
+    "PANIC_BUY": 246,
+    "REENTRY_BUY": 215
+  },
+  "total_events": 4561,
+  "unique_entry_asset_date_type": 203,
+  "files_unchanged": true
+}

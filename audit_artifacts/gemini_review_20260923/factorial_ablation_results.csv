@@ -1,0 +1,9 @@
+Config,A_Score,B_Latch,C_Reentry,Buy_FDR%,Bottom_Miss%,Sell_FDR%,Top_Miss%,Full_StratFinal,Full_Alpha%,Full_MDD%,RoundTrips,ShortRT%,AvgPnL%,OOS_StratFinal,OOS_Alpha%,OOS_MDD%,OOS_ShortRT%
+C0_M0_Baseline,False,False,False,60.0,81.82,56.9,57.89,537056.67,0.33,-48.79,58,5.17,4.35,105915.65,-0.14,-38.33,9.09
+C1_Score_Decouple,True,False,False,63.16,87.27,56.9,57.89,537056.67,0.33,-48.79,58,5.17,4.35,105915.65,-0.14,-38.33,9.09
+C2_Panic_Latch,False,True,False,60.56,58.18,56.9,57.89,460334.92,-0.84,-60.7,59,3.39,4.22,80639.89,-4.24,-53.65,5.88
+C3_Reentry_Handshake,False,False,True,60.0,81.82,56.9,57.89,394895.43,-1.99,-47.89,49,8.16,4.27,95777.3,-1.67,-38.5,10.34
+C4_Score_Latch,True,True,False,62.71,67.27,56.9,57.89,464160.12,-0.78,-60.37,59,3.39,4.23,81198.41,-4.13,-53.3,5.88
+C5_Score_Reentry,True,False,True,63.16,87.27,56.9,57.89,391087.87,-2.06,-47.87,49,8.16,4.31,94439.32,-1.88,-38.28,10.34
+C6_Latch_Reentry,False,True,True,60.56,58.18,56.9,57.89,398319.7,-1.93,-61.47,52,5.77,4.41,74967.61,-5.3,-53.54,6.45
+C7_Full_Candidate,True,True,True,62.71,67.27,56.9,57.89,428930.01,-1.37,-61.52,52,5.77,4.54,81255.1,-4.12,-54.48,6.45

@@ -1,0 +1,7 @@
+Model,Asset,Total_Alerts,TP_Hits,FP_Misses,Null_Timeout,Absolute_Precision%,Conditional_Precision%,Fwd_20_Med%,Fwd_40_Med%,Fwd_60_Med%
+Baseline,NOW,53,11,39,3,20.75,22.0,5.22,5.94,10.72
+Dynamical_M2_Candidate,NOW,72,7,52,13,9.72,11.86,2.53,6.76,10.46
+Baseline,QQQ,5,0,4,1,0.0,0.0,5.89,7.76,12.1
+Dynamical_M2_Candidate,QQQ,191,10,17,164,5.24,37.04,0.95,2.06,3.38
+Baseline,SPY,2,0,0,2,0.0,0.0,3.62,6.43,8.35
+Dynamical_M2_Candidate,SPY,168,10,11,147,5.95,47.62,0.86,1.73,2.9
