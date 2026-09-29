@@ -92,15 +92,15 @@ def update_single_stock_ohlcv(csv_file, ticker):
             
         data = clean_index_tz(data)
         data = data.reset_index()
+        # Flatten MultiIndex columns if any
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
+            
         if 'Date' in data.columns:
             data = data.rename(columns={'Date': 'date'})
             
         # 重命名列以匹配现有格式 (小写)
-        rename_map = {}
-        for col in data.columns:
-            if col != 'date':
-                new_col = col[0] if isinstance(col, tuple) else col
-                rename_map[col] = str(new_col).lower()
+        rename_map = {col: str(col).lower() for col in data.columns if str(col).lower() != 'date'}
         data = data.rename(columns=rename_map)
         
         data['date'] = pd.to_datetime(data['date']).dt.strftime('%Y-%m-%d')

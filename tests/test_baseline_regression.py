@@ -15,6 +15,14 @@ class TestBaselineRegression(unittest.TestCase):
         历史业绩轨迹没有发生非预期的偏移或被幽灵复利污染。
         """
         radar = NOWReflexivityRadar()
+        
+        # 使用冻结数据集进行基线回归测试，以避免每日数据增量导致终值漂移
+        frozen_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                  'audit_artifacts', 'gemini_review_20260923', 'v2_3_independent_review', 'frozen_inputs')
+        if os.path.exists(frozen_dir):
+            radar.ohlcv_file = os.path.join(frozen_dir, 'now_ohlcv_local.csv')
+            radar.market_data_path = os.path.join(frozen_dir, 'market_data_local.csv')
+            
         radar.load_and_preprocess()
         radar.compute_all_dimensions()
         
