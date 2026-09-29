@@ -313,6 +313,8 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
                 matches = sub_bt.index[sub_bt['date'] > last_date].tolist()
                 if matches:
                     start_idx = matches[0]
+                else:
+                    start_idx = df_len
             else:
                 start_idx = df_len # 已经是最新的
                 
