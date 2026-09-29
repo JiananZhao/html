@@ -409,7 +409,7 @@ if __name__ == '__main__':
     df = radar.load_and_preprocess()
     df = radar.compute_all_dimensions()
 
-    radar.df.to_csv('micro_radar_local.csv', index=False)
+    radar.df.to_csv('igv_radar_local.csv', index=False)
     print(f"💾 预计算指标已固化至: micro_radar_local.csv (共 {len(radar.df)} 行)")
 
     print("⚡ 正在执行真实券商记账回测...")
