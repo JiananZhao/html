@@ -304,7 +304,7 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
             history_slice = sub_bt[sub_bt['date'] <= last_date]
             if not history_slice.empty:
                 # 仅对核心价格列进行快速哈希运算
-                history_hash_val = pd.util.hash_pandas_object(history_slice[['date', 'close', 'OIL']]).sum()
+                history_hash_val = pd.util.hash_pandas_object(history_slice[['date', ticker, 'OIL']]).sum()
                 current_prefix_hash = str(history_hash_val)
 
         if sm.verify_checkpoint(checkpoint, config_hash, current_prefix_hash):
@@ -316,60 +316,66 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
             else:
                 start_idx = df_len # 已经是最新的
                 
-        # 恢复状态标量 (注意：这不会恢复 history/orders 列表)
-        if 'executor_state' in checkpoint:
-            executor.restore_state(checkpoint['executor_state'])
-        if 'bench_executor_state' in checkpoint:
-            bench_executor.restore_state(checkpoint['bench_executor_state'])
-            
-        strat_state = checkpoint.get('strategy_state', {})
-        curr_m = strat_state.get('curr_m', -1)
-        exit_reg = strat_state.get('exit_reg', None)
-        pos = strat_state.get('pos', 1.0)
-        total_invested = strat_state.get('total_invested', 0.0)
-        
-        # 恢复旧的并行序列以供最后出图，并按 last_processed_date 进行事务截断回滚
-        if os.path.exists(daily_csv_path):
-            old_daily_accounts = pd.read_csv(daily_csv_path)
-            if last_date:
-                old_daily_accounts = old_daily_accounts[old_daily_accounts['date'] <= last_date]
+            # 恢复状态标量 (注意：这不会恢复 history/orders 列表)
+            if 'executor_state' in checkpoint:
+                executor.restore_state(checkpoint['executor_state'])
+            if 'bench_executor_state' in checkpoint:
+                bench_executor.restore_state(checkpoint['bench_executor_state'])
                 
-        # 资金流由于用于计算最终的 XIRR，暂时简单处理：我们依然需要完整的资金流水，由于资金流水数据量极小，可以直接放在 JSON 或单独加载。
-        # 为了极简，我们将资金流写入 JSON。我们修改了 true_accounting，这里我们手动从 JSON 恢复:
-        cfs_s = checkpoint.get('cashflows_strat', [])
-        cfs_b = checkpoint.get('cashflows_bench', [])
-        executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_s]
-        bench_executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_b]
-        
-        if os.path.exists(orders_csv_path):
-            import ast
-            old_orders_df = pd.read_csv(orders_csv_path)
-            if last_date:
-                # 剔除未来的越界记录，同时剔除 PENDING，因为 JSON 会独立接管 PENDING
-                old_orders_df = old_orders_df[(old_orders_df['submit_dt'] <= last_date) & (old_orders_df['status'] != 'PENDING')]
-            old_orders = old_orders_df.to_dict('records')
+            strat_state = checkpoint.get('strategy_state', {})
+            curr_m = strat_state.get('curr_m', -1)
+            exit_reg = strat_state.get('exit_reg', None)
+            pos = strat_state.get('pos', 1.0)
+            total_invested = strat_state.get('total_invested', 0.0)
             
-        if os.path.exists(fills_csv_path):
-            old_fills_df = pd.read_csv(fills_csv_path)
-            if last_date:
-                old_fills_df = old_fills_df[old_fills_df['dt'] <= last_date]
-            old_fills = old_fills_df.to_dict('records')
+            # 恢复旧的并行序列以供最后出图，并按 last_processed_date 进行事务截断回滚
+            if os.path.exists(daily_csv_path):
+                old_daily_accounts = pd.read_csv(daily_csv_path)
+                if last_date:
+                    old_daily_accounts = old_daily_accounts[old_daily_accounts['date'] <= last_date]
+                    
+            # 资金流由于用于计算最终的 XIRR，暂时简单处理：我们依然需要完整的资金流水，由于资金流水数据量极小，可以直接放在 JSON 或单独加载。
+            # 为了极简，我们将资金流写入 JSON。我们修改了 true_accounting，这里我们手动从 JSON 恢复:
+            cfs_s = checkpoint.get('cashflows_strat', [])
+            cfs_b = checkpoint.get('cashflows_bench', [])
+            executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_s]
+            bench_executor.acc.cash_flows = [(pd.Timestamp(d), a) for d, a in cfs_b]
             
-        # 并行恢复 bench_eqs, strat_eqs, positions
-        if 'history_columns' in checkpoint:
-            bench_eqs = checkpoint['history_columns'].get('bench_eqs', [])
-            strat_eqs = checkpoint['history_columns'].get('strat_eqs', [])
-            positions = checkpoint['history_columns'].get('positions', [])
+            if os.path.exists(orders_csv_path):
+                import ast
+                old_orders_df = pd.read_csv(orders_csv_path)
+                if last_date:
+                    # 剔除未来的越界记录，同时剔除 PENDING，因为 JSON 会独立接管 PENDING
+                    old_orders_df = old_orders_df[(old_orders_df['submit_dt'] <= last_date) & (old_orders_df['status'] != 'PENDING')]
+                old_orders = old_orders_df.to_dict('records')
+                
+            if os.path.exists(fills_csv_path):
+                old_fills_df = pd.read_csv(fills_csv_path)
+                if last_date:
+                    old_fills_df = old_fills_df[old_fills_df['dt'] <= last_date]
+                old_fills = old_fills_df.to_dict('records')
+                
+            # 并行恢复 bench_eqs, strat_eqs, positions
+            if 'history_columns' in checkpoint:
+                bench_eqs = checkpoint['history_columns'].get('bench_eqs', [])
+                strat_eqs = checkpoint['history_columns'].get('strat_eqs', [])
+                positions = checkpoint['history_columns'].get('positions', [])
+            else:
+                bench_eqs = []
+                strat_eqs = []
+                positions = []
+                
+            # 跳过检测
+            if start_idx == df_len:
+                print("⏭️ 检测到检查点与最新数据日期一致，无新增执行数据，O(1) 跳过增量回放。")
+                is_updated = False
+            else:
+                is_updated = True
         else:
+            print("Prefix hash mismatch (historical data or config changed), cannot resume.")
             bench_eqs = []
             strat_eqs = []
             positions = []
-            
-        # 跳过检测
-        if start_idx == df_len:
-            print("⏭️ 检测到检查点与最新数据日期一致，无新增执行数据，O(1) 跳过增量回放。")
-            is_updated = False
-        else:
             is_updated = True
     else:
         bench_eqs = []
