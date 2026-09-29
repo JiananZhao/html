@@ -494,7 +494,7 @@ def run_brokerage_backtest(df, ticker='XLE', start_date='2009-01-01', dca_monthl
     }
     
     # 计算当前运行完成后的全局数据指纹
-    history_hash_val_end = pd.util.hash_pandas_object(sub_bt[['date', 'close', 'OIL']]).sum()
+    history_hash_val_end = pd.util.hash_pandas_object(sub_bt[['date', ticker, 'OIL']]).sum()
     final_prefix_hash = str(history_hash_val_end)
     
     sm.save_checkpoint('energy_radar', ticker, config_hash, f'ckpt_{sub_bt["date"].iloc[-1]}', state_data, prefix_hash=final_prefix_hash)

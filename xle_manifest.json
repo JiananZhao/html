@@ -1,0 +1,19 @@
+{
+  "ticker": "XLE",
+  "asset_name": "能源全产业链综合基准",
+  "metrics": {
+    "total_invested": 213000.0,
+    "bench_final": 587267.8120999867,
+    "strat_final": 711351.8114212704,
+    "bench_return": 10.466316276014192,
+    "strat_return": 12.3089832093684,
+    "alpha": 1.8426669333542076,
+    "bench_max_dd": -71.26277311066879,
+    "strat_max_dd": -51.79168312014553,
+    "trade_count": 281,
+    "trade_rounds": 50,
+    "win_rounds": 20,
+    "win_rate": 40.0
+  },
+  "updated_at": "2026-09-28T22:48:17.111308"
+}

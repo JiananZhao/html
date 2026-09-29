@@ -1,0 +1,19 @@
+{
+  "ticker": "IGV",
+  "asset_name": "iShares 扩展科技软件与云计算 ETF",
+  "metrics": {
+    "total_invested": 177000.0,
+    "bench_final": 9.675881156872586,
+    "strat_final": 4.334571570413545,
+    "bench_return": NaN,
+    "strat_return": NaN,
+    "alpha": NaN,
+    "bench_max_dd": -45.85041373696459,
+    "strat_max_dd": -38.74281429243381,
+    "trade_count": 75,
+    "trade_rounds": 6,
+    "win_rounds": 2,
+    "win_rate": 33.33333333333333
+  },
+  "updated_at": "2026-09-28T22:48:35.888010"
+}
