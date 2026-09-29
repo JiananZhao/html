@@ -56,6 +56,10 @@ jobs:
         run: |
           python update_market_breadth.py
 
+      - name: Run Local Constituents Incremental Update
+        run: |
+          python update_local_constituents.py
+
       - name: Run Macro Reflexivity Model daily monitor & updater
         id: run_reflexivity_script
         run: |
