@@ -106,14 +106,12 @@ def fetch_data_in_batches(symbols, start_date):
         batch_num = i // BATCH_SIZE + 1
         print(f"Downloading batch {batch_num}/{total_batches} ({len(batch)} symbols)...")
         try:
-            # 关键修复：显式注入 session=session，禁用 threads
             df_batch = yf.download(
                 batch,
                 start=start_date,
                 auto_adjust=True,
                 progress=False,
-                threads=False,
-                session=session
+                threads=False
             )
             if isinstance(df_batch, pd.DataFrame) and 'Close' in df_batch.columns:
                 df_close = df_batch['Close']
@@ -148,8 +146,7 @@ def fetch_data_in_batches(symbols, start_date):
                         sym,
                         start=start_date,
                         auto_adjust=True,
-                        progress=False,
-                        session=session
+                        progress=False
                     )
                     if isinstance(single, pd.DataFrame) and 'Close' in single.columns:
                         s_series = single['Close']
