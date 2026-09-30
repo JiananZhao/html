@@ -463,7 +463,7 @@ def _render_theme_rates_valuation(macro_tf: str):
     with col_ctrl:
         custom_eps = st.number_input(
             "华尔街标普 500 NTM EPS 一致预期 ($):",
-            min_value=200.0, max_value=400.0, value=288.0, step=1.0,
+            min_value=200.0, max_value=500.0, value=401.0, step=1.0,
             help="未来 12 个月一致预期每股收益。调高 EPS 预期意味着盈利更乐观，Forward P/E 降低，ERP 提升。"
         )
     erp_data = get_erp_data(base_ntm_eps=custom_eps)
