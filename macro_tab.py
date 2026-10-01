@@ -75,16 +75,31 @@ from quant_models import (
     calculate_cicc_official_benchmark,
     calculate_dynamic_cicc_quadrant
 )
-def get_latest_factset_eps():
-    try:
-        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sp500_ntm_eps.csv")
-        if os.path.exists(csv_path):
-            df_eps = pd.read_csv(csv_path)
-            if not df_eps.empty and "ntm_eps" in df_eps.columns:
-                return float(df_eps["ntm_eps"].iloc[-1])
-    except Exception:
-        pass
-    return 401.0
+def load_sp500_ntm_eps_record():
+    """白盒化读取 sp500_ntm_eps.csv，绝不静默掩盖错误"""
+    candidate_paths = [
+        "sp500_ntm_eps.csv",  # 优先根目录（与 daily-treasury-rates.csv 一致）
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "sp500_ntm_eps.csv"),
+        os.path.join(os.getcwd(), "sp500_ntm_eps.csv")
+    ]
+    last_err = None
+    for p in candidate_paths:
+        if os.path.exists(p):
+            try:
+                df = pd.read_csv(p).dropna(subset=["ntm_eps"])
+                if not df.empty and "ntm_eps" in df.columns:
+                    row = df.iloc[-1]
+                    return {
+                        "success": True,
+                        "value": float(row["ntm_eps"]),
+                        "date": str(row.get("date", "未知")),
+                        "forward_pe": float(row.get("forward_pe", 0.0)),
+                        "path": p,
+                        "error": None
+                    }
+            except Exception as e:
+                last_err = str(e)
+    return {"success": False, "value": 401.26, "date": "兜底", "forward_pe": 19.2, "path": None, "error": last_err or "未找到 sp500_ntm_eps.csv"}
 
 def _render_kpi_cockpit():
     """顶部宏观核心体温驾驶舱：5 个全局红绿灯指标卡"""
@@ -193,7 +208,9 @@ def _render_kpi_cockpit():
         cur_erp = np.nan
         fwd_pe = np.nan
         try:
-            erp_data = get_erp_data(base_ntm_eps=st.session_state.get("global_custom_eps", get_latest_factset_eps()))
+            eps_rec = load_sp500_ntm_eps_record()
+            active_eps = st.session_state.get("sp500_active_ntm_eps", eps_rec["value"])
+            erp_data = get_erp_data(base_ntm_eps=active_eps)
             if erp_data:
                 cur_erp = erp_data.get("current_erp", np.nan)
                 fwd_pe = erp_data.get("fwd_pe", np.nan)
@@ -469,12 +486,30 @@ def _render_theme_rates_valuation(macro_tf: str):
     # 标普 ERP 风险溢价
     st.subheader("标普 500 股权风险溢价 (Equity Risk Premium, ERP - 动态版)")
     col_ctrl, _ = st.columns([3, 7])
-    with col_ctrl:
+    eps_rec = load_sp500_ntm_eps_record()
+    if eps_rec["success"]:
+        st.success(f"🟢 **FactSet 数据源已挂载** | 基准日: `{eps_rec['date']}` | NTM EPS: **${eps_rec['value']:.2f}** (Forward P/E: {eps_rec['forward_pe']}x) | 路径: `{eps_rec['path']}`")
+    else:
+        st.error(f"🔴 **CSV读取失败**: {eps_rec['error']}")
+
+    # 使用全新独立 key，彻底破除旧浏览器的 401.0 缓存死锁
+    if "sp500_active_ntm_eps" not in st.session_state:
+        st.session_state["sp500_active_ntm_eps"] = eps_rec["value"]
+
+    col_input, col_reset = st.columns([4, 1])
+    with col_input:
         custom_eps = st.number_input(
             "华尔街标普 500 NTM EPS 一致预期 ($):",
-            min_value=200.0, max_value=500.0, value=get_latest_factset_eps(), step=1.0, key="global_custom_eps",
+            min_value=200.0, max_value=600.0, step=1.0,
+            key="sp500_active_ntm_eps",
             help="未来 12 个月一致预期每股收益。调高 EPS 预期意味着盈利更乐观，Forward P/E 降低，ERP 提升。"
         )
+    with col_reset:
+        st.write("")
+        if st.button("🔄 重新读取CSV", help="一键重新从 CSV 文件加载最新数据"):
+            st.session_state["sp500_active_ntm_eps"] = eps_rec["value"]
+            st.rerun()
+
     erp_data = get_erp_data(base_ntm_eps=custom_eps)
     if erp_data:
         fig_erp = create_erp_chart(erp_data, timeframe=macro_tf)
