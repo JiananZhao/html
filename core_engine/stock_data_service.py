@@ -185,29 +185,72 @@ def get_local_stock_price_fallback(symbol: str) -> Tuple[pd.DataFrame, Dict[str,
 # 4. 底层原始数据获取 (在失败时抛出异常，杜绝污染 Streamlit 缓存)
 # =====================================================================
 def _raw_fetch_stock_profile(symbol: str) -> Dict[str, Any]:
-    """从 yfinance 提取标的基础画像 info，失败时抛出 StockDataFetchError"""
-    try:
-        import yfinance as yf
-    except ImportError:
-        raise StockDataFetchError("系统未安装 yfinance 库", is_transient=False)
-        
-    try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-    except Exception as e:
-        err_msg = str(e)
-        status_code = 401 if "401" in err_msg else (429 if "429" in err_msg else None)
-        raise StockDataFetchError(f"请求公司资料异常: {err_msg}", status_code=status_code)
+   """从 yfinance 提取标的基础画像，具备 fast_info 与最近收盘价自动补救"""
+   try:
+     import yfinance as yf
+   except ImportError:
+     raise StockDataFetchError("系统未安装 yfinance 库", is_transient=False)
+   sym = symbol.strip().upper()
+   ticker = yf.Ticker(sym)
 
-    if not info or not isinstance(info, dict):
-        raise StockDataFetchError("上游未返回公司基础资料 (返回空响应)")
-    
-    # 检查基本有效性：只要存在任意常见身份字段或价格字段即可，避免过于严苛
-    has_identity = any(k in info for k in ["shortName", "longName", "symbol", "quoteType", "currency", "regularMarketPrice", "currentPrice"])
-    if not has_identity:
-        raise StockDataFetchError("上游返回了响应但缺少身份字段", is_transient=True)
-        
-    return info
+   info = {}
+   try:
+    raw_info = ticker.info
+    if isinstance(raw_info, dict):
+      info = dict(raw_info)
+   except Exception:
+    pass
+   
+   # 1. 检查是否存在核心身份或价格
+   has_identity = any(
+      k in info
+      for k in [
+          "shortName",
+          "longName",
+          "currentPrice",
+          "regularMarketPrice",
+      ]
+   )
+   
+   # 2. 若缺少，自动从可用的 fast_info 或最近日线收盘价中补救，避免直接抛错自杀
+   if not has_identity:
+    try:
+      fast = getattr(ticker, "fast_info", None)
+      if fast:
+        p = getattr(fast, "last_price", None) or getattr(
+            fast, "regular_market_previous_close", None
+        )
+        if p and pd.notna(p):
+          info["currentPrice"] = float(p)
+          info["regularMarketPrice"] = float(p)
+        mc = getattr(fast, "market_cap", None)
+        if mc and pd.notna(mc):
+          info["marketCap"] = float(mc)
+        info["currency"] = getattr(fast, "currency", "USD") or "USD"
+    except Exception:
+      pass
+   
+    if "currentPrice" not in info or not info["currentPrice"]:
+      try:
+        hist = ticker.history(period="5d")
+        if hist is not None and not hist.empty:
+          p = float(hist["Close"].iloc[-1])
+          info["currentPrice"] = p
+          info["regularMarketPrice"] = p
+      except Exception:
+        pass
+   
+    # 只要拿到价格，便赋予其标的代码身份，视为成功
+    if "currentPrice" in info and info["currentPrice"]:
+      info["symbol"] = sym
+      info["shortName"] = sym
+      info["quoteType"] = "EQUITY"
+      has_identity = True
+   
+   if not has_identity:
+    raise StockDataFetchError("上游未返回该标的有效行情或身份字段", is_transient=True)
+   
+   return info
 
 def _raw_fetch_stock_history(symbol: str, period: str = "5y") -> pd.DataFrame:
     """从 yfinance 提取股票历史行情 OHLCV，失败时抛出 StockDataFetchError"""
