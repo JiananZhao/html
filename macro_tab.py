@@ -184,7 +184,7 @@ def _render_kpi_cockpit():
         cur_erp = np.nan
         fwd_pe = np.nan
         try:
-            erp_data = get_erp_data(base_ntm_eps=288.0)
+            erp_data = get_erp_data(base_ntm_eps=st.session_state.get("global_custom_eps", 401.0))
             if erp_data:
                 cur_erp = erp_data.get("current_erp", np.nan)
                 fwd_pe = erp_data.get("fwd_pe", np.nan)
@@ -463,7 +463,7 @@ def _render_theme_rates_valuation(macro_tf: str):
     with col_ctrl:
         custom_eps = st.number_input(
             "华尔街标普 500 NTM EPS 一致预期 ($):",
-            min_value=200.0, max_value=500.0, value=401.0, step=1.0,
+            min_value=200.0, max_value=500.0, value=401.0, step=1.0, key="global_custom_eps",
             help="未来 12 个月一致预期每股收益。调高 EPS 预期意味着盈利更乐观，Forward P/E 降低，ERP 提升。"
         )
     erp_data = get_erp_data(base_ntm_eps=custom_eps)
