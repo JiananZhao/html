@@ -1,4 +1,5 @@
 import sys
+import time
 import os
 import datetime
 import json
@@ -631,16 +632,30 @@ def fetch_company_data(ticker_symbol: str):
     # 1. 独立获取公司资料 (自带冷却与受控异常)
     prof_res = get_stock_profile(ticker_symbol)
     info = prof_res.get("data", {})
-    company_name = (info.get("shortName") or info.get("longName") or ticker_symbol) if info else ticker_symbol
+    company_name = (
+        (info.get("shortName") or info.get("longName") or ticker_symbol)
+        if info
+        else ticker_symbol
+    )
+
+    time.sleep(0.3)  # 节流间隔，避免突发高频冲击上游网关
 
     # 2. 独立获取财报数据
     statements_raw, stmts_meta = get_stock_statements(ticker_symbol)
-    statements_dict = extract_multi_period_statements(statements_raw) if statements_raw else {}
+    statements_dict = (
+        extract_multi_period_statements(statements_raw)
+        if statements_raw
+        else {}
+    )
     single_pnl = extract_single_quarter_pnl(statements_raw, info)
+
+    time.sleep(0.3)  # 节流间隔
 
     # 3. 独立获取新闻动态
     news_raw, news_meta = get_stock_news(ticker_symbol)
-    news_list = parse_and_enrich_news(None, ticker_symbol, company_name, raw_news=news_raw)
+    news_list = parse_and_enrich_news(
+        None, ticker_symbol, company_name, raw_news=news_raw
+    )
 
     return {
         "status": "success" if prof_res.get("status") == "SUCCESS" else "partial",
