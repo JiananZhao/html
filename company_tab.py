@@ -750,6 +750,8 @@ def render_company_deep_dive_tab():
     company_name = data["company_name"]
     active_ticker = data["ticker_symbol"]
     single_pnl = data.get("single_pnl", {})
+    statements_dict = data.get("statements_dict", {})
+    news_list = data.get("news_list", [])
 
     # 1. 提取市值与价格
     price_val = info.get("currentPrice") or info.get("regularMarketPrice")
