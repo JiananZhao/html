@@ -75,7 +75,16 @@ from quant_models import (
     calculate_cicc_official_benchmark,
     calculate_dynamic_cicc_quadrant
 )
-
+def get_latest_factset_eps():
+    try:
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sp500_ntm_eps.csv")
+        if os.path.exists(csv_path):
+            df_eps = pd.read_csv(csv_path)
+            if not df_eps.empty and "ntm_eps" in df_eps.columns:
+                return float(df_eps["ntm_eps"].iloc[-1])
+    except Exception:
+        pass
+    return 401.0
 
 def _render_kpi_cockpit():
     """顶部宏观核心体温驾驶舱：5 个全局红绿灯指标卡"""
@@ -184,7 +193,7 @@ def _render_kpi_cockpit():
         cur_erp = np.nan
         fwd_pe = np.nan
         try:
-            erp_data = get_erp_data(base_ntm_eps=st.session_state.get("global_custom_eps", 401.0))
+            erp_data = get_erp_data(base_ntm_eps=st.session_state.get("global_custom_eps", get_latest_factset_eps()))
             if erp_data:
                 cur_erp = erp_data.get("current_erp", np.nan)
                 fwd_pe = erp_data.get("fwd_pe", np.nan)
@@ -463,7 +472,7 @@ def _render_theme_rates_valuation(macro_tf: str):
     with col_ctrl:
         custom_eps = st.number_input(
             "华尔街标普 500 NTM EPS 一致预期 ($):",
-            min_value=200.0, max_value=500.0, value=401.0, step=1.0, key="global_custom_eps",
+            min_value=200.0, max_value=500.0, value=get_latest_factset_eps(), step=1.0, key="global_custom_eps",
             help="未来 12 个月一致预期每股收益。调高 EPS 预期意味着盈利更乐观，Forward P/E 降低，ERP 提升。"
         )
     erp_data = get_erp_data(base_ntm_eps=custom_eps)
