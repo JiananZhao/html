@@ -662,24 +662,33 @@ def render_company_deep_dive_tab():
     st.header("🏢 公司画像与深度财报拆解分析 (Company Deep Dive & Financials)")
     st.markdown("全方位剖析公司主营业务构成、核心高管阵列、治理结构、P&L 利润流向瀑布图、多期财务明细与实时新闻动态。")
 
-    # 美股代码搜索输入框
-    col_input, _ = st.columns([1.5, 2.5])
-    with col_input:
-        default_sym = "NVDA"
-        if "tab4_active_ticker" not in st.session_state:
-            st.session_state["tab4_active_ticker"] = default_sym
+    # 美股代码搜索输入框（改用表单防抖拦截）
+    col_form, _ = st.columns([2.0, 2.0])
+    with col_form:
+      if "tab4_active_ticker" not in st.session_state:
+        st.session_state["tab4_active_ticker"] = "NVDA"
 
-        input_ticker = st.text_input(
-            "输入美股代码 (Ticker):",
-            value=st.session_state.get("tab4_active_ticker", default_sym),
-            key="tab4_ticker_text_input"
-        ).strip().upper()
+      with st.form("company_search_form", clear_on_submit=False):
+        c_input, c_btn = st.columns([3, 1])
+        with c_input:
+          typed_ticker = (
+              st.text_input(
+                  "输入美股代码 (Ticker):",
+                  value=st.session_state["tab4_active_ticker"],
+              )
+              .strip()
+              .upper()
+          )
+        with c_btn:
+          st.write("")  # 垂直居中对齐
+          submit_clicked = st.form_submit_button(
+              "🔍 解析", use_container_width=True
+          )
 
-        if input_ticker and input_ticker != st.session_state["tab4_active_ticker"]:
-            st.session_state["tab4_active_ticker"] = input_ticker
+        if submit_clicked and typed_ticker:
+          st.session_state["tab4_active_ticker"] = typed_ticker
 
     active_ticker = st.session_state.get("tab4_active_ticker", "NVDA")
-
     with st.spinner(f"正在全量解析 {active_ticker} 核心画像与财务三张表..."):
         data = fetch_company_data(active_ticker)
 
