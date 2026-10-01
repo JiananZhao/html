@@ -815,46 +815,75 @@ def render_company_deep_dive_tab():
 
     with col_desc:
         long_desc = info.get("longBusinessSummary")
-        if not long_desc or "暂无" in str(long_desc):
+        if not long_desc or "暂无" in str(long_desc) or "Noda" in str(long_desc):
             try:
-                import json, urllib.request, urllib.parse
-                # 自动将股票代码匹配为维基百科真实词条 (如 NVDA -> Nvidia, TEAM -> Atlassian)
-                query = f"{active_ticker} company"
+                import json, urllib.request, urllib.parse, yfinance as yf
+
+                # 1. 动态全自动解析：调用官方搜索接口获取任何股票的法定全称 (不写死任何字典)
+                real_company_name = None
+                try:
+                    search_res = yf.Search(active_ticker, max_results=1)
+                    if search_res and hasattr(search_res, "quotes") and search_res.quotes:
+                        first_match = search_res.quotes[0]
+                        real_company_name = first_match.get("longname") or first_match.get("shortname")
+                        if first_match.get("industry") and (not info.get("industry") or info.get("industry") == "N/A"):
+                            info["industry"] = first_match.get("industry")
+                except Exception:
+                    pass
+
+                # 2. 清洗后缀，获取核心企业名 (如 "NVIDIA Corporation" -> "NVIDIA")
+                clean_name = active_ticker
+                if real_company_name:
+                    clean_name = real_company_name
+                    for sfx in [" Corporation", " Corp.", " Inc.", " Co.", " Ltd.", " Holdings", " LLC", " PLC"]:
+                        clean_name = clean_name.replace(sfx, "")
+                    clean_name = clean_name.strip()
+
+                # 3. 传给维基百科 OpenSearch 精准定位真实条目，提取详实业务介绍
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-                s_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(query)}&limit=1&format=json"
-                req = urllib.request.Request(s_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=3) as resp:
-                    s_data = json.loads(resp.read().decode("utf-8"))
-                    if s_data and len(s_data) >= 2 and s_data[1]:
-                        target_title = s_data[1][0]
-                        # 抓取官方正规多段落业务档案
-                        sum_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(target_title)}"
+                s_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(clean_name)}&limit=1&format=json"
+                req1 = urllib.request.Request(s_url, headers=headers)
+                with urllib.request.urlopen(req1, timeout=3) as resp1:
+                    s_json = json.loads(resp1.read().decode("utf-8"))
+                    if s_json and len(s_json) >= 2 and s_json[1]:
+                        wiki_page_title = s_json[1][0]
+                        # 4. 获取该真实条目的完整业务档案
+                        sum_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(wiki_page_title)}"
                         req2 = urllib.request.Request(sum_url, headers=headers)
                         with urllib.request.urlopen(req2, timeout=3) as resp2:
-                            sum_data = json.loads(resp2.read().decode("utf-8"))
-                            if sum_data.get("extract"):
-                                long_desc = sum_data.get("extract")
+                            detail_json = json.loads(resp2.read().decode("utf-8"))
+                            if detail_json.get("extract") and len(detail_json.get("extract")) > 40:
+                                long_desc = detail_json.get("extract")
             except Exception:
                 pass
 
-        if not long_desc:
+        if not long_desc or "Noda" in str(long_desc):
             long_desc = "暂无公司详细业务描述。"
+
         st.markdown(f"<div style='background-color:#f8fafc;padding:15px;border-radius:8px;border-left:4px solid #3b82f6;font-size:0.92rem;line-height:1.6;'>{long_desc}</div>", unsafe_allow_html=True)
-        
-        website = info.get("website", "")
-        ir_url = info.get("irWebsite", "")
-        links = []
-        if website:
-            links.append(f"🔗 [官方主页]({website})")
-        if ir_url:
-            links.append(f"📈 [投资者关系 (IR)]({ir_url})")
-        if links:
-            st.markdown(" | ".join(links))
 
     with col_model:
+        # 5. 真实股息收益率核算：直接读取分红流水并写回 info 字典
+        div_yield_val = info.get("dividendYield")
+        if div_yield_val is None:
+            try:
+                import yfinance as yf
+                t_obj = yf.Ticker(active_ticker)
+                div_series = getattr(t_obj, "dividends", None)
+                curr_price = info.get("currentPrice") or info.get("regularMarketPrice")
+                if div_series is not None and not div_series.empty and curr_price and curr_price > 0:
+                    annual_div_total = float(div_series.tail(4).sum())
+                    div_yield_val = (annual_div_total / curr_price) if annual_div_total > 0 else 0.0
+                else:
+                    div_yield_val = 0.0
+            except Exception:
+                div_yield_val = 0.0
+            info["dividendYield"] = div_yield_val
+
         sector = info.get("sector", "N/A")
         industry = info.get("industry", "N/A")
         currency = info.get("currency", "USD")
+
         st.markdown(
             f"""
             - **结算币种**: `{currency}`
