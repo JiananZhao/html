@@ -53,7 +53,37 @@ def format_percent(val):
         return f"{num * 100:.2f}%" if abs(num) <= 1.0 else f"{num:.2f}%"
     except (ValueError, TypeError):
         return str(val)
+def fetch_wiki_company_summary(symbol: str, company_name: str = "") -> str:
+    """
+    通过 Wikipedia 开放接口自动将股票代码匹配为百科条目，获取真实详细业务介绍。
+    通用方案：无需 API Key，不封 IP，不硬编码任何标的。
+    """
+    import json
+    import urllib.request
+    import urllib.parse
 
+    query = company_name if (company_name and company_name != symbol) else f"{symbol} company"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        # 1. 自动搜索匹配维基百科真实条目名 (例如 NVDA -> Nvidia, TEAM -> Atlassian)
+        search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(query)}&limit=1&format=json"
+        req = urllib.request.Request(search_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data and len(data) >= 2 and data[1]:
+                target_title = data[1][0]
+                # 2. 抓取该条目正规详尽的多段落业务档案
+                sum_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(target_title)}"
+                req2 = urllib.request.Request(sum_url, headers=headers)
+                with urllib.request.urlopen(req2, timeout=3) as resp2:
+                    res = json.loads(resp2.read().decode("utf-8"))
+                    extract = res.get("extract")
+                    if extract and len(extract) > 40:
+                        return extract
+    except Exception:
+        pass
+    return ""
+    
 def format_timestamp(ts):
     if not ts:
         return "近期"
@@ -784,7 +814,31 @@ def render_company_deep_dive_tab():
     col_desc, col_model = st.columns([1.6, 1])
 
     with col_desc:
-        long_desc = info.get("longBusinessSummary", "暂无公司详细业务描述。")
+        long_desc = info.get("longBusinessSummary")
+        if not long_desc or "暂无" in str(long_desc):
+            try:
+                import json, urllib.request, urllib.parse
+                # 自动将股票代码匹配为维基百科真实词条 (如 NVDA -> Nvidia, TEAM -> Atlassian)
+                query = f"{active_ticker} company"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                s_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(query)}&limit=1&format=json"
+                req = urllib.request.Request(s_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    s_data = json.loads(resp.read().decode("utf-8"))
+                    if s_data and len(s_data) >= 2 and s_data[1]:
+                        target_title = s_data[1][0]
+                        # 抓取官方正规多段落业务档案
+                        sum_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(target_title)}"
+                        req2 = urllib.request.Request(sum_url, headers=headers)
+                        with urllib.request.urlopen(req2, timeout=3) as resp2:
+                            sum_data = json.loads(resp2.read().decode("utf-8"))
+                            if sum_data.get("extract"):
+                                long_desc = sum_data.get("extract")
+            except Exception:
+                pass
+
+        if not long_desc:
+            long_desc = "暂无公司详细业务描述。"
         st.markdown(f"<div style='background-color:#f8fafc;padding:15px;border-radius:8px;border-left:4px solid #3b82f6;font-size:0.92rem;line-height:1.6;'>{long_desc}</div>", unsafe_allow_html=True)
         
         website = info.get("website", "")
