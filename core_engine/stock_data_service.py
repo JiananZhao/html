@@ -185,72 +185,111 @@ def get_local_stock_price_fallback(symbol: str) -> Tuple[pd.DataFrame, Dict[str,
 # 4. 底层原始数据获取 (在失败时抛出异常，杜绝污染 Streamlit 缓存)
 # =====================================================================
 def _raw_fetch_stock_profile(symbol: str) -> Dict[str, Any]:
-   """从 yfinance 提取标的基础画像，具备 fast_info 与最近收盘价自动补救"""
-   try:
-     import yfinance as yf
-   except ImportError:
-     raise StockDataFetchError("系统未安装 yfinance 库", is_transient=False)
-   sym = symbol.strip().upper()
-   ticker = yf.Ticker(sym)
-
-   info = {}
-   try:
-    raw_info = ticker.info
-    if isinstance(raw_info, dict):
-      info = dict(raw_info)
-   except Exception:
-    pass
-   
-   # 1. 检查是否存在核心身份或价格
-   has_identity = any(
-      k in info
-      for k in [
-          "shortName",
-          "longName",
-          "currentPrice",
-          "regularMarketPrice",
-      ]
-   )
-   
-   # 2. 若缺少，自动从可用的 fast_info 或最近日线收盘价中补救，避免直接抛错自杀
-   if not has_identity:
+    """从 yfinance 提取标的基础画像，具备 fast_info 与最近收盘价自动补救"""
     try:
-      fast = getattr(ticker, "fast_info", None)
-      if fast:
-        p = getattr(fast, "last_price", None) or getattr(
-            fast, "regular_market_previous_close", None
-        )
-        if p and pd.notna(p):
-          info["currentPrice"] = float(p)
-          info["regularMarketPrice"] = float(p)
-        mc = getattr(fast, "market_cap", None)
-        if mc and pd.notna(mc):
-          info["marketCap"] = float(mc)
-        info["currency"] = getattr(fast, "currency", "USD") or "USD"
+        import yfinance as yf
+    except ImportError:
+        raise StockDataFetchError("系统未安装 yfinance 库", is_transient=False)
+
+    sym = symbol.strip().upper()
+    ticker = yf.Ticker(sym)
+
+    info = {}
+    try:
+        raw_info = ticker.info
+        if isinstance(raw_info, dict):
+            info = dict(raw_info)
     except Exception:
-      pass
-   
-    if "currentPrice" not in info or not info["currentPrice"]:
-      try:
-        hist = ticker.history(period="5d")
-        if hist is not None and not hist.empty:
-          p = float(hist["Close"].iloc[-1])
-          info["currentPrice"] = p
-          info["regularMarketPrice"] = p
-      except Exception:
         pass
-   
-    # 只要拿到价格，便赋予其标的代码身份，视为成功
-    if "currentPrice" in info and info["currentPrice"]:
-      info["symbol"] = sym
-      info["shortName"] = sym
-      info["quoteType"] = "EQUITY"
-      has_identity = True
-   
-   if not has_identity:
-    raise StockDataFetchError("上游未返回该标的有效行情或身份字段", is_transient=True)
-   
-   return info
+
+    # 1. 检查是否存在核心身份或价格
+    has_identity = any(
+        k in info
+        for k in [
+            "shortName",
+            "longName",
+            "currentPrice",
+            "regularMarketPrice",
+        ]
+    )
+
+    # 2. 若缺少，自动从可用的 fast_info 或最近日线收盘价中补救
+    if not has_identity:
+        try:
+            fast = getattr(ticker, "fast_info", None)
+            if fast:
+                p = getattr(fast, "last_price", None) or getattr(
+                    fast, "regular_market_previous_close", None
+                )
+                if p and pd.notna(p):
+                    info["currentPrice"] = float(p)
+                    info["regularMarketPrice"] = float(p)
+                mc = getattr(fast, "market_cap", None)
+                if mc and pd.notna(mc):
+                    info["marketCap"] = float(mc)
+                info["currency"] = getattr(fast, "currency", "USD") or "USD"
+        except Exception:
+            pass
+
+        if "currentPrice" not in info or not info["currentPrice"]:
+            try:
+                hist = ticker.history(period="5d")
+                if hist is not None and not hist.empty:
+                    p = float(hist["Close"].iloc[-1])
+                    info["currentPrice"] = p
+                    info["regularMarketPrice"] = p
+            except Exception:
+                pass
+
+        # 只要拿到价格，便赋予其标的代码身份，视为成功
+        if "currentPrice" in info and info["currentPrice"]:
+            info["symbol"] = sym
+            info["shortName"] = sym
+            info["quoteType"] = "EQUITY"
+            has_identity = True
+
+    if not has_identity:
+        raise StockDataFetchError("上游未返回该标的有效行情或身份字段", is_transient=True)
+
+    # 3. 补全公司全名、板块与所属行业（使用轻量 Search 接口，不被上游限流）
+    if not info.get("sector") or not info.get("industry") or info.get("shortName") == sym:
+        try:
+            s_res = yf.Search(sym, max_results=1)
+            if s_res and hasattr(s_res, "quotes") and s_res.quotes:
+                q = s_res.quotes[0]
+                info["shortName"] = q.get("shortname") or q.get("longname") or info.get("shortName", sym)
+                info["longName"] = q.get("longname") or info["shortName"]
+                if q.get("sector"):
+                    info["sector"] = q.get("sector")
+                if q.get("industry"):
+                    info["industry"] = q.get("industry")
+        except Exception:
+            pass
+
+    # 4. 补全估值指标：若 PE / PS 缺失，从已有的财报中提取营收与净利自动推算
+    mcap = info.get("marketCap")
+    if mcap and (not info.get("trailingPE") or not info.get("priceToSalesTrailing12Months")):
+        try:
+            q_inc = getattr(ticker, "quarterly_income_stmt", None)
+            if q_inc is None or getattr(q_inc, "empty", True):
+                q_inc = getattr(ticker, "quarterly_financials", None)
+            if q_inc is not None and not q_inc.empty:
+                col = q_inc.columns[0]
+                rev, ni = None, None
+                for idx in q_inc.index:
+                    k = str(idx).lower()
+                    if ("total revenue" in k or "operating revenue" in k) and rev is None:
+                        rev = float(q_inc.loc[idx, col])
+                    elif "net income" in k and "continuous" not in k and ni is None:
+                        ni = float(q_inc.loc[idx, col])
+                if rev and rev > 0 and not info.get("priceToSalesTrailing12Months"):
+                    info["priceToSalesTrailing12Months"] = round(mcap / (rev * 4), 2)
+                if ni and ni > 0 and not info.get("trailingPE"):
+                    info["trailingPE"] = round(mcap / (ni * 4), 1)
+        except Exception:
+            pass
+
+    return info
 
 def _raw_fetch_stock_history(symbol: str, period: str = "5y") -> pd.DataFrame:
     """从 yfinance 提取股票历史行情 OHLCV，失败时抛出 StockDataFetchError"""
