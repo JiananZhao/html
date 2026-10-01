@@ -2,18 +2,18 @@
   "ticker": "SMH",
   "asset_name": "VanEck 半导体 ETF",
   "metrics": {
-    "total_invested": 213000.0,
-    "bench_final": 4394460.116209584,
-    "strat_final": 3920173.9747384354,
-    "bench_return": 29.13272791684521,
-    "strat_return": 28.085833568710623,
-    "alpha": -1.046894348134586,
+    "total_invested": 214000.0,
+    "bench_final": 4395460.116209584,
+    "strat_final": 3921173.9747384354,
+    "bench_return": 29.126304589379586,
+    "strat_return": 28.079621727574946,
+    "alpha": -1.0466828618046407,
     "bench_max_dd": -45.30263611076934,
     "strat_max_dd": -34.44143125284529,
-    "trade_count": 205,
+    "trade_count": 206,
     "trade_rounds": 4,
     "win_rounds": 3,
     "win_rate": 75.0
   },
-  "updated_at": "2026-10-01T03:35:21.376396"
+  "updated_at": "2026-10-01T14:12:13.321792"
 }
