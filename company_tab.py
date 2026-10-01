@@ -718,20 +718,65 @@ def render_company_deep_dive_tab():
 
     info = data["info"]
     company_name = data["company_name"]
-    single_pnl = data["single_pnl"]
-    statements_dict = data["statements_dict"]
-    news_list = data["news_list"]
+    active_ticker = data["ticker_symbol"]
+    single_pnl = data.get("single_pnl", {})
 
-    # 1. 顶部基础画像 Card
+    # 1. 提取市值与价格
+    price_val = info.get("currentPrice") or info.get("regularMarketPrice")
+    mcap_val = info.get("marketCap")
+
+    # 2. 从已成功获取的财报中提取真实营收与净利，用于闭环计算估值倍数
+    rev_ttm = single_pnl.get("total_revenue", 0.0) * 4  # 年化营收基准
+    ni_ttm = single_pnl.get("net_income", 0.0) * 4  # 年化净利基准
+
+    # 计算 PE (若 info 缺失，用 市值 / 净利 补全；净利为负标明亏损)
+    pe_str = "N/A"
+    if info.get("trailingPE"):
+        pe_str = f"{info.get('trailingPE'):.1f}x"
+    elif mcap_val and ni_ttm:
+        if ni_ttm > 0:
+            pe_str = f"{(mcap_val / ni_ttm):.1f}x (财报核算)"
+        else:
+            pe_str = "亏损 (N/A)"
+
+    # 计算 P/S (若 info 缺失，用 市值 / 营收 补全)
+    ps_str = "N/A"
+    if info.get("priceToSalesTrailing12Months"):
+        ps_str = f"{info.get('priceToSalesTrailing12Months'):.2f}x"
+    elif mcap_val and rev_ttm and rev_ttm > 0:
+        ps_str = f"{(mcap_val / rev_ttm):.2f}x (财报核算)"
+
+    # 3. 补全基本面速览中的行业、毛利率、净利率与流通股本
+    if not info.get("industry"):
+        if active_ticker in ["NVDA", "TSM", "AVGO", "AMD", "INTC", "ASML"]:
+            info["industry"] = "半导体与集成电路 (Semiconductors)"
+        elif active_ticker in ["TEAM", "MSFT", "NOW", "CRM", "ADBE"]:
+            info["industry"] = "软件与云计算 (Software - Infrastructure)"
+
+    if not info.get("grossMargins") and single_pnl.get("total_revenue"):
+        info["grossMargins"] = single_pnl.get(
+          "gross_profit", 0.0
+        ) / single_pnl.get("total_revenue", 1.0)
+    if not info.get("profitMargins") and single_pnl.get("total_revenue"):
+        info["profitMargins"] = single_pnl.get("net_income", 0.0) / single_pnl.get(
+          "total_revenue", 1.0
+        )
+    if not info.get("sharesOutstanding") and mcap_val and price_val:
+        info["sharesOutstanding"] = mcap_val / price_val
+
     st.markdown(f"### 🏢 {company_name} ({active_ticker}) 核心概览")
 
     col_meta1, col_meta2, col_meta3, col_meta4 = st.columns(4)
-    price_val = info.get("currentPrice") or info.get("regularMarketPrice")
-    col_meta1.metric("当前实时股价", format_large_number(price_val) if price_val else "N/A (暂未获取)")
-    col_meta2.metric("公司总市值", format_large_number(info.get("marketCap")) if info.get("marketCap") else "N/A (暂未获取)")
-    col_meta3.metric("滚动市盈率 (PE TTM)", f"{info.get('trailingPE'):.1f}x" if info.get('trailingPE') else "N/A (暂未获取)")
-    col_meta4.metric("动态市销率 (P/S TTM)", f"{info.get('priceToSalesTrailing12Months'):.2f}x" if info.get('priceToSalesTrailing12Months') else "N/A (暂未获取)")
-
+    col_meta1.metric(
+        "当前实时股价",
+        format_large_number(price_val) if price_val else "N/A (暂未获取)",
+    )
+    col_meta2.metric(
+        "公司总市值",
+        format_large_number(mcap_val) if mcap_val else "N/A (暂未获取)",
+    )
+    col_meta3.metric("滚动市盈率 (PE TTM)", pe_str)
+    col_meta4.metric("动态市销率 (P/S TTM)", ps_str)
     st.markdown("---")
 
     # 2. 主营业务与公司商业模式
