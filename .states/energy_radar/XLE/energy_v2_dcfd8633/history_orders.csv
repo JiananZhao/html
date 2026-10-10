@@ -3894,4 +3894,5 @@ ord_strat_20261002,FILLED,2026-10-02,,1.0,Standing Order / DCA,GTC,2026-10-05
 ord_strat_20261005,FILLED,2026-10-05,,1.0,Standing Order / DCA,GTC,2026-10-06
 ord_strat_20261006,FILLED,2026-10-06,,1.0,Standing Order / DCA,GTC,2026-10-07
 ord_strat_20261007,FILLED,2026-10-07,,1.0,Standing Order / DCA,GTC,2026-10-08
-ord_strat_20261008,PENDING,2026-10-08,,1.0,Standing Order / DCA,GTC,
+ord_strat_20261008,FILLED,2026-10-08,,1.0,Standing Order / DCA,GTC,2026-10-09
+ord_strat_20261009,PENDING,2026-10-09,,1.0,Standing Order / DCA,GTC,
