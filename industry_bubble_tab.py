@@ -1,3 +1,36 @@
+def _get_theme_palette():
+    import streamlit as st
+    current_theme = st.session_state.get("theme_mode", "dark")
+    if current_theme == "dark":
+        return {
+            "paper_bg": "#0b0f19",
+            "plot_bg": "#0e131f",
+            "font_color": "#f8fafc",
+            "legend_bg": "rgba(19, 27, 42, 0.95)",
+            "legend_border": "#223048",
+            "grid_color": "rgba(255, 255, 255, 0.08)",
+            "rangeslider_bg": "#131b2a",
+            "btn_bg": "#1e293b",
+            "btn_border": "#334155",
+            "btn_text": "#f8fafc",
+            "zeroline_color": "#475569"
+        }
+    else:
+        return {
+            "paper_bg": "#FFFFFF",
+            "plot_bg": "#FFFFFF",
+            "font_color": "#111111",
+            "legend_bg": "rgba(255, 255, 255, 0.95)",
+            "legend_border": "#dcdde1",
+            "grid_color": "#E5E5E5",
+            "rangeslider_bg": "#f1f2f6",
+            "btn_bg": "#f5f6fa",
+            "btn_border": "#dcdde1",
+            "btn_text": "#2f3542",
+            "zeroline_color": "black"
+        }
+
+
 # -*- coding: utf-8 -*-
 """
 ========================================================================================
@@ -18,6 +51,11 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+from visualization import (
+    render_echarts_phase_portrait,
+    render_echarts_brokerage_nav,
+    render_echarts_industry_breadth,
+)
 
 # 基础目录与相对路径定义 (杜绝绝对路径 e:/ 硬编码)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -237,6 +275,7 @@ def build_layer2_radar_chart(df, default_range="1Y", ticker="IGV"):
     dates = pd.to_datetime(df['date'])
 
     fig = go.Figure()
+    pal = _get_theme_palette()
 
     if ticker == "NOW":
         # ServiceNow 专属 6 大解耦维度
@@ -364,7 +403,7 @@ def build_layer2_radar_chart(df, default_range="1Y", ticker="IGV"):
     fig.update_layout(
         xaxis=dict(
             range=[start_date, end_date],
-            rangeslider=dict(visible=True, thickness=0.04, bgcolor="#f1f2f6"),
+            rangeslider=dict(visible=True, thickness=0.04, bgcolor=pal["rangeslider_bg"]),
             # 🌟 独立层级 1 (Top: y=1.14): 时间快捷缩放按钮组
             rangeselector=dict(
                 buttons=[
@@ -379,33 +418,29 @@ def build_layer2_radar_chart(df, default_range="1Y", ticker="IGV"):
                 y=1.14,
                 xanchor="left",
                 yanchor="bottom",
-                bgcolor="#f5f6fa",
-                bordercolor="#dcdde1",
-                borderwidth=1,
-                font=dict(color="#2f3542", size=11)
+                bgcolor=pal["btn_bg"], bordercolor=pal["btn_border"], borderwidth=1, font=dict(color=pal["btn_text"], size=12)
             ),
             type="date"
         ),
         yaxis=dict(
             title="雷达评分 (0 ~ 100 分)",
             range=[0, 105],
-            autorange=False,
-            gridcolor="#E5E5E5"
+            autorange=False, gridcolor=pal["grid_color"]
         ),
-        # 🌟 独立层级 2 (Middle: y=1.02): 白底黑字图例卡片，零重叠
         legend=dict(
-            bgcolor="rgba(255, 255, 255, 0.95)",
-            bordercolor="#dcdde1",
+            bgcolor=pal["legend_bg"],
+            bordercolor=pal["legend_border"],
             borderwidth=1.2,
-            font=dict(color="#111111", size=11),
+            font=dict(color=pal["font_color"], size=12),
             orientation="h",
             yanchor="top",
             y=-0.25,
             xanchor="center",
             x=0.5
         ),
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
+        plot_bgcolor=pal["plot_bg"],
+        paper_bgcolor=pal["paper_bg"],
+        font=dict(color=pal["font_color"], size=14),
         hovermode="x unified",
         margin=dict(l=50, r=30, t=105, b=120),
         height=600
@@ -424,6 +459,7 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
     dates = pd.to_datetime(df['date'])
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
+    pal = _get_theme_palette()
 
     # 1. 广度曲线 (左 Y 轴)
     breadth_pct = df['Breadth_50']    # 广度参考线 (左轴)
@@ -523,7 +559,7 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
     fig.update_layout(
         xaxis=dict(
             range=[start_date, end_date],
-            rangeslider=dict(visible=True, thickness=0.04, bgcolor="#f1f2f6"),
+            rangeslider=dict(visible=True, thickness=0.04, bgcolor=pal["rangeslider_bg"]),
             # 🌟 独立层级 1 (Top: y=1.14): 时间快捷缩放按钮组
             rangeselector=dict(
                 buttons=[
@@ -538,10 +574,7 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
                 y=1.14,
                 xanchor="left",
                 yanchor="bottom",
-                bgcolor="#f5f6fa",
-                bordercolor="#dcdde1",
-                borderwidth=1,
-                font=dict(color="#2f3542", size=11)
+                bgcolor=pal["btn_bg"], bordercolor=pal["btn_border"], borderwidth=1, font=dict(color=pal["btn_text"], size=12)
             ),
             type="date"
         ),
@@ -558,18 +591,19 @@ def build_layer3_breadth_chart(df, ticker='IGV', default_range="1Y"):
         ),
         # 🌟 独立层级 2 (Middle: y=1.02): 白底黑字图例卡片，零重叠
         legend=dict(
-            bgcolor="rgba(255, 255, 255, 0.95)",
-            bordercolor="#dcdde1",
+            bgcolor=pal["legend_bg"],
+            bordercolor=pal["legend_border"],
             borderwidth=1.2,
-            font=dict(color="#111111", size=11),
+            font=dict(color=pal["font_color"], size=12),
             orientation="h",
             yanchor="top",
             y=-0.25,
             xanchor="center",
             x=0.5
         ),
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
+        plot_bgcolor=pal["plot_bg"],
+        paper_bgcolor=pal["paper_bg"],
+        font=dict(color=pal["font_color"], size=14),
         hovermode="x unified",
         margin=dict(l=50, r=50, t=105, b=120),
         height=600
@@ -590,6 +624,7 @@ def build_now_phase_portrait_plotly(df):
     years = dates.dt.year
 
     fig = go.Figure()
+    pal = _get_theme_palette()
 
     # 散点相轨迹
     fig.add_trace(go.Scatter(
@@ -619,10 +654,10 @@ def build_now_phase_portrait_plotly(df):
     fig.add_shape(type="rect", x0=0, y0=-qd_lim, x1=q_lim, y1=0, fillcolor="#fff3e0", opacity=0.35, line_width=0, layer="below")
 
     # 标注象限
-    fig.add_annotation(x=q_lim*0.45, y=qd_lim*0.85, text="<b>【第一象限: 正反身性主升浪】</b><br>q > 0, q_dot > 0<br>价格高估且动能加速扩张<br>顺势持有，切勿盲目估值恐高", showarrow=False, bgcolor="rgba(255,255,255,0.9)", font=dict(color="#1b5e20", size=11))
-    fig.add_annotation(x=-q_lim*0.55, y=qd_lim*0.85, text="<b>【第二象限: 底部蓄势重构】</b><br>q < 0, q_dot > 0<br>价格超跌且下跌动能耗竭<br>🌟 黄金坑右侧确认买入点", showarrow=False, bgcolor="rgba(255,255,255,0.9)", font=dict(color="#f57f17", size=11))
-    fig.add_annotation(x=-q_lim*0.55, y=-qd_lim*0.70, text="<b>【第三象限: 负反身性死亡螺旋】</b><br>q < 0, q_dot < 0<br>价格破位且下跌速度加快<br>⛔ 严禁左侧接飞刀，耐心观望", showarrow=False, bgcolor="rgba(255,255,255,0.9)", font=dict(color="#b71c1c", size=11))
-    fig.add_annotation(x=q_lim*0.45, y=-qd_lim*0.70, text="<b>【第四象限: 动能衰竭与相变崩塌】</b><br>q > 0, q_dot < 0<br>处于历史极高但速度破零转负<br>🚨 物理级反身性逃顶信号！", showarrow=False, bgcolor="rgba(255,255,255,0.9)", font=dict(color="#e65100", size=11))
+    fig.add_annotation(x=q_lim*0.45, y=qd_lim*0.85, text="<b>【第一象限: 正反身性主升浪】</b><br>q > 0, q_dot > 0<br>价格高估且动能加速扩张<br>顺势持有，切勿盲目估值恐高", showarrow=False, bgcolor=pal["legend_bg"], font=dict(color="#1b5e20", size=11))
+    fig.add_annotation(x=-q_lim*0.55, y=qd_lim*0.85, text="<b>【第二象限: 底部蓄势重构】</b><br>q < 0, q_dot > 0<br>价格超跌且下跌动能耗竭<br>🌟 黄金坑右侧确认买入点", showarrow=False, bgcolor=pal["legend_bg"], font=dict(color="#f57f17", size=11))
+    fig.add_annotation(x=-q_lim*0.55, y=-qd_lim*0.70, text="<b>【第三象限: 负反身性死亡螺旋】</b><br>q < 0, q_dot < 0<br>价格破位且下跌速度加快<br>⛔ 严禁左侧接飞刀，耐心观望", showarrow=False, bgcolor=pal["legend_bg"], font=dict(color="#b71c1c", size=11))
+    fig.add_annotation(x=q_lim*0.45, y=-qd_lim*0.70, text="<b>【第四象限: 动能衰竭与相变崩塌】</b><br>q > 0, q_dot < 0<br>处于历史极高但速度破零转负<br>🚨 物理级反身性逃顶信号！", showarrow=False, bgcolor=pal["legend_bg"], font=dict(color="#e65100", size=11))
 
     # 标注 2021 顶峰与 2022 底部相变点
     fig.add_annotation(x=24.6, y=-0.76, text="<b>2021年11月逃顶相变</b><br>跨入第四象限 (q1=+24.6%, q1_dot=-0.76)<br>破位MA50清仓避险", showarrow=True, arrowhead=2, arrowcolor="red", ax=60, ay=-40, bgcolor="#ffebee", font=dict(color="red", size=10))
@@ -630,10 +665,11 @@ def build_now_phase_portrait_plotly(df):
 
     fig.update_layout(
         title="🌀 ServiceNow (NOW) 拉格朗日相空间动力学相图 (Phase Portrait: q1 vs q1_dot)",
-        xaxis=dict(title="广义状态位置 q1 (相对 200MA 偏离度 % / 势能坐标)", range=[-q_lim, q_lim], zeroline=True, zerolinecolor="black", zerolinewidth=1.5, gridcolor="#E5E5E5"),
-        yaxis=dict(title="广义状态速度 q1_dot (10日有限差分变化率 %/day / 动能坐标)", range=[-qd_lim, qd_lim], zeroline=True, zerolinecolor="black", zerolinewidth=1.5, gridcolor="#E5E5E5"),
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
+        xaxis=dict(title="广义状态位置 q1 (相对 200MA 偏离度 % / 势能坐标)", range=[-q_lim, q_lim], zeroline=True, zerolinecolor=pal["zeroline_color"], zerolinewidth=1.5, gridcolor=pal["grid_color"]),
+        yaxis=dict(title="广义状态速度 q1_dot (10日有限差分变化率 %/day / 动能坐标)", range=[-qd_lim, qd_lim], zeroline=True, zerolinecolor=pal["zeroline_color"], zerolinewidth=1.5, gridcolor=pal["grid_color"]),
+        plot_bgcolor=pal["plot_bg"],
+        paper_bgcolor=pal["paper_bg"],
+        font=dict(color=pal["font_color"], size=14),
         height=560,
         margin=dict(l=60, r=40, t=50, b=50)
     )
@@ -646,19 +682,20 @@ def build_nav_chart(df, ticker, default_range="1Y"):
     """
     dates = pd.to_datetime(df['date'])
     fig = go.Figure()
+    pal = _get_theme_palette()
     if 'strat_nav' in df.columns and 'bench_nav' in df.columns:
         fig.add_trace(go.Scatter(
             x=dates,
             y=df['strat_nav'],
             name=f'🦅 {ticker} 宏观反身性模型 (真实券商记账)',
-            line=dict(color='#d62728', width=2.4),
+            line=dict(color='#f43f5e', width=2.5),
             hovertemplate='策略净资产: $%{y:,.0f}<extra></extra>'
         ))
         fig.add_trace(go.Scatter(
             x=dates,
             y=df['bench_nav'],
             name='📊 买入持有基准 (Buy & Hold 定投)',
-            line=dict(color='#7f7f7f', width=1.5, dash='dash'),
+            line=dict(color='#94a3b8', width=1.5, dash='dash'),
             hovertemplate='基准净资产: $%{y:,.0f}<extra></extra>'
         ))
     else:
@@ -666,16 +703,17 @@ def build_nav_chart(df, ticker, default_range="1Y"):
             x=dates,
             y=df['close'],
             name=f'{ticker} 价格',
-            line=dict(color='#1f77b4', width=2.0)
+            line=dict(color='#38bdf8', width=2.0)
         ))
 
     fig.update_layout(
         title="💰 真实券商记账全周期资产净值走势对比 (Strategy vs Benchmark)",
         xaxis=dict(type="date"),
-        yaxis=dict(title="账户资产净值 (USD)", autorange=True, gridcolor="#E5E5E5"),
-        legend=dict(bgcolor="rgba(255, 255, 255, 0.95)", font=dict(color="#000000")),
-        plot_bgcolor="#FFFFFF",
-        paper_bgcolor="#FFFFFF",
+        yaxis=dict(title="账户资产净值 (USD)", autorange=True, gridcolor=pal["grid_color"]),
+        legend=dict(bgcolor=pal["legend_bg"], font=dict(color=pal["font_color"])),
+        plot_bgcolor=pal["plot_bg"],
+        paper_bgcolor=pal["paper_bg"],
+        font=dict(color=pal["font_color"], size=14),
         height=420,
         margin=dict(l=60, r=30, t=50, b=40)
     )
@@ -855,14 +893,23 @@ def render_industry_bubble_tab():
     if ticker == 'NOW':
         st.subheader("🌀 Layer 3: 黄文政相空间动力学相图 (Lagrangian Phase Portrait: q1 vs q1_dot)")
         st.caption("💡 **相平面动力学原理**：横轴为状态位置 $q_1$（相对 200MA 偏离度），纵轴为状态速度 $\\dot{q}_1$（10日变化率）。相轨迹顺时针运转：主升浪（Q1）➜ 动能衰竭相变逃顶（Q4）➜ 死亡螺旋（Q3）➜ 底部蓄势确认回补（Q2）。鼠标悬停可查看逐日精确物理量。")
-        fig_phase = build_now_phase_portrait_plotly(df)
-        st.plotly_chart(fig_phase, use_container_width=True)
+        is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
+        if is_echarts:
+            render_echarts_phase_portrait(df, symbol=ticker, height=620)
+        else:
+            fig_phase = build_now_phase_portrait_plotly(df)
+            if fig_phase:
+                st.plotly_chart(fig_phase, use_container_width=True)
 
         st.markdown("---")
         st.subheader("💰 Layer 4: 真实券商记账全周期资产净值曲线 (Strategy vs Benchmark)")
         st.caption("💡 **严格券商对账标准**：初始本金 $10,000，每月定投 $1,000。严格追踪真实持股数与现金池，彻底杜绝虚假连乘。13.3 年仅触发 12 次交易（6 轮买卖配对），最终资产战胜基准 +40.25%（净增超额财富 +$382,874）！")
-        fig_nav = build_nav_chart(df, ticker=ticker, default_range=sel_range)
-        st.plotly_chart(fig_nav, use_container_width=True)
+        if is_echarts:
+            render_echarts_brokerage_nav(df, ticker=ticker, timeframe=sel_range, height=480)
+        else:
+            fig_nav = build_nav_chart(df, ticker=ticker, default_range=sel_range)
+            if fig_nav:
+                st.plotly_chart(fig_nav, use_container_width=True)
 
         with st.expander("📋 展开查看：NOW 13.3年逐笔波段买卖配对全证据", expanded=False):
             now_trades_data = [
@@ -892,8 +939,13 @@ def render_industry_bubble_tab():
         vnq_note = "（地产专属：可同步比对住宅建筑商 Homebuilders vs 商业写字楼 Office/CRE 剪刀差）" if ticker == 'VNQ' else ""
         st.caption(f"💡 **顶背离第一性原理**：当 {ticker} 价格处于新高区间（右轴），而站上 50MA 的股票比例却自高位跌破 50% 甚至 40% 时（左轴），代表仅剩少数巨头虚托指数，内部大面积资金已经提前溃退！{xle_note}{kre_note}{vnq_note}")
 
-        fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
-        st.plotly_chart(fig_layer3, use_container_width=True)
+        is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
+        if is_echarts:
+            render_echarts_industry_breadth(df, ticker=ticker, default_range=sel_range, height=580)
+        else:
+            fig_layer3 = build_layer3_breadth_chart(df, ticker=ticker, default_range=sel_range)
+            if fig_layer3:
+                st.plotly_chart(fig_layer3, use_container_width=True)
 
         if ticker == 'XLE':
             exp_title = f"🔍 展开穿透查看：全产业链 41 大核心成分股 50MA 多空分布矩阵 ({ticker})"
@@ -987,16 +1039,17 @@ def render_industry_bubble_tab():
     with st.expander(f"📈 辅助参考：Layer 1 标的价格决策与均线系统 (MA20 / MA50 / MA200) - {ticker}", expanded=False):
         dates = pd.to_datetime(df['date'])
         fig_l1 = go.Figure()
-        fig_l1.add_trace(go.Scatter(x=dates, y=df[ticker], name=f'{ticker} 价格', line=dict(color='#1f77b4', width=2.0)))
+        fig_l1.add_trace(go.Scatter(x=dates, y=df[ticker], name=f'{ticker} 价格', line=dict(color='#38bdf8', width=2.0)))
         fig_l1.add_trace(go.Scatter(x=dates, y=df['MA50'], name='MA50 生命周期线', line=dict(color='#ff7f0e', width=1.2, dash='dash')))
         fig_l1.add_trace(go.Scatter(x=dates, y=df['MA200'], name='MA200 长期牛熊线', line=dict(color='#2ca02c', width=1.2, dash='dot')))
         fig_l1.update_layout(
             title=f"{ticker} 标的价格与均线系统",
             xaxis=dict(type="date"),
             yaxis=dict(title="价格 (USD)", autorange=True),
-            legend=dict(bgcolor="rgba(255, 255, 255, 0.95)", font=dict(color="#000000")),
-            plot_bgcolor="#FFFFFF",
-            paper_bgcolor="#FFFFFF",
+            legend=dict(bgcolor="#131b2a" if st.session_state.get("theme_mode", "dark") == "dark" else "rgba(255, 255, 255, 0.95)", font=dict(color="#f8fafc" if st.session_state.get("theme_mode", "dark") == "dark" else "#000000")),
+            plot_bgcolor="#0e131f" if st.session_state.get("theme_mode", "dark") == "dark" else "#FFFFFF",
+            paper_bgcolor="#0b0f19" if st.session_state.get("theme_mode", "dark") == "dark" else "#FFFFFF",
+            font=dict(color="#f8fafc" if st.session_state.get("theme_mode", "dark") == "dark" else "#000000", size=14),
             height=380
         )
         st.plotly_chart(fig_l1, use_container_width=True)

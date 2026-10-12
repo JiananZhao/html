@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from zoneinfo import ZoneInfo
+from charts.theme import apply_chart_theme
 
 BREADTH_CSV = "market_breadth.csv"
 
@@ -56,7 +57,8 @@ def create_market_breadth_chart(df_breadth: pd.DataFrame = None, y_range=None):
         return None
 
     df = df_breadth.copy()
-    df["date"] = pd.to_datetime(df["date"])
+    date_col = "date" if "date" in df.columns else ("Date" if "Date" in df.columns else df.columns[0])
+    df["date"] = pd.to_datetime(df[date_col])
     df = df.sort_values("date")
 
     cols_to_plot = [c for c in ["pct_above_20ma", "pct_above_50ma", "pct_above_200ma"] if c in df.columns]
@@ -78,18 +80,38 @@ def create_market_breadth_chart(df_breadth: pd.DataFrame = None, y_range=None):
         y=cols_to_plot,
         title="S&P 500 Market Breadth (% of Stocks Above Moving Averages)",
         labels=labels_map,
-        template="plotly_white"
+        color_discrete_sequence=['#38bdf8', '#fbbf24', '#f43f5e']
     )
 
     last_date = df["date"].max()
     first_date = df["date"].min()
     default_start = max(first_date, last_date - pd.DateOffset(years=3))
 
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title="S&P 500 Market Breadth (% of Stocks Above Moving Averages)",
         height=450,
+        hovermode="x unified",
         yaxis_title="Percentage (%)",
-        uirevision="market_breadth_chart",
+        uirevision="market_breadth_chart"
+    )
+
+    import streamlit as st
+    curr_theme = st.session_state.get("theme_mode", "dark")
+    if curr_theme == "dark":
+        rs_bg = "#1e293b"
+        rs_active = "#2563eb"
+        rs_border = "#334155"
+        rs_font = dict(color="#f8fafc", size=14, family="sans-serif")
+        slider_bg = "#131b2a"
+    else:
+        rs_bg = "#f1f5f9"
+        rs_active = "#3b82f6"
+        rs_border = "#cbd5e1"
+        rs_font = dict(color="#0f172a", size=14, family="sans-serif")
+        slider_bg = "#f1f5f9"
+
+    fig.update_layout(
         xaxis=dict(
             rangeselector=dict(
                 buttons=list([
@@ -98,26 +120,31 @@ def create_market_breadth_chart(df_breadth: pd.DataFrame = None, y_range=None):
                     dict(count=1, label="1y", step="year", stepmode="backward"),
                     dict(count=3, label="3y", step="year", stepmode="backward"),
                     dict(step="all", label="all"),
-                ])
+                ]),
+                bgcolor=rs_bg,
+                activecolor=rs_active,
+                bordercolor=rs_border,
+                borderwidth=1,
+                font=rs_font
             ),
-            rangeslider=dict(visible=True, thickness=0.07),
+            rangeslider=dict(visible=True, thickness=0.07, bgcolor=slider_bg),
             range=[default_start, last_date],
         ),
     )
 
-    # 标示超买 (70%) 与超卖 (30%) 区域界限
+    # 标示超买 (80%) 与超卖 (20%) 区域界限
     fig.add_hline(
-        y=70,
+        y=80,
         line_dash="dash",
-        line_color="rgba(239, 68, 68, 0.6)",
-        annotation_text="Overbought (70%)",
+        line_color="rgba(239, 68, 68, 0.7)",
+        annotation_text="Overbought (80%)",
         annotation_position="top left"
     )
     fig.add_hline(
-        y=30,
+        y=20,
         line_dash="dash",
-        line_color="rgba(34, 197, 94, 0.6)",
-        annotation_text="Oversold (30%)",
+        line_color="rgba(34, 197, 94, 0.7)",
+        annotation_text="Oversold (20%)",
         annotation_position="bottom left"
     )
 
@@ -161,7 +188,19 @@ def render_market_breadth_ui():
         val200 = latest_row.get('pct_above_200ma', 0)
         st.metric("% > 200MA", f"{val200:.1f}%")
 
-    # 折线图渲染
-    fig = create_market_breadth_chart(df)
-    if fig:
-        st.plotly_chart(fig, use_container_width=True)
+    # 折线图渲染 (统一遵循全局侧边栏引擎设定)
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
+    if is_echarts:
+        try:
+            from charts.html_components import render_echarts_market_breadth
+            render_echarts_market_breadth(df, height=480)
+        except Exception as e:
+            st.error(f"ECharts 渲染失败: {e}")
+            fig = create_market_breadth_chart(df)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+    else:
+        fig = create_market_breadth_chart(df)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+

@@ -130,6 +130,34 @@ def get_local_stock_price_fallback(symbol: str) -> Tuple[pd.DataFrame, Dict[str,
     sym = symbol.strip().upper()
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
+    # 0. 优先检查本地标的专属全量 OHLCV 数据集 (如 nvda_ohlcv_local.csv, spy_ohlcv_local.csv 等)
+    dedicated_ohlcv = os.path.join(base_dir, f"{sym.lower()}_ohlcv_local.csv")
+    if os.path.exists(dedicated_ohlcv):
+        try:
+            df_ohlc = pd.read_csv(dedicated_ohlcv)
+            date_col = 'date' if 'date' in df_ohlc.columns else ('Date' if 'Date' in df_ohlc.columns else None)
+            if date_col:
+                df_ohlc['Date'] = pd.to_datetime(df_ohlc[date_col]).dt.tz_localize(None).astype('datetime64[ns]')
+                col_map = {c: c.capitalize() for c in df_ohlc.columns if c.lower() in ['open', 'high', 'low', 'close', 'volume']}
+                df_ohlc.rename(columns=col_map, inplace=True)
+                df_ohlc.dropna(subset=['Close'], inplace=True)
+                df_ohlc.sort_values('Date', inplace=True)
+                df_ohlc.reset_index(drop=True, inplace=True)
+                if not df_ohlc.empty:
+                    last_dt = df_ohlc['Date'].iloc[-1].strftime('%Y-%m-%d')
+                    meta = {
+                        "is_local_fallback": True,
+                        "source_file": f"{sym.lower()}_ohlcv_local.csv",
+                        "source_label": f"{sym} 本地全量 OHLCV 主数据集 (支持经典蜡烛图)",
+                        "last_date": last_dt,
+                        "is_close_only": False,
+                        "record_count": len(df_ohlc),
+                        "price_type": f"本地全量离线 OHLCV 蜡烛图序列 (截至 {last_dt})"
+                    }
+                    return df_ohlc, meta
+        except Exception:
+            pass
+
     # 候选本地数据集映射 (行业成分股离线库)
     local_files = [
         ("smh_constituents_local.csv", "半导体产业链离线主数据集 (SMH)"),
@@ -443,45 +471,63 @@ def get_stock_profile(symbol: str) -> Dict[str, Any]:
             "technical_details": f"Unhandled Exception: {e} (已启用 {int(cd)}s 冷却保护)"
         }
 
-def get_stock_price_data(symbol: str, period: str = "5y") -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def get_stock_price_data(symbol: str, period: str = "5y", prefer_ohlcv: bool = True) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    获取行情数据 (支持上游在线 + 本地历史收盘价离线兜底)
-    返回: (DataFrame, MetaDict)
+    获取行情数据 (支持真实 OHLCV 蜡烛图与本地离线高可用降级)
+    - 纯本地优先 (Local-First, Rule 2): 优先从本地已清洗的标准主数据集提取 (包含专属 OHLCV 蜡烛图或成分股收盘价序列)；
+    - 若本地未收录或仅有收盘价而需全量 OHLCV 时，受控尝试在线获取；
+    - 返回: (DataFrame, MetaDict)
     """
     sym = symbol.strip().upper()
+
+    # 1. 严格遵照 Rule 2 本地优先：从本地数据集提取
+    df_local, local_meta = get_local_stock_price_fallback(sym)
+    if not df_local.empty:
+        # 若具有全量 OHLCV (如 nvda_ohlcv_local.csv 等)，直接 0 延迟秒开
+        if not local_meta.get("is_close_only", False) or not prefer_ohlcv:
+            local_meta["status"] = "SUCCESS_LOCAL"
+            local_meta["message"] = f"已加载本地主数据集 ({local_meta.get('source_label')})"
+            return df_local, local_meta
+
+    # 2. 若本地仅有收盘价且请求全量蜡烛图，或者本地完全未收录该标的，尝试在线获取全量 OHLCV
     in_cd, remain, reason = cooldown_manager.is_in_cooldown(sym, "history")
-    
-    # 若在线行情不处于冷却，优先尝试在线获取
     if not in_cd:
         try:
             df = _cached_fetch_history(sym, period)
-            cooldown_manager.record_success(sym, "history")
-            meta = {
-                "is_local_fallback": False,
-                "is_close_only": False,
-                "source_label": "Yahoo Finance 在线行情 (实时/延迟)",
-                "status": "SUCCESS",
-                "message": "在线行情获取成功"
-            }
-            return df, meta
-        except StockDataFetchError as e:
-            cd = cooldown_manager.record_failure(sym, "history", error_type=str(e), status_code=e.status_code)
+            if df is not None and not df.empty:
+                cooldown_manager.record_success(sym, "history")
+                df_clean = df.copy()
+                if isinstance(df_clean.index, pd.DatetimeIndex):
+                    df_clean = df_clean.reset_index()
+                df_clean.rename(columns={'date': 'Date', 'index': 'Date'}, inplace=True)
+                df_clean['Date'] = pd.to_datetime(df_clean['Date']).dt.tz_localize(None).astype('datetime64[ns]')
+                col_map = {c: c.capitalize() for c in df_clean.columns if c.lower() in ['open', 'high', 'low', 'close', 'volume']}
+                df_clean.rename(columns=col_map, inplace=True)
+                last_dt = df_clean['Date'].iloc[-1].strftime('%Y-%m-%d')
+                meta = {
+                    "is_local_fallback": False,
+                    "is_close_only": False,
+                    "source_label": "Yahoo Finance 实时全量行情 (支持经典蜡烛图)",
+                    "last_date": last_dt,
+                    "status": "SUCCESS",
+                    "message": "在线全量 OHLCV 获取成功"
+                }
+                return df_clean, meta
         except Exception as e:
-            cd = cooldown_manager.record_failure(sym, "history", error_type=str(e))
+            cooldown_manager.record_failure(sym, "history", error_type=str(e))
 
-    # 在线获取失败或处于冷却，自动安全降级至本地离线主数据集
-    df_local, local_meta = get_local_stock_price_fallback(sym)
+    # 3. 在线接口受阻或网络超时时：若有本地收盘价，优雅降级展示收盘价折线
     if not df_local.empty:
-        local_meta["status"] = "SUCCESS_LOCAL_FALLBACK"
-        local_meta["message"] = f"已安全切换至本地离线历史数据 ({local_meta.get('source_label')})"
+        local_meta["status"] = "SUCCESS_LOCAL"
+        local_meta["message"] = f"在线行情受限，已优雅降级至本地收盘价序列 ({local_meta.get('source_label')})"
         return df_local, local_meta
-        
-    # 本地也无该标的行情
+
+    # 本地与在线均无该标的有效行情
     fail_meta = {
         "is_local_fallback": False,
         "is_close_only": False,
         "status": "FAILED",
-        "message": f"在线行情受限且本地离线库无标的 `{sym}` 的历史序列"
+        "message": f"本地离线库无标的 `{sym}` 且在线行情获取受限"
     }
     return pd.DataFrame(), fail_meta
 

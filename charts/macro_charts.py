@@ -20,39 +20,59 @@ def create_treasury_chart(df_long: pd.DataFrame):
         return None
 
     mat_col = 'Maturity_Years' if 'Maturity_Years' in df.columns else ('Maturity_Label' if 'Maturity_Label' in df.columns else 'Maturity')
-    date_1m = latest_date - pd.DateOffset(months=1)
-    date_1y = latest_date - pd.DateOffset(years=1)
-
-    available_dates = df['Date'].unique()
+    available_dates = sorted(df['Date'].unique())
     
     def _find_nearest_date(target):
         past_dates = [d for d in available_dates if d <= target]
         return max(past_dates) if past_dates else min(available_dates)
 
-    target_dates = [
-        latest_date,
-        _find_nearest_date(date_1m),
-        _find_nearest_date(date_1y)
+    # 严格构建 5 条核心周期基准演变线 (最新、1个月前、3个月前、6个月前、年初至今)
+    benchmarks = [
+        ("最新", latest_date),
+        ("1个月前", _find_nearest_date(latest_date - pd.DateOffset(months=1))),
+        ("3个月前", _find_nearest_date(latest_date - pd.DateOffset(months=3))),
+        ("6个月前", _find_nearest_date(latest_date - pd.DateOffset(months=6))),
+        ("年初至今", available_dates[0])
     ]
 
-    df_filtered = df[df['Date'].isin(target_dates)].copy()
-    df_filtered['Date_Str'] = df_filtered['Date'].dt.strftime('%Y-%m-%d')
+    date_label_map = {}
+    seen_dates = set()
+    for name, dt in benchmarks:
+        dt_ts = pd.Timestamp(dt)
+        if dt_ts not in seen_dates:
+            seen_dates.add(dt_ts)
+            date_label_map[dt_ts] = f"{name} ({dt_ts.strftime('%Y-%m-%d')})"
+
+    df_filtered = df[df['Date'].isin(seen_dates)].copy()
+    df_filtered['Benchmark_Period'] = df_filtered['Date'].map(date_label_map)
+
+    # 保持期限列有序
+    # 保持期限列有序并确保基于真实时间长短 (Maturity_Years)
+    if 'Maturity_Years' in df_filtered.columns:
+        df_filtered = df_filtered.sort_values(by=['Benchmark_Period', 'Maturity_Years'])
+        mat_col = 'Maturity_Years'
 
     fig = px.line(
         df_filtered,
         x=mat_col,
         y='Yield',
-        color='Date_Str',
-        title='U.S. Treasury Yield Curve Comparison',
-        labels={mat_col: '期限 (Maturity Years)', 'Yield': '收益率 (%)', 'Date_Str': '日期'},
-        template='plotly_white'
+        color='Benchmark_Period',
+        title='U.S. Treasury Yield Curve 5条基准演变线对比 (真实时间长短轴)',
+        labels={mat_col: '期限 (年数)', 'Yield': '收益率 (%)', 'Benchmark_Period': '基准观察期'},
+        color_discrete_sequence=['#38bdf8', '#10b981', '#f59e0b', '#a855f7', '#f43f5e']
     )
-    fig.update_traces(mode='lines+markers', marker=dict(size=6))
-    fig.update_layout(
-        height=500,
+    fig.update_traces(mode='lines+markers', marker=dict(size=7))
+    fig = apply_chart_theme(
+        fig,
+        title='U.S. Treasury Yield Curve 5条基准演变线对比 (真实时间长短轴)',
+        height=520,
         hovermode='x unified',
-        uirevision='treasury_yield_chart',
-        yaxis_title='收益率 (%)'
+        yaxis_title='收益率 (%)',
+        uirevision='treasury_yield_chart'
+    )
+    fig.update_layout(
+        xaxis=dict(title='期限 (实际年数 1M~30Y)', dtick=5, range=[0, 31]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(autorange=True, fixedrange=False)
     return fig
@@ -85,22 +105,23 @@ def create_unemployment_chart(df_unrate: pd.DataFrame, y_range=None, timeframe="
         df,
         x=date_col,
         y=val_col,
-        title=f'UNRATE (美国失业率) - [{timeframe}]',
         labels={val_col: '失业率 (%)', date_col: '日期'},
-        template="plotly_white",
         line_shape='spline'
     )
+    fig.update_traces(line=dict(color='#38bdf8', width=2.5))
     avg_rate = df[val_col].mean()
     fig.add_hline(
         y=avg_rate,
         line_dash="dot",
-        line_color="gray",
+        line_color="#94a3b8",
         annotation_text=f"阶段平均值 ({avg_rate:.1f}%)",
         annotation_position="bottom left",
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f'UNRATE (美国失业率) - [{timeframe}]',
         height=450,
+        hovermode="x unified",
         yaxis_title="失业率 (%)",
         uirevision=f"unemployment_chart_{timeframe}"
     )
@@ -138,13 +159,14 @@ def create_credit_spread_chart(df_data: pd.DataFrame, y_range=None, timeframe="A
         df,
         x=date_col,
         y=val_col,
-        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',
-        labels={val_col: '利差 (%)', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: '利差 (%)', date_col: '日期'}
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig.update_traces(line=dict(color='#f43f5e', width=2.2))
+    fig = apply_chart_theme(
+        fig,
+        title=f'US High Yield Option-Adjusted Spread (高收益债信用利差) - [{timeframe}]',
         height=450,
+        hovermode="x unified",
         yaxis_title="利差 (%)",
         uirevision=f"credit_spread_chart_{timeframe}"
     )
@@ -182,13 +204,14 @@ def create_fed_balance_sheet_chart(df_fed: pd.DataFrame, y_range=None, timeframe
         df_fed,
         x=date_col,
         y=val_col,
-        title=f"Fed Balance Sheet (美联储总资产, 万亿美元) - [{timeframe}]",
-        labels={date_col: "Date", val_col: "Total Assets (Trillion USD)"},
-        template="plotly_white"
+        labels={date_col: "Date", val_col: "Total Assets (Trillion USD)"}
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig.update_traces(line=dict(color='#10b981', width=2.2))
+    fig = apply_chart_theme(
+        fig,
+        title=f"Fed Balance Sheet (美联储总资产, 万亿美元) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="Total Assets (Trillion USD)",
         uirevision=f"fed_balance_sheet_chart_{timeframe}"
     )
@@ -225,21 +248,22 @@ def create_gold_oil_ratio_chart(df_ratio: pd.DataFrame, y_range=None, timeframe=
         df_ratio,
         x=date_col,
         y="gold_oil_ratio",
-        title=f"Gold / Oil Ratio (金油比) - [{timeframe}]",
-        labels={date_col: "Date", "gold_oil_ratio": "Gold / Oil Ratio"},
-        template="plotly_white"
+        labels={date_col: "Date", "gold_oil_ratio": "Gold / Oil Ratio"}
     )
+    fig.update_traces(line=dict(color='#f59e0b', width=2.2))
     avg_ratio = df_ratio["gold_oil_ratio"].mean()
     fig.add_hline(
         y=avg_ratio,
         line_dash="dot",
-        line_color="gray",
+        line_color="#94a3b8",
         annotation_text=f"阶段平均值 ({avg_ratio:.1f})",
         annotation_position="bottom left",
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f"Gold / Oil Ratio (金油比) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="Gold / Oil Ratio",
         uirevision=f"gold_oil_ratio_chart_{timeframe}"
     )
@@ -272,13 +296,14 @@ def create_real_yield_breakeven_chart(df_data: pd.DataFrame, y_range=None, timef
         df,
         x=date_col,
         y=cols,
-        title=f"10Y TIPS 实际利率 & 10Y 盈亏平衡通胀率 (%) - [{timeframe}]",
         labels={"value": "利率/通胀率 (%)", date_col: "Date", "variable": "指标"},
-        template="plotly_white"
+        color_discrete_sequence=['#38bdf8', '#f59e0b']
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f"10Y TIPS 实际利率 & 10Y 盈亏平衡通胀率 (%) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="率 (%)",
         uirevision=f"real_yield_breakeven_chart_{timeframe}"
     )
@@ -308,10 +333,9 @@ def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None, timeframe="ALL"):
         df,
         x=date_col,
         y=val_col,
-        title=f"芝加哥联储全国金融条件指数 (NFCI) - [{timeframe}]",
-        labels={val_col: "NFCI 指数", date_col: "Date"},
-        template="plotly_white"
+        labels={val_col: "NFCI 指数", date_col: "Date"}
     )
+    fig.update_traces(line=dict(color='#a855f7', width=2.2))
     fig.add_hline(
         y=0,
         line_dash="dash",
@@ -319,9 +343,11 @@ def create_nfci_chart(df_nfci: pd.DataFrame, y_range=None, timeframe="ALL"):
         annotation_text="零轴分界 (<0宽松, >0紧缩)",
         annotation_position="top left"
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f"芝加哥联储全国金融条件指数 (NFCI) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="NFCI 指数",
         uirevision=f"nfci_chart_{timeframe}"
     )
@@ -354,13 +380,14 @@ def create_net_liquidity_chart(df_liq: pd.DataFrame, y_range=None, timeframe="AL
         df,
         x=date_col,
         y=cols,
-        title=f"美联储净流动性 & 银行准备金余额 (万亿美元) - [{timeframe}]",
         labels={"value": "万亿美元 (Trillion USD)", date_col: "Date", "variable": "指标"},
-        template="plotly_white"
+        color_discrete_sequence=['#38bdf8', '#10b981']
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f"美联储净流动性 & 银行准备金余额 (万亿美元) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="万亿美元 (Trillion USD)",
         uirevision=f"net_liquidity_chart_{timeframe}"
     )
@@ -388,20 +415,22 @@ def create_sofr_iorb_chart(df_sofr: pd.DataFrame, y_range=None, timeframe="ALL")
     fig = go.Figure()
 
     if 'SOFR' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['SOFR'], name="SOFR (%)", line=dict(color="#2563eb", width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['SOFR'], name="SOFR (%)", line=dict(color="#38bdf8", width=2.2)))
     if 'IORB' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['IORB'], name="IORB (%)", line=dict(color="#16a34a", width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['IORB'], name="IORB (%)", line=dict(color="#10b981", width=2.2)))
     if 'Spread_bps' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_bps'], name="SOFR - IORB 利差 (bps)", yaxis="y2", line=dict(color="#dc2626", width=1.5, dash="dot")))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_bps'], name="SOFR - IORB 利差 (bps)", yaxis="y2", line=dict(color="#f43f5e", width=1.8, dash="dot")))
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title=f"SOFR 隔夜融资利率 vs IORB 准备金利率 & 利差 (bps) - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
-        uirevision=f"sofr_iorb_chart_{timeframe}",
-        yaxis=dict(title="利率 (%)"),
-        yaxis2=dict(title="利差 (bps)", overlaying="y", side="right")
+        yaxis_title="利率 (%)",
+        uirevision=f"sofr_iorb_chart_{timeframe}"
+    )
+    fig.update_layout(
+        yaxis2=dict(title="利差 (bps)", overlaying="y", side="right", showgrid=False)
     )
     if y_range is not None:
         fig.update_yaxes(range=list(y_range), autorange=False)
@@ -421,14 +450,16 @@ def create_top10_concentration_chart(df_top10: pd.DataFrame):
         df,
         names="Company",
         values="Weight_Pct",
-        title="S&P 500 前十大持仓权重占比 (总占比 39.30%)",
         color_discrete_sequence=px.colors.qualitative.Prism,
-        template="plotly_white"
     )
     fig.update_traces(textposition='inside', textinfo='percent+label')
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
+        title="S&P 500 前十大持仓权重占比 (总占比 39.30%)",
         height=450,
-        uirevision="top10_pie_chart",
+        uirevision="top10_pie_chart"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
     )
     return fig
@@ -461,10 +492,9 @@ def create_vix_chart(df_vix: pd.DataFrame, y_range=None, timeframe="ALL"):
         df,
         x=date_col,
         y=val_col,
-        title=f'CBOE Volatility Index (VIX 恐慌指数) - [{timeframe}]',
-        labels={val_col: 'VIX 指数', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: 'VIX 指数', date_col: '日期'}
     )
+    fig.update_traces(line=dict(color='#f59e0b', width=2.2))
     fig.add_hline(
         y=20,
         line_dash="dash",
@@ -479,9 +509,11 @@ def create_vix_chart(df_vix: pd.DataFrame, y_range=None, timeframe="ALL"):
         annotation_text="30 (高恐慌预警)",
         annotation_position="top left"
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f'CBOE Volatility Index (VIX 恐慌指数) - [{timeframe}]',
         height=450,
+        hovermode="x unified",
         yaxis_title="VIX 指数",
         uirevision=f"vix_chart_{timeframe}"
     )
@@ -519,34 +551,35 @@ def create_cnn_fear_greed_chart(df_fgi: pd.DataFrame, y_range=None, timeframe="A
         df,
         x=date_col,
         y=val_col,
-        title=f'CNN Fear & Greed Index (恐慌与贪婪指数) - [{timeframe}]',
-        labels={val_col: '指数 Score (0-100)', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: '指数 Score (0-100)', date_col: '日期'}
     )
+    fig.update_traces(line=dict(color='#38bdf8', width=2.2))
     fig.add_hline(
         y=25,
         line_dash="dash",
-        line_color="rgba(220, 38, 38, 0.8)",
+        line_color="rgba(244, 63, 94, 0.8)",
         annotation_text="25 (极度恐慌)",
         annotation_position="bottom left"
     )
     fig.add_hline(
         y=50,
         line_dash="dot",
-        line_color="gray",
+        line_color="#94a3b8",
         annotation_text="50 (中性)",
         annotation_position="bottom left"
     )
     fig.add_hline(
         y=75,
         line_dash="dash",
-        line_color="rgba(220, 38, 38, 0.8)",
+        line_color="rgba(16, 185, 129, 0.8)",
         annotation_text="75 (极度贪婪)",
         annotation_position="top left"
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig = apply_chart_theme(
+        fig,
+        title=f'CNN Fear & Greed Index (恐慌与贪婪指数) - [{timeframe}]',
         height=450,
+        hovermode="x unified",
         yaxis_title="指数分值 (0-100)",
         uirevision=f"cnn_fgi_chart_{timeframe}"
     )
@@ -578,14 +611,14 @@ def create_yield_spreads_chart(df_data: pd.DataFrame, timeframe="ALL"):
 
     fig = go.Figure()
     if 'Spread_10Y2Y' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y2Y'], mode='lines', name='10Y-2Y 期限利差 (%)', line=dict(color='#2563eb', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y2Y'], mode='lines', name='10Y-2Y 期限利差 (%)', line=dict(color='#38bdf8', width=2.2)))
     if 'Spread_10Y3M' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y3M'], mode='lines', name='10Y-3M 期限利差 (%)', line=dict(color='#dc2626', width=1.5, dash='dot')))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Spread_10Y3M'], mode='lines', name='10Y-3M 期限利差 (%)', line=dict(color='#f43f5e', width=1.8, dash='dot')))
 
-    fig.add_hline(y=0.0, line_dash="solid", line_color="black", annotation_text="0 轴倒挂分界线")
-    fig.update_layout(
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#94a3b8", annotation_text="0 轴倒挂分界线")
+    fig = apply_chart_theme(
+        fig,
         title=f"10Y-2Y & 10Y-3M 美债期限利差对比 - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
         yaxis_title="利差 (%)",
@@ -615,18 +648,20 @@ def create_jobless_claims_chart(df_data: pd.DataFrame, timeframe="ALL"):
 
     fig = go.Figure()
     if 'Initial_Claims' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Initial_Claims'], mode='lines', name='初请失业金 (周度)', line=dict(color='#2563eb', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Initial_Claims'], mode='lines', name='初请失业金 (周度)', line=dict(color='#38bdf8', width=2.2)))
     if 'Continued_Claims' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Continued_Claims'], mode='lines', name='续请失业金', yaxis='y2', line=dict(color='#f97316', width=1.5, dash='dot')))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Continued_Claims'], mode='lines', name='续请失业金', yaxis='y2', line=dict(color='#fb923c', width=1.8, dash='dot')))
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title=f"美国初请与续请失业金人数高频追踪 - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
-        yaxis=dict(title="初请失业金 (人数)"),
-        yaxis2=dict(title="续请失业金 (人数)", overlaying="y", side="right"),
+        yaxis_title="初请失业金 (人数)",
         uirevision=f"jobless_claims_{timeframe}"
+    )
+    fig.update_layout(
+        yaxis2=dict(title="续请失业金 (人数)", overlaying="y", side="right", showgrid=False)
     )
     return fig
 
@@ -655,13 +690,14 @@ def create_dxy_chart(df_data: pd.DataFrame, timeframe="ALL"):
         df,
         x=date_col,
         y=val_col,
-        title=f"Nominal Broad U.S. Dollar Index (美元指数) - [{timeframe}]",
-        labels={val_col: '美元指数', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: '美元指数', date_col: '日期'}
     )
-    fig.update_layout(
-        hovermode="x unified",
+    fig.update_traces(line=dict(color='#38bdf8', width=2.2))
+    fig = apply_chart_theme(
+        fig,
+        title=f"Nominal Broad U.S. Dollar Index (美元指数) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="美元指数点位",
         uirevision=f"dxy_chart_{timeframe}"
     )
@@ -689,14 +725,14 @@ def create_inflation_wages_chart(df_data: pd.DataFrame, timeframe="ALL"):
 
     fig = go.Figure()
     if 'Core_CPI_YoY' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CPI_YoY'], mode='lines', name='核心 CPI 同比 (%)', line=dict(color='#dc2626', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CPI_YoY'], mode='lines', name='核心 CPI 同比 (%)', line=dict(color='#f43f5e', width=2.2)))
     if 'Wages_YoY' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Wages_YoY'], mode='lines', name='平均时薪同比 (%)', line=dict(color='#16a34a', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Wages_YoY'], mode='lines', name='平均时薪同比 (%)', line=dict(color='#10b981', width=2.2)))
 
-    fig.add_hline(y=2.0, line_dash="dash", line_color="gray", annotation_text="2% 通胀目标")
-    fig.update_layout(
+    fig.add_hline(y=2.0, line_dash="dash", line_color="#94a3b8", annotation_text="2% 通胀目标")
+    fig = apply_chart_theme(
+        fig,
         title=f"核心 CPI 通胀 vs. 平均时薪增速同比 - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
         yaxis_title="同比增速 (%)",
@@ -729,14 +765,15 @@ def create_sahm_rule_chart(df_data: pd.DataFrame, timeframe="ALL"):
         df,
         x=date_col,
         y=val_col,
-        title=f"Sahm Rule Recession Indicator (萨姆规则衰退指标) - [{timeframe}]",
-        labels={val_col: '萨姆指标值', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: '萨姆指标值', date_col: '日期'}
     )
-    fig.add_hline(y=0.50, line_dash="dash", line_color="red", annotation_text="0.50 衰退触发警戒线", annotation_position="top left")
-    fig.update_layout(
-        hovermode="x unified",
+    fig.update_traces(line=dict(color='#f59e0b', width=2.2))
+    fig.add_hline(y=0.50, line_dash="dash", line_color="#ef4444", annotation_text="0.50 衰退触发警戒线", annotation_position="top left")
+    fig = apply_chart_theme(
+        fig,
+        title=f"Sahm Rule Recession Indicator (萨姆规则衰退指标) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="指标点位",
         uirevision=f"sahm_chart_{timeframe}"
     )
@@ -764,18 +801,20 @@ def create_core_capex_chart(df_data: pd.DataFrame, timeframe="ALL"):
 
     fig = go.Figure()
     if 'Core_CapEx' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CapEx'], mode='lines', name='核心资本品订单规模 ($M)', line=dict(color='#2563eb', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['Core_CapEx'], mode='lines', name='核心资本品订单规模 ($M)', line=dict(color='#38bdf8', width=2.2)))
     if 'Core_CapEx_YoY' in df.columns:
-        fig.add_trace(go.Bar(x=df[date_col], y=df['Core_CapEx_YoY'], name='订单同比增速 (%)', yaxis='y2', marker_color='#93c5fd', opacity=0.6))
+        fig.add_trace(go.Bar(x=df[date_col], y=df['Core_CapEx_YoY'], name='订单同比增速 (%)', yaxis='y2', marker_color='rgba(56, 189, 248, 0.45)'))
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title=f"核心资本品订单规模与同比增速 (前瞻资本开支) - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
-        yaxis=dict(title="规模 ($M)"),
-        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right"),
+        yaxis_title="规模 ($M)",
         uirevision=f"core_capex_{timeframe}"
+    )
+    fig.update_layout(
+        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right", showgrid=False)
     )
     return fig
 
@@ -801,19 +840,21 @@ def create_m2_money_supply_chart(df_data: pd.DataFrame, timeframe="ALL"):
 
     fig = go.Figure()
     if 'M2' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2'], mode='lines', name='M2 货币供应总量 ($B)', line=dict(color='#059669', width=2)))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2'], mode='lines', name='M2 货币供应总量 ($B)', line=dict(color='#10b981', width=2.2)))
     if 'M2_YoY' in df.columns:
-        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2_YoY'], mode='lines', name='M2 同比增速 (%)', yaxis='y2', line=dict(color='#f59e0b', width=1.5, dash='dot')))
+        fig.add_trace(go.Scatter(x=df[date_col], y=df['M2_YoY'], mode='lines', name='M2 同比增速 (%)', yaxis='y2', line=dict(color='#fbbf24', width=1.8, dash='dot')))
 
-    fig.add_hline(y=0.0, line_dash="solid", line_color="black", yref="y2")
-    fig.update_layout(
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#94a3b8", yref="y2")
+    fig = apply_chart_theme(
+        fig,
         title=f"M2 广义货币供应量总量与同比增速 - [{timeframe}]",
-        template="plotly_white",
         height=450,
         hovermode="x unified",
-        yaxis=dict(title="总量 ($B)"),
-        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right"),
+        yaxis_title="总量 ($B)",
         uirevision=f"m2_chart_{timeframe}"
+    )
+    fig.update_layout(
+        yaxis2=dict(title="同比增速 (%)", overlaying="y", side="right", showgrid=False)
     )
     return fig
 
@@ -842,14 +883,15 @@ def create_sloos_credit_chart(df_data: pd.DataFrame, timeframe="ALL"):
         df,
         x=date_col,
         y=val_col,
-        title=f"美联储高级贷款官意见调查 (SLOOS 银行信贷净收紧比例) - [{timeframe}]",
-        labels={val_col: '净收紧比例 (%)', date_col: '日期'},
-        template="plotly_white"
+        labels={val_col: '净收紧比例 (%)', date_col: '日期'}
     )
-    fig.add_hline(y=0.0, line_dash="solid", line_color="black", annotation_text="0% (正值收紧 / 负值放宽)")
-    fig.update_layout(
-        hovermode="x unified",
+    fig.update_traces(line=dict(color='#a855f7', width=2.2))
+    fig.add_hline(y=0.0, line_dash="solid", line_color="#94a3b8", annotation_text="0% (正值收紧 / 负值放宽)")
+    fig = apply_chart_theme(
+        fig,
+        title=f"美联储高级贷款官意见调查 (SLOOS 银行信贷净收紧比例) - [{timeframe}]",
         height=450,
+        hovermode="x unified",
         yaxis_title="净收紧银行占比 (%)",
         uirevision=f"sloos_chart_{timeframe}"
     )
@@ -880,16 +922,19 @@ def create_erp_chart(erp_dict: dict, timeframe: str = "3Y"):
     colors = ['#3b82f6' if val >= 0 else '#f97316' for val in df['ERP']]
     fig.add_trace(go.Bar(x=df['date'], y=df['ERP'], name="ERP 风险溢价差 (EY - 10Y)", marker_color=colors, opacity=0.35), secondary_y=True)
 
-    fig.add_hline(y=0, line_dash="dash", line_color="gray", secondary_y=True)
-    fig.update_layout(
+    fig.add_hline(y=0, line_dash="dash", line_color="#94a3b8", secondary_y=True)
+    fig = apply_chart_theme(
+        fig,
         title="<b>S&P 500 股权风险溢价 (Equity Risk Premium, ERP)</b>",
-        hovermode="x unified",
-        template="plotly_dark",
         height=450,
+        hovermode="x unified",
+        uirevision=f"erp_chart_{timeframe}"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(title_text="收益率 (%)", secondary_y=False)
-    fig.update_yaxes(title_text="ERP 风险溢价 (%)", secondary_y=True)
+    fig.update_yaxes(title_text="ERP 风险溢价 (%)", secondary_y=True, showgrid=False)
     return fig
 
 
@@ -920,7 +965,13 @@ def create_skew_dix_chart(skew_dix_dict: dict, timeframe: str = "1Y"):
             fig.add_hline(y=45.0, line_dash="dash", line_color="#22c55e", annotation_text="机构多头强吸筹线 (45%)", row=2, col=1)
             fig.add_hline(y=40.0, line_dash="dot", line_color="#94a3b8", row=2, col=1)
 
-    fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", showlegend=False)
+    fig = apply_chart_theme(
+        fig,
+        height=550,
+        hovermode="x unified",
+        showlegend=False,
+        uirevision=f"skew_dix_{timeframe}"
+    )
     return fig
 
 
@@ -950,7 +1001,13 @@ def create_cross_asset_ratios_chart(df_ratios: pd.DataFrame, timeframe: str = "2
         if 'HT_MA50' in df.columns:
             fig.add_trace(go.Scatter(x=df['date'], y=df['HT_MA50'], name="50日均线", line=dict(color='#cbd5e1', width=1, dash='dot')), row=2, col=1)
 
-    fig.update_layout(template="plotly_dark", height=550, hovermode="x unified", showlegend=True)
+    fig = apply_chart_theme(
+        fig,
+        height=550,
+        hovermode="x unified",
+        showlegend=True,
+        uirevision=f"cross_asset_{timeframe}"
+    )
     return fig
 
 
@@ -984,12 +1041,15 @@ def create_move_chart(df_move: pd.DataFrame, timeframe: str = "2Y"):
     fig.add_hline(y=120, line_dash="dash", line_color="#f97316", annotation_text="去杠杆警戒线 (120)", annotation_position="top right")
     fig.add_hline(y=140, line_dash="dash", line_color="#ef4444", annotation_text="流动性风暴极值 (140)", annotation_position="top right")
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title="<b>ICE BofA MOVE 债市恐慌指数 (利率衍生品波动率 & 抵押品稳定性)</b>",
-        template="plotly_dark",
         height=450,
         hovermode="x unified",
         yaxis_title="MOVE 指数点位",
+        uirevision=f"move_{timeframe}"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(autorange=True, fixedrange=False)
@@ -1035,12 +1095,15 @@ def create_term_premium_chart(df_tp: pd.DataFrame, timeframe: str = "5Y"):
     fig.add_hline(y=0.5, line_dash="dash", line_color="#fbbf24", annotation_text="供给压力温和偏紧 (+0.5%)", annotation_position="top right")
     fig.add_hline(y=1.0, line_dash="dash", line_color="#ef4444", annotation_text="债务通胀供给冲击红线 (+1.0%)", annotation_position="top right")
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title="<b>纽约联储 ACM 10 年期期限溢价 (ACM Term Premium vs 10Y Yield)</b>",
-        template="plotly_dark",
         height=450,
         hovermode="x unified",
         yaxis_title="收益率 / 溢价率 (%)",
+        uirevision=f"term_premium_{timeframe}"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(autorange=True, fixedrange=False)
@@ -1075,12 +1138,15 @@ def create_epu_chart(df_epu: pd.DataFrame, timeframe: str = "3Y"):
     fig.add_hline(y=150, line_dash="dash", line_color="#f59e0b", annotation_text="中度政策动荡 (150)", annotation_position="top right")
     fig.add_hline(y=200, line_dash="dash", line_color="#ef4444", annotation_text="重大危机/大选关税高危区 (200)", annotation_position="top right")
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title="<b>美国经济政策不确定性指数 (Economic Policy Uncertainty / EPU)</b>",
-        template="plotly_dark",
         height=450,
         hovermode="x unified",
         yaxis_title="EPU 指数点位",
+        uirevision=f"epu_{timeframe}"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(autorange=True, fixedrange=False)
@@ -1125,11 +1191,12 @@ def create_commercial_loans_chart(df_loans: pd.DataFrame, timeframe: str = "5Y")
         fig.add_hline(y=5.0, line_dash="dash", line_color="#22c55e", annotation_text="健康信贷扩张 (>5%)", row=2, col=1)
         fig.add_hline(y=-2.0, line_dash="dash", line_color="#ef4444", annotation_text="信贷紧缩警戒 (<-2%)", row=2, col=1)
 
-    fig.update_layout(
-        template="plotly_dark",
+    fig = apply_chart_theme(
+        fig,
         height=550,
         hovermode="x unified",
-        showlegend=False
+        showlegend=False,
+        uirevision=f"loans_{timeframe}"
     )
     return fig
 
@@ -1163,12 +1230,15 @@ def create_personal_saving_rate_chart(df_save: pd.DataFrame, timeframe: str = "5
     fig.add_hrect(y0=5.5, y1=8.5, fillcolor="rgba(34, 197, 94, 0.08)", line_width=0, annotation_text="历史健康常态区间 (5.5% - 8.5%)", annotation_position="top left")
     fig.add_hline(y=3.5, line_dash="dash", line_color="#ef4444", annotation_text="超额储蓄耗尽/消费脆弱警戒线 (3.5%)", annotation_position="top right")
 
-    fig.update_layout(
+    fig = apply_chart_theme(
+        fig,
         title="<b>美国居民个人储蓄率 (Personal Saving Rate / 消费内生抗风险蓄水池)</b>",
-        template="plotly_dark",
         height=450,
         hovermode="x unified",
         yaxis_title="储蓄率 (%)",
+        uirevision=f"saving_{timeframe}"
+    )
+    fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     fig.update_yaxes(autorange=True, fixedrange=False)
@@ -1193,6 +1263,39 @@ def create_cicc_quadrant_chart(
 
     if df.empty:
         return None
+
+    try:
+        import streamlit as st
+        current_theme = st.session_state.get("theme_mode", "dark")
+    except Exception:
+        current_theme = "dark"
+
+    if current_theme == "dark":
+        paper_bg = "#0b0f19"
+        plot_bg = "#0e131f"
+        tpl = "plotly_dark"
+        txt_col = "#ffffff"
+        sub_col = "#94a3b8"
+        grid_col = "rgba(255, 255, 255, 0.08)"
+        badge_bg = "rgba(19, 27, 42, 0.95)"
+        axis_col = "#f8fafc"
+        line_col = "#475569"
+        legend_bg = "rgba(19, 27, 42, 0.90)"
+        legend_border = "#334155"
+        bubble_text_col = "#ffffff"
+    else:
+        paper_bg = "#ffffff"
+        plot_bg = "#ffffff"
+        tpl = "plotly_white"
+        txt_col = "#0f172a"
+        sub_col = "#64748b"
+        grid_col = "rgba(203, 213, 225, 0.50)"
+        badge_bg = "rgba(255, 255, 255, 0.95)"
+        axis_col = "#0f172a"
+        line_col = "#64748b"
+        legend_bg = "rgba(255, 255, 255, 0.85)"
+        legend_border = "rgba(203, 213, 225, 0.6)"
+        bubble_text_col = "#0f172a"
 
     fig = go.Figure()
 
@@ -1225,43 +1328,43 @@ def create_cicc_quadrant_chart(
     fig.add_vline(x=0.55, line_dash="dash", line_color="rgba(71, 85, 105, 0.50)", line_width=1.8)
     fig.add_hline(y=0.50, line_dash="dash", line_color="rgba(71, 85, 105, 0.50)", line_width=1.8)
 
-    # 3. 象限战略水印标注 (清爽单行白底徽章卡片，置于图表最外缘，绝不遮挡气泡)
+    # 3. 象限战略水印标注 (自适应深浅主题徽章卡片，置于图表最外缘，绝不遮挡气泡)
     fig.add_annotation(
         x=0.70, y=1.075,
-        text="<b style='font-size:16px;color:#065f46;'>【第一象限: 戴维斯双击】</b> <span style='font-size:12px;font-weight:600;color:#047857;'>高胜率 + 高赔率 (核心超配)</span>",
+        text="<b style='font-size:16px;color:#10b981;'>【第一象限: 戴维斯双击】</b> <span style='font-size:12px;font-weight:600;color:#34d399;'>高胜率 + 高赔率 (核心超配)</span>",
         showarrow=False,
         align="center",
-        bgcolor="rgba(255, 255, 255, 0.95)",
+        bgcolor=badge_bg,
         bordercolor="#059669",
         borderwidth=1.5,
         borderpad=6
     )
     fig.add_annotation(
         x=0.70, y=-0.035,
-        text="<b style='font-size:16px;color:#581c87;'>【第二象限: 动量顺势】</b> <span style='font-size:12px;font-weight:600;color:#7c3aed;'>高胜率 + 低赔率 (顺势持有/紧设止损)</span>",
+        text="<b style='font-size:16px;color:#c084fc;'>【第二象限: 动量顺势】</b> <span style='font-size:12px;font-weight:600;color:#a855f7;'>高胜率 + 低赔率 (顺势持有/紧设止损)</span>",
         showarrow=False,
         align="center",
-        bgcolor="rgba(255, 255, 255, 0.95)",
+        bgcolor=badge_bg,
         bordercolor="#7c3aed",
         borderwidth=1.5,
         borderpad=6
     )
     fig.add_annotation(
         x=0.455, y=-0.035,
-        text="<b style='font-size:16px;color:#991b1b;'>【第三象限: 戴维斯双杀】</b> <span style='font-size:12px;font-weight:600;color:#b91c1c;'>低胜率 + 低赔率 (坚决回避)</span>",
+        text="<b style='font-size:16px;color:#f87171;'>【第三象限: 戴维斯双杀】</b> <span style='font-size:12px;font-weight:600;color:#ef4444;'>低胜率 + 低赔率 (坚决回避)</span>",
         showarrow=False,
         align="center",
-        bgcolor="rgba(255, 255, 255, 0.95)",
+        bgcolor=badge_bg,
         bordercolor="#dc2626",
         borderwidth=1.5,
         borderpad=6
     )
     fig.add_annotation(
         x=0.455, y=1.075,
-        text="<b style='font-size:16px;color:#92400e;'>【第四象限: 价值洼地反转】</b> <span style='font-size:12px;font-weight:600;color:#b45309;'>低胜率 + 高赔率 (左侧分批定投)</span>",
+        text="<b style='font-size:16px;color:#fbbf24;'>【第四象限: 价值洼地反转】</b> <span style='font-size:12px;font-weight:600;color:#f59e0b;'>低胜率 + 高赔率 (左侧分批定投)</span>",
         showarrow=False,
         align="center",
-        bgcolor="rgba(255, 255, 255, 0.95)",
+        bgcolor=badge_bg,
         bordercolor="#d97706",
         borderwidth=1.5,
         borderpad=6
@@ -1402,7 +1505,7 @@ def create_cicc_quadrant_chart(
             mode='markers+text',
             text=labels,
             textposition=text_pos,
-            textfont=dict(size=15, color="#0f172a", family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
+            textfont=dict(size=15, color=bubble_text_col, family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
             showlegend=False,
             marker=dict(
                 size=df['bubble_size'],
@@ -1417,8 +1520,8 @@ def create_cicc_quadrant_chart(
                 ],
                 showscale=True,
                 colorbar=dict(
-                    title=dict(text="<b>综合评分</b>", font=dict(color="#0f172a", size=14, family="sans-serif")),
-                    tickfont=dict(color="#0f172a", size=12, family="sans-serif"),
+                    title=dict(text="<b>综合评分</b>", font=dict(color=axis_col, size=14, family="sans-serif")),
+                    tickfont=dict(color=axis_col, size=12, family="sans-serif"),
                     thickness=16,
                     len=0.75,
                     x=1.01
@@ -1471,7 +1574,7 @@ def create_cicc_quadrant_chart(
                 name=q.split(':')[0],
                 text=labels,
                 textposition=text_pos,
-                textfont=dict(size=15, color="#0f172a", family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
+                textfont=dict(size=15, color=bubble_text_col, family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
                 marker=dict(
                     size=df_sub['bubble_size'],
                     color=q_col,
@@ -1537,7 +1640,7 @@ def create_cicc_quadrant_chart(
                 name=cat,
                 text=labels,
                 textposition=text_pos,
-                textfont=dict(size=15, color="#0f172a", family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
+                textfont=dict(size=15, color=bubble_text_col, family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"),
                 marker=dict(
                     size=df_sub['bubble_size'],
                     color=base_col,
@@ -1555,60 +1658,60 @@ def create_cicc_quadrant_chart(
         title=dict(
             text=(
                 "<b>🎯 中金公司研究部「胜率 - 赔率」全景量化四象限图</b> "
-                "<span style='font-size:13px;color:#64748b;font-weight:normal;'>"
+                f"<span style='font-size:13px;color:{sub_col};font-weight:normal;'>"
                 "(横轴: 胜率 0.40~0.80 ｜ 纵轴: 赔率 0.00~1.00 ｜ 中枢: 0.55, 0.50)"
                 "</span>"
             ),
-            font=dict(family="sans-serif", color="#0f172a", size=18),
+            font=dict(family="sans-serif", color=txt_col, size=18),
             x=0.01,
             y=0.98,
             xanchor="left"
         ),
-        template="plotly_white",
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
+        template=tpl,
+        paper_bgcolor=paper_bg,
+        plot_bgcolor=plot_bg,
         height=820,
         xaxis=dict(
             title=dict(
                 text="<b>胜率 (Win Rate Score / 资金合力与景气驱动) ── 越向右上涨确定性越高 (胜率) ──►</b>",
-                font=dict(size=15, color="#0f172a", family="sans-serif")
+                font=dict(size=15, color=axis_col, family="sans-serif")
             ),
-            tickfont=dict(size=13, color="#0f172a", family="sans-serif"),
+            tickfont=dict(size=14, color=axis_col, family="sans-serif"),
             range=[0.37, 0.85],
             tickmode="linear",
             tick0=0.40,
             dtick=0.05,
             showgrid=True,
-            gridcolor="rgba(203, 213, 225, 0.50)",
+            gridcolor=grid_col,
             zeroline=False,
-            linecolor="#64748b",
+            linecolor=line_col,
             linewidth=1.8
         ),
         yaxis=dict(
             title=dict(
                 text="<b>赔率 (Odds Score / 5年动态估值分位与远期胜率比) ── 越向上安全边际与空间越大 (赔率) ──►</b>",
-                font=dict(size=15, color="#0f172a", family="sans-serif")
+                font=dict(size=15, color=axis_col, family="sans-serif")
             ),
-            tickfont=dict(size=13, color="#0f172a", family="sans-serif"),
+            tickfont=dict(size=14, color=axis_col, family="sans-serif"),
             range=[-0.05, 1.12],
             tickmode="linear",
             tick0=0.00,
             dtick=0.10,
             showgrid=True,
-            gridcolor="rgba(203, 213, 225, 0.50)",
+            gridcolor=grid_col,
             zeroline=False,
-            linecolor="#64748b",
+            linecolor=line_col,
             linewidth=1.8
         ),
         legend=dict(
-            font=dict(size=12, color="#334155", family="sans-serif"),
+            font=dict(size=14, color=axis_col, family="sans-serif"),
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
             x=0.99,
-            bgcolor="rgba(255, 255, 255, 0.85)",
-            bordercolor="rgba(203, 213, 225, 0.6)",
+            bgcolor=legend_bg,
+            bordercolor=legend_border,
             borderwidth=1
         ),
         margin=dict(l=65, r=40, t=100, b=55)

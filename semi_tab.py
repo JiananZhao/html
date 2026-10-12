@@ -10,6 +10,7 @@ from data_service import (
     get_semiconductor_matrix_data,
 )
 from visualization import create_relative_performance_chart
+from charts.theme import render_styled_table
 
 def render_semi_tab():
     st.header("⚡ 芯片半导体产业链深度追踪")
@@ -60,21 +61,27 @@ def render_semi_tab():
         df_semi_matrix = get_semiconductor_matrix_data(semi_all_candidates[:-2])
 
     if not df_semi_matrix.empty:
-        st.dataframe(
-            df_semi_matrix.style.format({
-                "Price ($)": "${:.2f}",
-                "Trailing PE": "{:.1f}",
-                "Forward PE": "{:.1f}",
-                "P/S (TTM)": "{:.2f}",
-                "YoY Rev Growth (%)": "{:.1f}%",
-                "Gross Margin (%)": "{:.1f}%",
-                "Operating Margin (%)": "{:.1f}%",
-                "FCF Yield (%)": "{:.2f}%",
-                "Market Cap ($B)": "${:.1f}B"
-            }),
-            use_container_width=True,
-            hide_index=True
-        )
+        df_formatted = df_semi_matrix.copy()
+        format_rules = {
+            "Price ($)": lambda x: f"${float(x):.2f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "Trailing PE": lambda x: f"{float(x):.1f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "Forward PE": lambda x: f"{float(x):.1f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "P/S (TTM)": lambda x: f"{float(x):.2f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "YoY Rev Growth (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "Gross Margin (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "Operating Margin (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "FCF Yield (%)": lambda x: f"{float(x):.2f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
+            "Market Cap ($B)": lambda x: f"${float(x):.1f}B" if pd.notna(x) and str(x) != "N/A" else "N/A"
+        }
+        for col, fmt_func in format_rules.items():
+            if col in df_formatted.columns:
+                def safe_apply(val, fn=fmt_func):
+                    try:
+                        return fn(val)
+                    except Exception:
+                        return str(val)
+                df_formatted[col] = df_formatted[col].apply(safe_apply)
+        st.markdown(render_styled_table(df_formatted), unsafe_allow_html=True)
     else:
         st.info("正在加载半导体矩阵比选数据...")
 

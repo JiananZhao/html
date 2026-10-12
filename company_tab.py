@@ -19,9 +19,17 @@ from typing import Optional, Dict, Any, Tuple
 # ------------------------------------------------------------------
 try:
     import visualization
-    from visualization import create_financial_trends_chart
+    from visualization import (
+        create_financial_trends_chart,
+        render_echarts_expense_breakdown,
+        render_echarts_pl_waterfall,
+    )
+    from charts.theme import apply_chart_theme, render_styled_table
 except Exception:
     create_financial_trends_chart = None
+    render_echarts_expense_breakdown = None
+    render_echarts_pl_waterfall = None
+    from charts.theme import apply_chart_theme, render_styled_table
 
 HAS_PLOTLY = True
 
@@ -648,6 +656,7 @@ def extract_single_quarter_pnl(ticker_obj, info: dict):
 # =====================================================================
 # 5. 主数据加载函数 (带缓存)
 # =====================================================================
+@st.cache_data(ttl=600, show_spinner=False)
 def fetch_company_data(ticker_symbol: str):
     """
     个股综合数据聚合入口 (调用细粒度独立服务，不长效缓存失败)
@@ -700,6 +709,36 @@ def fetch_company_data(ticker_symbol: str):
         "ticker_symbol": ticker_symbol
     }
 
+
+@st.cache_data(ttl=600, show_spinner=False)
+def load_and_cache_radar_simulation(sym: str):
+    """
+    模块级反身性微观雷达仿真计算缓存器。
+    缓存 10 年仿真与因子结果，用户拖动时间滑块或切换预设时无需重复计算。
+    """
+    from core_engine.stock_data_service import get_stock_price_data
+    from reflexivity_engine import run_universal_reflexivity_radar
+    df_p, meta = get_stock_price_data(sym, period="10y")
+    if df_p.empty:
+        return pd.DataFrame(), meta
+    df_p = df_p.copy()
+    if isinstance(df_p.columns, pd.MultiIndex):
+        df_p.columns = df_p.columns.droplevel(1)
+    if isinstance(df_p.index, pd.DatetimeIndex):
+        df_p = df_p.reset_index()
+        if 'index' in df_p.columns:
+            df_p.rename(columns={'index': 'date'}, inplace=True)
+    df_p.columns = [str(c).lower() for c in df_p.columns]
+    if 'date' not in df_p.columns and 'datetime' in df_p.columns:
+        df_p.rename(columns={'datetime': 'date'}, inplace=True)
+
+    macro_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data_local.csv")
+    if os.path.exists(macro_path):
+        df_macro = pd.read_csv(macro_path)
+        df_bt = run_universal_reflexivity_radar(sym, df_p, df_macro)
+        return df_bt, meta
+    return pd.DataFrame(), meta
+
 # =====================================================================
 # 6. Tab 4 主界面入口函数
 # =====================================================================
@@ -749,6 +788,7 @@ def render_company_deep_dive_tab():
     info = data["info"]
     company_name = data["company_name"]
     active_ticker = data["ticker_symbol"]
+    symbol = active_ticker
     single_pnl = data.get("single_pnl", {})
     statements_dict = data.get("statements_dict", {})
     news_list = data.get("news_list", [])
@@ -862,7 +902,7 @@ def render_company_deep_dive_tab():
         if not long_desc or "Noda" in str(long_desc):
             long_desc = "暂无公司详细业务描述。"
 
-        st.markdown(f"<div style='background-color:#f8fafc;padding:15px;border-radius:8px;border-left:4px solid #3b82f6;font-size:0.92rem;line-height:1.6;'>{long_desc}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='company-desc-box' style='padding:15px;border-radius:8px;font-size:0.95rem;line-height:1.6;'>{long_desc}</div>", unsafe_allow_html=True)
 
     with col_model:
         # 5. 真实股息收益率核算：直接读取分红流水并写回 info 字典
@@ -929,6 +969,9 @@ def render_company_deep_dive_tab():
         c_kpi4.metric("营业利润率 (Op Margin)", f"{(operating_income / rev_base) * 100:.1f}%" if operating_income != 0 else "N/A")
         c_kpi5.metric("净利润率 (Net Margin)", f"{(net_income / rev_base) * 100:.1f}%" if net_income != 0 else "N/A")
 
+        st.markdown("### 📊 财务流向与成本构成透视")
+        is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
+
         col_charts_left, col_charts_right = st.columns([1, 1])
 
         # 1. 支出构成环形图
@@ -939,7 +982,9 @@ def render_company_deep_dive_tab():
                 df_exp["占总营收比例"] = df_exp["金额 ($)"].apply(lambda x: f"{(x / rev_base) * 100:.1f}%")
                 df_exp["格式化金额"] = df_exp["金额 ($)"].apply(format_large_number)
 
-                if HAS_PLOTLY:
+                if is_echarts and render_echarts_expense_breakdown:
+                    render_echarts_expense_breakdown(expense_dict, rev_base, symbol=active_ticker, height=360)
+                elif HAS_PLOTLY:
                     fig_donut = px.pie(
                         df_exp,
                         values="金额 ($)",
@@ -948,52 +993,57 @@ def render_company_deep_dive_tab():
                         color_discrete_sequence=px.colors.qualitative.Pastel
                     )
                     fig_donut.update_traces(textposition='inside', textinfo='percent+label')
-                    fig_donut.update_layout(margin=dict(t=10, b=10, l=10, r=10), showlegend=False, height=340)
+                    fig_donut = apply_chart_theme(fig_donut, height=340, showlegend=False)
+                    fig_donut.update_layout(margin=dict(t=10, b=10, l=10, r=10))
                     st.plotly_chart(fig_donut, use_container_width=True)
                 else:
                     st.bar_chart(df_exp.set_index("支出科目")["金额 ($)"])
 
-                st.dataframe(df_exp[["支出科目", "格式化金额", "占总营收比例"]], use_container_width=True, hide_index=True)
+                st.markdown(render_styled_table(df_exp[["支出科目", "格式化金额", "占总营收比例"]]), unsafe_allow_html=True)
             else:
                 st.info("暂无可拆解的细分支出项。")
 
         # 2. 动态自适应利润流向瀑布图
         with col_charts_right:
             st.markdown("#### 🌊 营收至净利润流向瀑布图 (P&L Waterfall)")
-            if HAS_PLOTLY and total_revenue > 0:
-                wf_x = ["总营收"]
-                wf_y = [total_revenue]
-                wf_types = ["relative"]
-                wf_text = [format_large_number(total_revenue)]
+            if total_revenue > 0:
+                if is_echarts and render_echarts_pl_waterfall:
+                    render_echarts_pl_waterfall(total_revenue, expense_dict, net_income, symbol=active_ticker, height=360)
+                elif HAS_PLOTLY:
+                    wf_x = ["总营收"]
+                    wf_y = [total_revenue]
+                    wf_types = ["relative"]
+                    wf_text = [format_large_number(total_revenue)]
 
-                for k, v in expense_dict.items():
-                    if v > 0:
-                        short_k = k.split("(")[0].strip() if "(" in k else k[:8]
-                        wf_x.append(short_k)
-                        wf_y.append(-v)
-                        wf_types.append("relative")
-                        wf_text.append(f"-{format_large_number(v)}")
+                    for k, v in expense_dict.items():
+                        if v > 0:
+                            short_k = k.split("(")[0].strip() if "(" in k else k[:8]
+                            wf_x.append(short_k)
+                            wf_y.append(-v)
+                            wf_types.append("relative")
+                            wf_text.append(f"-{format_large_number(v)}")
 
-                wf_x.append("净利润")
-                wf_y.append(0)
-                wf_types.append("total")
-                wf_text.append(format_large_number(net_income))
+                    wf_x.append("净利润")
+                    wf_y.append(0)
+                    wf_types.append("total")
+                    wf_text.append(format_large_number(net_income))
 
-                fig_wf = go.Figure(go.Waterfall(
-                    name="P&L Flow",
-                    orientation="v",
-                    measure=wf_types,
-                    x=wf_x,
-                    textposition="outside",
-                    text=wf_text,
-                    y=wf_y,
-                    connector={"line": {"color": "rgb(63, 63, 63)"}},
-                    decreasing={"marker": {"color": "#ef4444"}},
-                    increasing={"marker": {"color": "#10b981"}},
-                    totals={"marker": {"color": "#3b82f6"}}
-                ))
-                fig_wf.update_layout(height=340, margin=dict(t=20, b=10, l=10, r=10), showlegend=False)
-                st.plotly_chart(fig_wf, use_container_width=True)
+                    fig_wf = go.Figure(go.Waterfall(
+                        name="P&L Flow",
+                        orientation="v",
+                        measure=wf_types,
+                        x=wf_x,
+                        textposition="outside",
+                        text=wf_text,
+                        y=wf_y,
+                        connector={"line": {"color": "rgb(63, 63, 63)"}},
+                        decreasing={"marker": {"color": "#ef4444"}},
+                        increasing={"marker": {"color": "#10b981"}},
+                        totals={"marker": {"color": "#3b82f6"}}
+                    ))
+                    fig_wf = apply_chart_theme(fig_wf, height=340, showlegend=False)
+                    fig_wf.update_layout(margin=dict(t=20, b=10, l=10, r=10))
+                    st.plotly_chart(fig_wf, use_container_width=True)
 
             summary_table = [
                 {"科目": "1. 营业总收入 (Total Revenue)", "金额": format_large_number(total_revenue), "占营收比重": "100.0%"}
@@ -1009,80 +1059,91 @@ def render_company_deep_dive_tab():
                 "金额": format_large_number(net_income),
                 "占营收比重": format_percent(net_income / rev_base)
             })
-            st.dataframe(pd.DataFrame(summary_table), use_container_width=True, hide_index=True)
+            st.markdown(render_styled_table(pd.DataFrame(summary_table)), unsafe_allow_html=True)
     else:
         st.warning("暂未获取到该公司的单期财务拆解数据。")
 
     st.markdown("---")
 
     # =====================================================================
-    # 3. 索罗斯反身性相空间动力学微观雷达 (Reflexivity Radar)
+    # 3. 个股微观反身性动能雷达 (Micro Reflexivity Radar)
     # =====================================================================
-    st.markdown("### 🔬 3. 索罗斯反身性相空间动力学微观雷达 (Reflexivity Radar)")
+    st.markdown("### 🔬 3. 个股微观反身性动能雷达 (Micro Reflexivity Radar)")
     
-    with st.expander("点击展开：生成该股专属 4-Quadrant 动力学雷达图谱", expanded=True):
-        st.info("💡 采用本地缓存与无量纲分位数标定，自适应任何美股标的，识别恐慌极值底与泡沫衰竭顶。")
+    with st.expander("点击展开：生成该股专属反身性动力学图谱与情绪指标", expanded=True):
+        st.info("💡 结合宏观高收益信用债流动性底色与相空间动力学，自适应识别个股情绪过热泡沫顶与恐慌错杀底。")
 
-        # 初始默认聚焦时间视野 (自动自适应 Y 轴，消除留白)
-        range_map = {
-            "近6个月 (最新细节)": "6M",
-            "近1年": "1Y",
-            "近3年": "3Y",
-            "近5年": "5Y",
-            "全部 (最长历史)": "ALL"
-        }
-        radar_range_choice = st.selectbox(
-            "🎯 初始默认聚焦时间视野 (自动自适应 Y 轴，消除留白)：",
-            list(range_map.keys()),
-            index=0,
-            key="radar_range_select"
-        )
-        selected_radar_range = range_map[radar_range_choice]
+        from visualization import create_interactive_reflexivity_radar
+        import datetime
 
         try:
-            import yfinance as yf
-            from reflexivity_engine import run_universal_reflexivity_radar
-            from visualization import create_interactive_reflexivity_radar
-            import os
-            
-            @st.cache_data(ttl=600)
-            def load_and_cache_radar_data(sym):
-                from core_engine.stock_data_service import get_stock_price_data
-                df_p, meta = get_stock_price_data(sym, period="10y")
-                if not df_p.empty:
-                    df_p = df_p.copy()
-                    if isinstance(df_p.columns, pd.MultiIndex):
-                        df_p.columns = df_p.columns.droplevel(1)
-                    if isinstance(df_p.index, pd.DatetimeIndex):
-                        df_p = df_p.reset_index()
-                        if 'index' in df_p.columns:
-                            df_p.rename(columns={'index': 'date'}, inplace=True)
-                    df_p.columns = [str(c).lower() for c in df_p.columns]
-                    if 'date' not in df_p.columns and 'datetime' in df_p.columns:
-                        df_p.rename(columns={'datetime': 'date'}, inplace=True)
-                    return df_p, meta
-                return pd.DataFrame(), meta
-            
             with st.spinner("正在加载底层相空间动力学模块与本地宏观重力数据..."):
-                df_price, radar_meta = load_and_cache_radar_data(active_ticker)
-                if df_price.empty:
-                    st.warning(f"未能获取到标的 `{active_ticker}` 的有效行情数据，无法生成动力学雷达图谱。")
-                else:
-                    if radar_meta.get("is_local_fallback"):
-                        st.caption(f"💡 动力学雷达使用本地离线数据: **{radar_meta.get('source_label')}** (截至 `{radar_meta.get('last_date')}`)。")
-                    
-                    macro_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data_local.csv")
-                    if os.path.exists(macro_path):
-                        df_macro = pd.read_csv(macro_path)
-                        df_bt = run_universal_reflexivity_radar(active_ticker, df_price, df_macro)
-                        
-                        fig_radar = create_interactive_reflexivity_radar(df_bt, active_ticker, default_range=selected_radar_range)
-                        if fig_radar:
-                            st.plotly_chart(fig_radar, use_container_width=True)
-                        else:
-                            st.warning("数据不足，无法生成反身性雷达图谱。")
+                df_bt, radar_meta = load_and_cache_radar_simulation(active_ticker)
+            
+            if df_bt.empty:
+                st.warning(f"未能获取到标的 `{active_ticker}` 的有效行情数据，无法生成动力学雷达图谱。")
+            else:
+                if radar_meta.get("is_local_fallback"):
+                    st.caption(f"💡 动力学雷达使用本地离线数据: **{radar_meta.get('source_label')}** (截至 `{radar_meta.get('last_date')}`)。")
+
+                if 'date' in df_bt.columns:
+                    min_dt = pd.to_datetime(df_bt['date'].min()).date()
+                    max_dt = pd.to_datetime(df_bt['date'].max()).date()
+
+                    # 顶部交互控制：预设快捷下拉 + 原生双向日期滑动条 (全 4 层 Y 轴自动自适应贴合)
+                    col_preset, col_slider = st.columns([1.2, 2.8])
+                    with col_preset:
+                        preset_choice = st.selectbox(
+                            "⏱️ 快捷预设周期：",
+                            ["近6个月 (最新细节)", "近1个月", "近3个月", "近1年", "近3年", "近5年", "全部历史", "自定义拖动"],
+                            index=0,
+                            key=f"radar_preset_{active_ticker}"
+                        )
+
+                    if preset_choice == "近1个月":
+                        calc_start = max_dt - datetime.timedelta(days=30)
+                    elif preset_choice == "近3个月":
+                        calc_start = max_dt - datetime.timedelta(days=91)
+                    elif preset_choice == "近6个月 (最新细节)":
+                        calc_start = max_dt - datetime.timedelta(days=182)
+                    elif preset_choice == "近1年":
+                        calc_start = max_dt - datetime.timedelta(days=365)
+                    elif preset_choice == "近3年":
+                        calc_start = max_dt - datetime.timedelta(days=365 * 3)
+                    elif preset_choice == "近5年":
+                        calc_start = max_dt - datetime.timedelta(days=365 * 5)
+                    elif preset_choice == "全部历史":
+                        calc_start = min_dt
                     else:
-                        st.error(f"本地宏观信用数据集缺失: {macro_path}")
+                        calc_start = max_dt - datetime.timedelta(days=182)
+
+                    calc_start = max(min_dt, min(calc_start, max_dt - datetime.timedelta(days=7)))
+
+                    with col_slider:
+                        selected_dates = st.slider(
+                            "📅 拖动选择时间窗口 (全周期 4 层纵坐标 Y 轴自动贴合，无留白无截断):",
+                            min_value=min_dt,
+                            max_value=max_dt,
+                            value=(calc_start, max_dt),
+                            format="YYYY-MM-DD",
+                            key=f"radar_slider_{active_ticker}_{preset_choice}"
+                        )
+
+                    start_s = selected_dates[0].strftime('%Y-%m-%d')
+                    end_s = selected_dates[1].strftime('%Y-%m-%d')
+
+                    fig_radar = create_interactive_reflexivity_radar(
+                        df_bt, 
+                        active_ticker, 
+                        start_date=start_s, 
+                        end_date=end_s
+                    )
+                    if fig_radar:
+                        st.plotly_chart(fig_radar, use_container_width=True)
+                    else:
+                        st.warning("数据不足，无法生成反身性雷达图谱。")
+                else:
+                    st.warning("数据不足，无法生成反身性雷达图谱。")
         except Exception as e:
             st.error(f"反身性雷达引擎计算异常: {e}")
 

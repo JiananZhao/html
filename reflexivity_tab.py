@@ -198,24 +198,54 @@ def render_reflexivity_tab():
     st.subheader("📈 4 层双轨制决策与净值动态全景图谱 (可自由缩放 / 聚焦任意时段)")
     st.caption("💡 **交互指引**：支持鼠标滚轮放大/缩小、按住左键拖拽框选、底部时间滑块拉伸；点击右上角一键聚焦最近几个月或几年，鼠标悬停可穿透查看该日全部指标。")
 
-    col_ctrl1, col_ctrl2 = st.columns([3, 4])
-    with col_ctrl1:
-        default_range_choice = st.selectbox(
-            "⏱️ 初始默认聚焦时间视野 (自动自适应 Y 轴，消除留白):",
-            options=["近 6 个月 (最新细节)", "近 1 个月", "近 3 个月", "近 1 年", "近 3 年", "近 5 年", "全历史 17.6 年全景"],
+    import datetime
+    if not df_data.empty and 'date' in df_data.columns:
+        min_dt = pd.to_datetime(df_data['date'].min()).date()
+        max_dt = pd.to_datetime(df_data['date'].max()).date()
+    else:
+        min_dt = datetime.date(2007, 1, 1)
+        max_dt = datetime.date(2026, 10, 1)
+
+    col_preset, col_slider = st.columns([1.2, 2.8])
+    with col_preset:
+        preset_choice = st.selectbox(
+            "⏱️ 快捷预设周期：",
+            ["近6个月 (最新细节)", "近1个月", "近3个月", "近1年", "近3年", "近5年", "全历史 17.6 年全景", "自定义拖动"],
             index=0,
-            help="设定图表初始加载时的时间范围，进入后仍可使用图表内按钮或滑块任意调节"
+            key="tab5_radar_preset"
         )
-    range_map = {
-        "近 1 个月": "1M",
-        "近 3 个月": "3M",
-        "近 6 个月 (最新细节)": "6M",
-        "近 1 年": "1Y",
-        "近 3 年": "3Y",
-        "近 5 年": "5Y",
-        "全历史 17.6 年全景": "ALL"
-    }
-    selected_range = range_map[default_range_choice]
+
+    if preset_choice == "近1个月":
+        calc_start = max_dt - datetime.timedelta(days=30)
+    elif preset_choice == "近3个月":
+        calc_start = max_dt - datetime.timedelta(days=91)
+    elif preset_choice == "近6个月 (最新细节)":
+        calc_start = max_dt - datetime.timedelta(days=182)
+    elif preset_choice == "近1年":
+        calc_start = max_dt - datetime.timedelta(days=365)
+    elif preset_choice == "近3年":
+        calc_start = max_dt - datetime.timedelta(days=365 * 3)
+    elif preset_choice == "近5年":
+        calc_start = max_dt - datetime.timedelta(days=365 * 5)
+    elif preset_choice == "全历史 17.6 年全景":
+        calc_start = min_dt
+    else:
+        calc_start = max_dt - datetime.timedelta(days=182)
+
+    calc_start = max(min_dt, min(calc_start, max_dt - datetime.timedelta(days=7)))
+
+    with col_slider:
+        selected_dates = st.slider(
+            "📅 拖动选择时间窗口 (全周期 4 层纵坐标 Y 轴自动贴合，无留白无截断):",
+            min_value=min_dt,
+            max_value=max_dt,
+            value=(calc_start, max_dt),
+            format="YYYY-MM-DD",
+            key=f"tab5_slider_{preset_choice}"
+        )
+
+    start_s = selected_dates[0].strftime('%Y-%m-%d')
+    end_s = selected_dates[1].strftime('%Y-%m-%d')
 
     tab_chart_q, tab_chart_s, tab_audit = st.tabs([
         "💻 QQQ 动态交互全景图谱",
@@ -229,7 +259,7 @@ def render_reflexivity_tab():
             sim_q = get_cached_simulation(df_data, 'QQQ')
             if sim_q:
                 fig_q = build_interactive_4layer_chart(
-                    sim_q, ticker='QQQ', default_range=selected_range
+                    sim_q, ticker='QQQ', start_date=start_s, end_date=end_s
                 )
                 st.plotly_chart(fig_q, use_container_width=True)
             
@@ -246,7 +276,7 @@ def render_reflexivity_tab():
             sim_s = get_cached_simulation(df_data, 'SPY')
             if sim_s:
                 fig_s = build_interactive_4layer_chart(
-                    sim_s, ticker='SPY', default_range=selected_range
+                    sim_s, ticker='SPY', start_date=start_s, end_date=end_s
                 )
                 st.plotly_chart(fig_s, use_container_width=True)
             

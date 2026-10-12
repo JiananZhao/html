@@ -21,6 +21,12 @@ from visualization import (
     create_financial_trends_chart,
     create_max_pain_chart,
     create_volatility_momentum_chart,
+    render_tradingview_stock_chart,
+    render_echarts_pe_ps_band,
+    render_echarts_max_pain,
+    render_echarts_technical_momentum,
+    render_echarts_financial_trends,
+    render_echarts_chandelier_risk,
 )
 
 def render_stock_tab():
@@ -35,7 +41,7 @@ def render_stock_tab():
         stock_tf = st.selectbox(
             "选择行情观察时间周期:",
             ["1M", "3M", "6M", "1Y", "3Y", "5Y", "ALL"],
-            index=3,
+            index=6,
             key="stock_timeframe_select"
         )
     with col_input3:
@@ -93,7 +99,7 @@ def render_stock_tab():
 
         # 若使用本地离线数据，明确标明
         if is_local:
-            st.caption(f"⚠️ 当前显示为【{price_meta.get('price_type')}】，非实时行情。仅展示收盘价折线走势，不伪造K线。")
+            st.caption(f"⚠️ 当前显示为【{price_meta.get('price_type', '本地离线数据集')}】。")
 
         st.subheader(f"🏢 {comp_name} ({ticker_to_analyze}) — {sector} | {industry}")
 
@@ -110,16 +116,28 @@ def render_stock_tab():
         # 2. 个股行情与均线系统 (MA20 / MA50 / MA200 & 成交量副图)
         if has_price_data:
             st.subheader(f"📈 {ticker_to_analyze} 交互式行情走势 (MA20 / MA50 / MA200 均线系统)")
-            # 严格遵照规范：若仅有收盘价 (如本地离线 fallback)，强制使用 Line 折线图，严禁伪造 K 线 (Requirement 5)
-            if is_local or price_meta.get("is_close_only"):
-                chart_type_arg = "Line"
-                st.caption(f"💡 当前为本地历史数据，仅含收盘价序列，已锁定为折线图模式。")
-            else:
-                chart_type_arg = "Candlestick" if "Candlestick" in chart_mode else "Line"
+            is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
-            fig_stock_price = create_stock_price_chart(stock_df, ticker_to_analyze, chart_type=chart_type_arg, timeframe=stock_tf)
-            if fig_stock_price:
-                st.plotly_chart(fig_stock_price, use_container_width=True)
+            # 严格遵照规范：若仅有收盘价序列，使用 Line 折线图；若具有真实完整 OHLC 序列，支持经典蜡烛图
+            has_ohlc = all(c in stock_df.columns for c in ['Open', 'High', 'Low', 'Close'])
+            if price_meta.get("is_close_only", False) or not has_ohlc:
+                chart_type_arg = "Line"
+                st.caption(f"💡 当前标的仅含收盘价序列，已自动匹配为折线图模式。")
+            else:
+                chart_type_arg = "Candlestick" if ("Candlestick" in chart_mode or "K线" in chart_mode) else "Line"
+
+            if is_echarts:
+                render_tradingview_stock_chart(
+                    stock_df,
+                    ticker_to_analyze,
+                    chart_type=chart_type_arg,
+                    timeframe=stock_tf,
+                    height=600
+                )
+            else:
+                fig_stock_price = create_stock_price_chart(stock_df, ticker_to_analyze, chart_type=chart_type_arg, timeframe=stock_tf)
+                if fig_stock_price:
+                    st.plotly_chart(fig_stock_price, use_container_width=True)
         else:
             st.info("暂无行情走势数据。")
 
@@ -165,15 +183,25 @@ def render_stock_tab():
 
                 # 2. 修复：使用当前作用域中的实际 DataFrame 变量 stock_df
                 if stock_df is not None and not stock_df.empty and val_metric_val and val_metric_val > 0:
-                    fig_band = create_pe_ps_band_chart(
-                        stock_df,
-                        symbol=ticker_to_analyze,
-                        current_eps=val_metric_val if is_pe_mode else None,
-                        current_rev_per_share=val_metric_val if not is_pe_mode else None,
-                        timeframe=band_tf
-                    )
-                    if fig_band:
-                        st.plotly_chart(fig_band, use_container_width=True)
+                    st.markdown(f"**{val_type_code} Band 动态估值多倍数通道走势**")
+                    if is_echarts:
+                        render_echarts_pe_ps_band(
+                            stock_df,
+                            symbol=ticker_to_analyze,
+                            current_eps=val_metric_val if is_pe_mode else None,
+                            current_rev_per_share=val_metric_val if not is_pe_mode else None,
+                            timeframe=band_tf
+                        )
+                    else:
+                        fig_band = create_pe_ps_band_chart(
+                            stock_df,
+                            symbol=ticker_to_analyze,
+                            current_eps=val_metric_val if is_pe_mode else None,
+                            current_rev_per_share=val_metric_val if not is_pe_mode else None,
+                            timeframe=band_tf
+                        )
+                        if fig_band:
+                            st.plotly_chart(fig_band, use_container_width=True)
                         with st.expander(f"💡 {val_type_code} Band 估值通道投资解读", expanded=False):
                             metric_name = "每股收益 (EPS)" if is_pe_mode else "每股营收 (SPS)"
                             st.markdown(f"""
@@ -234,9 +262,12 @@ def render_stock_tab():
 
         # 5. 技术面动量指标系统 (RSI, MACD, 200MA)
         st.subheader("⚡ 技术面动量指标系统 (RSI, MACD & 200MA 年线偏离度)")
-        fig_tech_mom = create_technical_momentum_chart(stock_df, ticker_to_analyze, timeframe=stock_tf)
-        if fig_tech_mom:
-            st.plotly_chart(fig_tech_mom, use_container_width=True)
+        if is_echarts:
+            render_echarts_technical_momentum(stock_df, ticker_to_analyze, timeframe=stock_tf)
+        else:
+            fig_tech_mom = create_technical_momentum_chart(stock_df, ticker_to_analyze, timeframe=stock_tf)
+            if fig_tech_mom:
+                st.plotly_chart(fig_tech_mom, use_container_width=True)
             with st.expander("💡 技术面动量指标系统解读指南", expanded=False):
                 st.markdown("""
                 * **RSI (14) 超买超卖**：RSI > 70 表明短期动量过热易发生均值回归；RSI < 30 进入超卖区间。
@@ -305,9 +336,13 @@ def render_stock_tab():
                 delta=f"总持仓: {total_call_oi + total_put_oi:,} 张"
             )
 
-            fig_max_pain = create_max_pain_chart(options_sentiment, current_price=curr_price)
-            if fig_max_pain:
-                st.plotly_chart(fig_max_pain, use_container_width=True)
+            st.markdown("**做市商 Max Pain 痛点博弈分布与持仓柱状图**")
+            if is_echarts:
+                render_echarts_max_pain(options_sentiment, current_price=curr_price)
+            else:
+                fig_max_pain = create_max_pain_chart(options_sentiment, current_price=curr_price)
+                if fig_max_pain:
+                    st.plotly_chart(fig_max_pain, use_container_width=True)
 
             with st.expander("💡 期权衍生品微观情绪与 Max Pain 做市商博弈指南", expanded=False):
                 st.markdown("""
@@ -365,9 +400,12 @@ def render_stock_tab():
             )
 
             df_metrics_data = mom_metrics["df_metrics"]
-            fig_vol_mom = create_volatility_momentum_chart(df_metrics_data, ticker_to_analyze, timeframe=stock_tf)
-            if fig_vol_mom:
-                st.plotly_chart(fig_vol_mom, use_container_width=True)
+            if is_echarts:
+                render_echarts_chandelier_risk(df_metrics_data, ticker_to_analyze, timeframe=stock_tf, height=620)
+            else:
+                fig_vol_mom = create_volatility_momentum_chart(df_metrics_data, ticker_to_analyze, timeframe=stock_tf)
+                if fig_vol_mom:
+                    st.plotly_chart(fig_vol_mom, use_container_width=True)
 
             with st.expander("💡 微观动量、动态止损与波动率自适应风控指南", expanded=False):
                 st.markdown("""
@@ -398,9 +436,13 @@ def render_stock_tab():
         with fin_tab_q:
             df_q_data = fin_stmts_dict.get("quarterly", pd.DataFrame())
             if not df_q_data.empty:
-                fig_fin_q = create_financial_trends_chart(df_q_data, ticker_to_analyze, period_type="季度 (Quarterly)")
-                if fig_fin_q:
-                    st.plotly_chart(fig_fin_q, use_container_width=True)
+                st.markdown("**季度核心财务走势 (营收 / 净利 / FCF / 毛利率)**")
+                if is_echarts:
+                    render_echarts_financial_trends(df_q_data, ticker_to_analyze, period_type="季度 (Quarterly)")
+                else:
+                    fig_fin_q = create_financial_trends_chart(df_q_data, ticker_to_analyze, period_type="季度 (Quarterly)")
+                    if fig_fin_q:
+                        st.plotly_chart(fig_fin_q, use_container_width=True)
                 st.markdown(f"##### {ticker_to_analyze} 季度核心财务指标全景明细表 ($M / %)")
                 st.dataframe(df_q_data, use_container_width=True, hide_index=True)
             else:
@@ -409,9 +451,13 @@ def render_stock_tab():
         with fin_tab_a:
             df_a_data = fin_stmts_dict.get("annual", pd.DataFrame())
             if not df_a_data.empty:
-                fig_fin_a = create_financial_trends_chart(df_a_data, ticker_to_analyze, period_type="年度 (Annual)")
-                if fig_fin_a:
-                    st.plotly_chart(fig_fin_a, use_container_width=True)
+                st.markdown("**年度核心财务走势 (营收 / 净利 / FCF / 毛利率)**")
+                if is_echarts:
+                    render_echarts_financial_trends(df_a_data, ticker_to_analyze, period_type="年度 (Annual)")
+                else:
+                    fig_fin_a = create_financial_trends_chart(df_a_data, ticker_to_analyze, period_type="年度 (Annual)")
+                    if fig_fin_a:
+                        st.plotly_chart(fig_fin_a, use_container_width=True)
                 st.markdown(f"##### {ticker_to_analyze} 年度核心财务指标全景明细表 ($M / %)")
                 st.dataframe(df_a_data, use_container_width=True, hide_index=True)
             else:

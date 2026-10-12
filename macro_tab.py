@@ -69,7 +69,27 @@ from visualization import (
     create_commercial_loans_chart,
     create_personal_saving_rate_chart,
     create_cicc_quadrant_chart,
+    render_echarts_cicc_quadrant,
     render_threejs_cicc_quadrant_ui,
+    render_echarts_yield_spreads,
+    render_echarts_net_liquidity,
+    render_echarts_treasury_curve,
+    render_echarts_vix_chart,
+    render_echarts_move_chart,
+    render_echarts_dxy_chart,
+    render_echarts_erp_chart,
+    render_echarts_credit_spread,
+    render_echarts_nfci_chart,
+    render_echarts_sahm_rule,
+    render_echarts_fear_greed,
+    render_echarts_real_yield_breakeven,
+    render_echarts_sofr_iorb,
+    render_echarts_fed_balance_sheet,
+    render_echarts_m2_money_supply,
+    render_echarts_term_premium,
+    render_echarts_commercial_loans,
+    render_echarts_personal_saving_rate,
+    render_echarts_jobless_claims,
 )
 from quant_models import (
     calculate_cicc_sector_quadrant,
@@ -265,9 +285,11 @@ def _render_kpi_cockpit():
 # ==================================================================
 # 专题 1: 💧 流动性总闸门与央行水库
 # ==================================================================
-def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
+def _render_theme_liquidity(df_long: pd.DataFrame):
     st.markdown("### 💧 专题 1：流动性总闸门与央行水库 (Liquidity & Fed Balance Sheet)")
     st.caption("透视美联储资产负债表扩张/收缩、TGA与RRP吞吐量、准备金管道摩擦与广义货币供应。")
+
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
     # 1. 国债收益率曲线
     treasury_csv = "daily-treasury-rates.csv"
@@ -275,15 +297,20 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
     if df_long is not None and not df_long.empty:
         latest_date = df_long['Date'].max().strftime('%Y-%m-%d')
         st.caption(f"🕒 数据刷新时间 (美东时间): **{treasury_updated}** | 最新数据交易日: **{latest_date}**")
-        fig_treasury = create_treasury_chart(df_long)
-        if fig_treasury:
-            st.plotly_chart(fig_treasury, use_container_width=True)
-            with st.expander("💡 美债收益率曲线 (Yield Curve) 解读指南", expanded=False):
-                st.markdown("""
-                * **倒挂阶段 (Inversion, 2Y > 10Y)**：短端政策利率高企压低长端衰退预期，预示银行净息差受挤压与信用紧缩。
-                * **牛陡 (Bull Steepening)**：降息周期开启，短端利率急跌，恢复正利差（通常伴随衰退后期的流动性修复）。
-                * **熊陡 (Bear Steepening)**：长端利率飙升，由通胀中枢上移、美债供给冲击或期限溢价走高驱动。
-                """)
+
+        if is_echarts:
+            render_echarts_treasury_curve(df_long, height=480)
+        else:
+            fig_treasury = create_treasury_chart(df_long)
+            if fig_treasury:
+                st.plotly_chart(fig_treasury, use_container_width=True)
+
+        with st.expander("💡 美债收益率曲线 (Yield Curve) 解读指南", expanded=False):
+            st.markdown("""
+            * **倒挂阶段 (Inversion, 2Y > 10Y)**：短端政策利率高企压低长端衰退预期，预示银行净息差受挤压与信用紧缩。
+            * **牛陡 (Bull Steepening)**：降息周期开启，短端利率急跌，恢复正利差（通常伴随衰退后期的流动性修复）。
+            * **熊陡 (Bear Steepening)**：长端利率飙升，由通胀中枢上移、美债供给冲击或期限溢价走高驱动。
+            """)
 
     col_l1, col_l2 = st.columns(2)
     with col_l1:
@@ -291,10 +318,13 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
         with st.spinner("正在计算美联储净流动性与准备金余额..."):
             df_liq = get_net_liquidity_data()
         if not df_liq.empty:
-            fig_liq = create_net_liquidity_chart(df_liq, timeframe=macro_tf)
-            if fig_liq:
-                st.plotly_chart(fig_liq, use_container_width=True)
-                with st.expander("💡 美联储净流动性 & 银行准备金解读指南", expanded=False):
+            if is_echarts:
+                render_echarts_net_liquidity(df_liq, height=480)
+            else:
+                fig_liq = create_net_liquidity_chart(df_liq)
+                if fig_liq:
+                    st.plotly_chart(fig_liq, use_container_width=True)
+            with st.expander("💡 美联储净流动性 & 银行准备金解读指南", expanded=False):
                     st.markdown("""
                     * **净流动性公式**：`Net Liquidity = 美联储总资产 (WALCL) - 财政部现金账户 (TGA) - 隔夜逆回购 (RRP)`。
                     * **与美股高度正相关**：是驱动风险资产水位的核心流动性水龙头。领先美股 1-2 周走势。
@@ -308,15 +338,18 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
         with st.spinner("正在计算 SOFR - IORB 利差数据..."):
             df_sofr = get_sofr_iorb_data()
         if not df_sofr.empty:
-            fig_sofr = create_sofr_iorb_chart(df_sofr, timeframe=macro_tf)
-            if fig_sofr:
-                st.plotly_chart(fig_sofr, use_container_width=True)
-                with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
-                    st.markdown("""
-                    * **指标定位**：SOFR（市场隔夜抵押融资利率）减去 IORB（美联储付给银行准备金利率）。
-                    * **< 0 bps (常态充裕)**：市场流动性极为宽松。
-                    * **> +10 bps (钱荒预警)**：超额准备金跌破舒适水平，易触发隔夜流动性挤兑。
-                    """)
+            if is_echarts:
+                render_echarts_sofr_iorb(df_sofr, height=480)
+            else:
+                fig_sofr = create_sofr_iorb_chart(df_sofr)
+                if fig_sofr:
+                    st.plotly_chart(fig_sofr, use_container_width=True)
+            with st.expander("💡 SOFR - IORB 资金面体温计解读指南", expanded=False):
+                st.markdown("""
+                * **指标定位**：SOFR（市场隔夜抵押融资利率）减去 IORB（美联储付给银行准备金利率）。
+                * **< 0 bps (常态充裕)**：市场流动性极为宽松。
+                * **> +10 bps (钱荒预警)**：超额准备金跌破舒适水平，易触发隔夜流动性挤兑。
+                """)
         else:
             st.info("暂无 SOFR / IORB 数据...")
 
@@ -326,14 +359,17 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
         with st.spinner("正在从 FRED 加载美联储资产负债表数据..."):
             df_fed = get_fed_balance_sheet_data()
         if not df_fed.empty:
-            fig_fed = create_fed_balance_sheet_chart(df_fed, timeframe=macro_tf)
-            if fig_fed:
-                st.plotly_chart(fig_fed, use_container_width=True)
-                with st.expander("💡 美联储总资产 (WALCL) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **QE (量化宽松)**：央行大规模购债扩表，直接注入基础货币，推高所有风险资产估值。
-                    * **QT (量化紧缩)**：央行到期不续做进行缩表回收流动性，带来隐性持续紧缩压力。
-                    """)
+            if is_echarts:
+                render_echarts_fed_balance_sheet(df_fed, height=480)
+            else:
+                fig_fed = create_fed_balance_sheet_chart(df_fed)
+                if fig_fed:
+                    st.plotly_chart(fig_fed, use_container_width=True)
+            with st.expander("💡 美联储总资产 (WALCL) 解读指南", expanded=False):
+                st.markdown("""
+                * **QE (量化宽松)**：央行大规模购债扩表，直接注入基础货币，推高所有风险资产估值。
+                * **QT (量化紧缩)**：央行到期不续做进行缩表回收流动性，带来隐性持续紧缩压力。
+                """)
         else:
             st.info("暂无美联储资产负债表数据...")
 
@@ -342,14 +378,17 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
         with st.spinner("正在加载 M2 货币供应量数据..."):
             df_m2 = get_m2_money_supply_data()
         if not df_m2.empty:
-            fig_m2 = create_m2_money_supply_chart(df_m2, timeframe=macro_tf)
-            if fig_m2:
-                st.plotly_chart(fig_m2, use_container_width=True)
-                with st.expander("💡 广义货币供应量 M2 同比增速解读指南", expanded=False):
-                    st.markdown("""
-                    * **实体购买力总蓄水池**：包含现金、活期/定期存款及货币基金。
-                    * **负增长拐点**：M2 同比企稳回升通常预示金融再通胀周期的启动。
-                    """)
+            if is_echarts:
+                render_echarts_m2_money_supply(df_m2, height=480)
+            else:
+                fig_m2 = create_m2_money_supply_chart(df_m2)
+                if fig_m2:
+                    st.plotly_chart(fig_m2, use_container_width=True)
+            with st.expander("💡 广义货币供应量 M2 同比增速解读指南", expanded=False):
+                st.markdown("""
+                * **实体购买力总蓄水池**：包含现金、活期/定期存款及货币基金。
+                * **负增长拐点**：M2 同比企稳回升通常预示金融再通胀周期的启动。
+                """)
         else:
             st.info("暂无 M2 数据...")
 
@@ -357,9 +396,11 @@ def _render_theme_liquidity(df_long: pd.DataFrame, macro_tf: str):
 # ==================================================================
 # 专题 2: ⚡ 恐慌波动率与极端博弈 (含 MOVE & EPU)
 # ==================================================================
-def _render_theme_volatility(macro_tf: str):
+def _render_theme_volatility():
     st.markdown("### ⚡ 专题 2：恐慌波动率与极端博弈 (Volatility, Sentiment & Tail Risk)")
     st.caption("综合追踪美股情绪恐慌 (VIX / CNN)、全球金融抵押品母恐慌 (MOVE)、黑天鹅偏度与政策不确定性 (EPU)。")
+
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
     col_v1, col_v2 = st.columns(2)
     with col_v1:
@@ -367,15 +408,18 @@ def _render_theme_volatility(macro_tf: str):
         with st.spinner("正在从 FRED 加载 VIX 恐慌指数..."):
             df_vix = get_vix_data()
         if not df_vix.empty:
-            fig_vix = create_vix_chart(df_vix, timeframe=macro_tf)
-            if fig_vix:
-                st.plotly_chart(fig_vix, use_container_width=True)
-                with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
-                    st.markdown("""
-                    * **< 15 (极度自满/低波动)**：市场处于平静期或牛市主升段。
-                    * **20 - 30 (风险警惕)**：抛压逐渐释放，情绪承压。
-                    * **> 30 (高恐慌/流动性踩踏)**：脉冲式飙升，通常对应恐慌性抛售或历史级左侧买点。
-                    """)
+            if is_echarts:
+                render_echarts_vix_chart(df_vix, height=450)
+            else:
+                fig_vix = create_vix_chart(df_vix)
+                if fig_vix:
+                    st.plotly_chart(fig_vix, use_container_width=True)
+            with st.expander("💡 CBOE VIX 恐慌指数解读指南", expanded=False):
+                st.markdown("""
+                * **< 15 (极度自满/低波动)**：市场处于平静期或牛市主升段。
+                * **20 - 30 (风险警惕)**：抛压逐渐释放，情绪承压。
+                * **> 30 (高恐慌/流动性踩踏)**：脉冲式飙升，通常对应恐慌性抛售或历史级左侧买点。
+                """)
         else:
             st.info("暂无 VIX 数据...")
 
@@ -384,14 +428,17 @@ def _render_theme_volatility(macro_tf: str):
         with st.spinner("正在加载 MOVE 债市波动率指数..."):
             df_move = get_move_index_data()
         if not df_move.empty:
-            fig_move = create_move_chart(df_move, timeframe=macro_tf)
-            if fig_move:
-                st.plotly_chart(fig_move, use_container_width=True)
-                with st.expander("💡 ICE BofA MOVE 债市恐慌指数解读指南", expanded=False):
-                    st.markdown("""
-                    * **金融体系“母恐慌指数”**：美债是全球通用抵押品基石。当 MOVE 飙升 (>120~140) 时，量化宏观基金（Risk Parity / CTA）会被迫提高 VAR 保证金并被动抛售股票去杠杆。
-                    * **先行性**：在 2023 硅谷银行危机爆发前 2 周、2022 股债双杀初期，**MOVE 均比标普 VIX 提前数周剧烈脉冲上冲**。若 MOVE 居高不下而 VIX 低迷，预示股市在虚假平静中酝酿补跌。
-                    """)
+            if is_echarts:
+                render_echarts_move_chart(df_move, height=450)
+            else:
+                fig_move = create_move_chart(df_move)
+                if fig_move:
+                    st.plotly_chart(fig_move, use_container_width=True)
+            with st.expander("💡 ICE BofA MOVE 债市恐慌指数解读指南", expanded=False):
+                st.markdown("""
+                * **金融体系“母恐慌指数”**：美债是全球通用抵押品基石。当 MOVE 飙升 (>120~140) 时，量化宏观基金（Risk Parity / CTA）会被迫提高 VAR 保证金并被动抛售股票去杠杆。
+                * **先行性**：在 2023 硅谷银行危机爆发前 2 周、2022 股债双杀初期，**MOVE 均比标普 VIX 提前数周剧烈脉冲上冲**。若 MOVE 居高不下而 VIX 低迷，预示股市在虚假平静中酝酿补跌。
+                """)
         else:
             st.info("暂无 MOVE 指数数据...")
 
@@ -401,9 +448,12 @@ def _render_theme_volatility(macro_tf: str):
         with st.spinner("正在获取 CNN 恐慌与贪婪指数..."):
             df_fgi = get_cnn_fear_and_greed_data()
         if not df_fgi.empty:
-            fig_fgi = create_cnn_fear_greed_chart(df_fgi, timeframe=macro_tf)
-            if fig_fgi:
-                st.plotly_chart(fig_fgi, use_container_width=True)
+            if is_echarts:
+                render_echarts_fear_greed(df_fgi, height=450)
+            else:
+                fig_fgi = create_cnn_fear_greed_chart(df_fgi)
+                if fig_fgi:
+                    st.plotly_chart(fig_fgi, use_container_width=True)
                 with st.expander("💡 CNN 恐慌与贪婪指数解读指南", expanded=False):
                     st.markdown("""
                     * **0 - 25 (Extreme Fear)**：市场严重超卖，提供逆向价值买入机会。
@@ -417,7 +467,7 @@ def _render_theme_volatility(macro_tf: str):
         with st.spinner("正在从 FRED 加载经济政策不确定性指数..."):
             df_epu = get_epu_data()
         if not df_epu.empty:
-            fig_epu = create_epu_chart(df_epu, timeframe=macro_tf)
+            fig_epu = create_epu_chart(df_epu)
             if fig_epu:
                 st.plotly_chart(fig_epu, use_container_width=True)
                 with st.expander("💡 经济政策不确定性指数 (EPU) 解读指南", expanded=False):
@@ -432,7 +482,7 @@ def _render_theme_volatility(macro_tf: str):
     st.subheader("CBOE SKEW 黑天鹅指数与暗池 DIX")
     skew_dix_dict = get_skew_dix_data()
     if skew_dix_dict:
-        fig_skew_dix = create_skew_dix_chart(skew_dix_dict, timeframe=macro_tf)
+        fig_skew_dix = create_skew_dix_chart(skew_dix_dict)
         if fig_skew_dix:
             st.plotly_chart(fig_skew_dix, use_container_width=True)
             with st.expander("💡 SKEW 与暗池 DIX 解读指南", expanded=False):
@@ -445,9 +495,11 @@ def _render_theme_volatility(macro_tf: str):
 # ==================================================================
 # 专题 3: 🎯 利率微观、期限溢价与资产估值 (含 ACM Term Premium)
 # ==================================================================
-def _render_theme_rates_valuation(macro_tf: str):
+def _render_theme_rates_valuation():
     st.markdown("### 🎯 专题 3：利率微观、期限溢价与资产估值 (Rates, Term Premium & Valuation)")
     st.caption("拆解美债 10Y 收益率底层构成、TIPS 实际利率分母、标普 ERP 风险溢价与跨资产偏好比率。")
+
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
     col_r1, col_r2 = st.columns(2)
     with col_r1:
@@ -455,16 +507,19 @@ def _render_theme_rates_valuation(macro_tf: str):
         with st.spinner("正在计算纽约联储 ACM 期限溢价与期望利率拆解..."):
             df_tp = get_term_premium_data()
         if not df_tp.empty:
-            fig_tp = create_term_premium_chart(df_tp, timeframe=macro_tf)
-            if fig_tp:
-                st.plotly_chart(fig_tp, use_container_width=True)
-                with st.expander("💡 纽约联储 ACM 10 年期期限溢价解读指南", expanded=False):
-                    st.markdown("""
-                    * **核心原理**：10 年期美债名义收益率 = **未来 10 年短端利率期望均值 (Risk-neutral Rate) + 期限溢价 (Term Premium)**。
-                    * **驱动力**：2023 年秋季美债利率冲上 5% 以及财政赤字担忧，核心推手正是期限溢价由负转正。
-                    * **> 0%**：投资者要求对美国政府债务膨胀与供给冲击做出额外补偿；
-                    * **> +1.0%**：纯粹的流动性供给紧缩冲击，对长久期高估值科技股估值构成直接压制。
-                    """)
+            if is_echarts:
+                render_echarts_term_premium(df_tp, height=450)
+            else:
+                fig_tp = create_term_premium_chart(df_tp)
+                if fig_tp:
+                    st.plotly_chart(fig_tp, use_container_width=True)
+            with st.expander("💡 纽约联储 ACM 10 年期期限溢价解读指南", expanded=False):
+                st.markdown("""
+                * **核心原理**：10 年期美债名义收益率 = **未来 10 年短端利率期望均值 (Risk-neutral Rate) + 期限溢价 (Term Premium)**。
+                * **驱动力**：2023 年秋季美债利率冲上 5% 以及财政赤字担忧，核心推手正是期限溢价由负转正。
+                * **> 0%**：投资者要求对美国政府债务膨胀与供给冲击做出额外补偿；
+                * **> +1.0%**：纯粹的流动性供给紧缩冲击，对长久期高估值科技股估值构成直接压制。
+                """)
         else:
             st.info("暂无期限溢价数据...")
 
@@ -473,9 +528,12 @@ def _render_theme_rates_valuation(macro_tf: str):
         with st.spinner("正在从 FRED 加载 10Y TIPS 实际利率与通胀预期..."):
             df_ry = get_real_yield_and_breakeven_data()
         if not df_ry.empty:
-            fig_ry = create_real_yield_breakeven_chart(df_ry, timeframe=macro_tf)
-            if fig_ry:
-                st.plotly_chart(fig_ry, use_container_width=True)
+            if is_echarts:
+                render_echarts_real_yield_breakeven(df_ry, height=450)
+            else:
+                fig_ry = create_real_yield_breakeven_chart(df_ry)
+                if fig_ry:
+                    st.plotly_chart(fig_ry, use_container_width=True)
                 with st.expander("💡 10Y TIPS 实际利率 & 通胀预期解读指南", expanded=False):
                     st.markdown("""
                     * **10Y TIPS 实际利率 (DFII10)**：全球无风险资产的真实资本回报率，亦是高估值成长股现金流折现的核心分母。
@@ -513,9 +571,13 @@ def _render_theme_rates_valuation(macro_tf: str):
 
     erp_data = get_erp_data(base_ntm_eps=custom_eps)
     if erp_data:
-        fig_erp = create_erp_chart(erp_data, timeframe=macro_tf)
-        if fig_erp:
-            st.plotly_chart(fig_erp, use_container_width=True)
+        st.markdown("**S&P 500 股权风险溢价 (ERP) 动态走势**")
+        if is_echarts:
+            render_echarts_erp_chart(erp_data, height=480)
+        else:
+            fig_erp = create_erp_chart(erp_data)
+            if fig_erp:
+                st.plotly_chart(fig_erp, use_container_width=True)
             with st.expander("💡 股权风险溢价 (ERP) 与远期估值决策指南", expanded=False):
                 st.markdown(f"""
                 * **当前核算基准**：S&P 500 点位 **${erp_data['spx_price']:,.1f}**，NTM EPS **${erp_data['ntm_eps']:.1f}**。
@@ -544,7 +606,7 @@ def _render_theme_rates_valuation(macro_tf: str):
         st.subheader("跨资产避险/风险偏好比率 (Copper/Gold & HYG/TLT)")
         df_ratios = get_risk_ratios_data()
         if df_ratios is not None and not df_ratios.empty:
-            fig_ratios = create_cross_asset_ratios_chart(df_ratios, timeframe=macro_tf)
+            fig_ratios = create_cross_asset_ratios_chart(df_ratios)
             if fig_ratios:
                 st.plotly_chart(fig_ratios, use_container_width=True)
                 with st.expander("💡 跨资产比率解读指南", expanded=False):
@@ -559,9 +621,11 @@ def _render_theme_rates_valuation(macro_tf: str):
 # ==================================================================
 # 专题 4: 🏦 商业银行、信贷周期与金融条件 (含 BUSLOANS)
 # ==================================================================
-def _render_theme_credit_banking(macro_tf: str):
+def _render_theme_credit_banking():
     st.markdown("### 🏦 专题 4：商业银行、信贷周期与金融条件 (Credit & Banking Health)")
     st.caption("跟踪商业银行贷款供给意愿 (SLOOS)、实际工商业贷款创造 (BUSLOANS)、高收益债信用利差与宏观金融条件。")
+
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
     col_b1, col_b2 = st.columns(2)
     with col_b1:
@@ -569,14 +633,17 @@ def _render_theme_credit_banking(macro_tf: str):
         with st.spinner("正在从 FRED 加载芝加哥联储 NFCI 指数..."):
             df_nfci = get_nfci_data()
         if not df_nfci.empty:
-            fig_nfci = create_nfci_chart(df_nfci, timeframe=macro_tf)
-            if fig_nfci:
-                st.plotly_chart(fig_nfci, use_container_width=True)
-                with st.expander("💡 芝加哥联储全国金融条件指数 (NFCI) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **< 0 (宽松)**：信贷容易获取，资产价格受到支撑。
-                    * **> 0 (紧缩)**：融资环境严苛，违约风险与利差扩大，压制宏观扩张。
-                    """)
+            if is_echarts:
+                render_echarts_nfci_chart(df_nfci, height=450)
+            else:
+                fig_nfci = create_nfci_chart(df_nfci)
+                if fig_nfci:
+                    st.plotly_chart(fig_nfci, use_container_width=True)
+            with st.expander("💡 芝加哥联储全国金融条件指数 (NFCI) 解读指南", expanded=False):
+                st.markdown("""
+                * **< 0 (宽松)**：信贷容易获取，资产价格受到支撑。
+                * **> 0 (紧缩)**：融资环境严苛，违约风险与利差扩大，压制宏观扩张。
+                """)
         else:
             st.info("暂无 NFCI 数据...")
 
@@ -585,9 +652,12 @@ def _render_theme_credit_banking(macro_tf: str):
         with st.spinner("正在从 FRED 加载高收益债信用利差..."):
             df_oas = get_credit_spread_data()
         if not df_oas.empty:
-            fig_oas = create_credit_spread_chart(df_oas, timeframe=macro_tf)
-            if fig_oas:
-                st.plotly_chart(fig_oas, use_container_width=True)
+            if is_echarts:
+                render_echarts_credit_spread(df_oas, height=450)
+            else:
+                fig_oas = create_credit_spread_chart(df_oas)
+                if fig_oas:
+                    st.plotly_chart(fig_oas, use_container_width=True)
                 with st.expander("💡 高收益债信用利差 (US High Yield Spread) 解读指南", expanded=False):
                     st.markdown("""
                     * **< 3.5% (极度健康/无违约担忧)**：企业偿债能力强，信贷充裕。
@@ -602,7 +672,7 @@ def _render_theme_credit_banking(macro_tf: str):
         with st.spinner("正在加载银行贷款标准净收紧比例 (SLOOS)..."):
             df_sloos = get_sloos_credit_data()
         if not df_sloos.empty:
-            fig_sloos = create_sloos_credit_chart(df_sloos, timeframe=macro_tf)
+            fig_sloos = create_sloos_credit_chart(df_sloos)
             if fig_sloos:
                 st.plotly_chart(fig_sloos, use_container_width=True)
                 with st.expander("💡 银行贷款标准 (SLOOS) 解读指南", expanded=False):
@@ -618,14 +688,17 @@ def _render_theme_credit_banking(macro_tf: str):
         with st.spinner("正在加载商业银行贷款总额与同比增速..."):
             df_loans = get_commercial_loans_data()
         if not df_loans.empty:
-            fig_loans = create_commercial_loans_chart(df_loans, timeframe=macro_tf)
-            if fig_loans:
-                st.plotly_chart(fig_loans, use_container_width=True)
-                with st.expander("💡 商业银行工商业贷款 (BUSLOANS) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **实体信贷落地验证**：SLOOS 衡量的是银行贷款“意愿”，而 BUSLOANS 衡量的是实体经济中真正发生的“信贷创造规模”。
-                    * **YoY 同比增速转负 (<-2%)**：历史上均对应企业信贷紧缩与去库存周期；YoY > 5% 确认宽信用健康扩张。
-                    """)
+            if is_echarts:
+                render_echarts_commercial_loans(df_loans, height=540)
+            else:
+                fig_loans = create_commercial_loans_chart(df_loans)
+                if fig_loans:
+                    st.plotly_chart(fig_loans, use_container_width=True)
+            with st.expander("💡 商业银行工商业贷款 (BUSLOANS) 解读指南", expanded=False):
+                st.markdown("""
+                * **实体信贷落地验证**：SLOOS 衡量的是银行贷款“意愿”，而 BUSLOANS 衡量的是实体经济中真正发生的“信贷创造规模”。
+                * **YoY 同比增速转负 (<-2%)**：历史上均对应企业信贷紧缩与去库存周期；YoY > 5% 确认宽信用健康扩张。
+                """)
         else:
             st.info("暂无商业贷款数据...")
 
@@ -633,9 +706,11 @@ def _render_theme_credit_banking(macro_tf: str):
 # ==================================================================
 # 专题 5: 🛡️ 衰退定量、实体经济与居民韧性 (含 PSAVERT)
 # ==================================================================
-def _render_theme_recession_economy(macro_tf: str):
+def _render_theme_recession_economy():
     st.markdown("### 🛡️ 专题 5：衰退定量、实体经济与居民韧性 (Recession & Real Economy)")
     st.caption("综合研判期限利差解挂阶段、萨姆法则硬衰退阈值、高频失业申请、核心订单、通胀粘性与居民储蓄率。")
+
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
 
     col_e1, col_e2 = st.columns(2)
     with col_e1:
@@ -643,10 +718,13 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载国债期限利差数据..."):
             df_spreads = get_yield_spreads_data()
         if not df_spreads.empty:
-            fig_spreads = create_yield_spreads_chart(df_spreads, timeframe=macro_tf)
-            if fig_spreads:
-                st.plotly_chart(fig_spreads, use_container_width=True)
-                with st.expander("💡 10Y-2Y & 10Y-3M 美债期限利差解读指南", expanded=False):
+            if is_echarts:
+                render_echarts_yield_spreads(df_spreads, height=480)
+            else:
+                fig_spreads = create_yield_spreads_chart(df_spreads)
+                if fig_spreads:
+                    st.plotly_chart(fig_spreads, use_container_width=True)
+            with st.expander("💡 10Y-2Y & 10Y-3M 美债期限利差解读指南", expanded=False):
                     st.markdown("""
                     * **真正风险点在“解挂恢复” (Un-inversion)**：历史上美股最大跌幅往往不发生在倒挂最深处，而发生在**曲线从倒挂重新快速陡峭化（牛陡）**并进入实质性衰退降息的初期。
                     """)
@@ -658,13 +736,16 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载萨姆法则指标..."):
             df_sahm = get_sahm_rule_data()
         if not df_sahm.empty:
-            fig_sahm = create_sahm_rule_chart(df_sahm, timeframe=macro_tf)
-            if fig_sahm:
-                st.plotly_chart(fig_sahm, use_container_width=True)
-                with st.expander("💡 萨姆法则衰退指标 (Sahm Rule) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **萨姆法则定义**：美国 3 个月移动平均失业率相比过去 12 个月最低点上升 **0.50%** 或以上时，标志着经济已陷入实质性衰退。自 1970 年以来从未出现假阳性误报。
-                    """)
+            if is_echarts:
+                render_echarts_sahm_rule(df_sahm, height=450)
+            else:
+                fig_sahm = create_sahm_rule_chart(df_sahm)
+                if fig_sahm:
+                    st.plotly_chart(fig_sahm, use_container_width=True)
+            with st.expander("💡 萨姆法则衰退指标 (Sahm Rule) 解读指南", expanded=False):
+                st.markdown("""
+                * **萨姆法则定义**：美国 3 个月移动平均失业率相比过去 12 个月最低点上升 **0.50%** 或以上时，标志着经济已陷入实质性衰退。自 1970 年以来从未出现假阳性误报。
+                """)
         else:
             st.info("暂无萨姆法则数据...")
 
@@ -674,14 +755,17 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载失业金申请高频数据..."):
             df_claims = get_jobless_claims_data()
         if not df_claims.empty:
-            fig_claims = create_jobless_claims_chart(df_claims, timeframe=macro_tf)
-            if fig_claims:
-                st.plotly_chart(fig_claims, use_container_width=True)
-                with st.expander("💡 周度初请失业金人数解读指南", expanded=False):
-                    st.markdown("""
-                    * **初请 (领先指标)**：通常超过 **25–26 万人** 表明劳动力市场边际松动，超过 **30 万人** 为深度疲弱信号。
-                    * **续请 (同期指标)**：持续走高表明失业周期拉长，再就业市场趋于冻结。
-                    """)
+            if is_echarts:
+                render_echarts_jobless_claims(df_claims, height=450)
+            else:
+                fig_claims = create_jobless_claims_chart(df_claims)
+                if fig_claims:
+                    st.plotly_chart(fig_claims, use_container_width=True)
+            with st.expander("💡 周度初请失业金人数解读指南", expanded=False):
+                st.markdown("""
+                * **初请 (领先指标)**：通常超过 **25–26 万人** 表明劳动力市场边际松动，超过 **30 万人** 为深度疲弱信号。
+                * **续请 (同期指标)**：持续走高表明失业周期拉长，再就业市场趋于冻结。
+                """)
         else:
             st.info("暂无失业金申请数据...")
 
@@ -690,7 +774,7 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载核心资本品新订单数据..."):
             df_capex = get_core_capex_data()
         if not df_capex.empty:
-            fig_capex = create_core_capex_chart(df_capex, timeframe=macro_tf)
+            fig_capex = create_core_capex_chart(df_capex)
             if fig_capex:
                 st.plotly_chart(fig_capex, use_container_width=True)
                 with st.expander("💡 核心资本品新订单解读指南", expanded=False):
@@ -706,14 +790,17 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载美国居民个人储蓄率数据..."):
             df_save = get_personal_saving_rate_data()
         if not df_save.empty:
-            fig_save = create_personal_saving_rate_chart(df_save, timeframe=macro_tf)
-            if fig_save:
-                st.plotly_chart(fig_save, use_container_width=True)
-                with st.expander("💡 美国居民个人储蓄率 (PSAVERT) 解读指南", expanded=False):
-                    st.markdown("""
-                    * **消费终极蓄水池**：美国 GDP 约 70% 由居民消费驱动。储蓄率衡量居民可支配收入中用于储蓄的真实比例。
-                    * **3.5% 预警红线**：跌破 3.5% 表明超额储蓄缓冲垫基本耗尽，中低收入群体必须依赖借贷与薪资维系支出，消费抗风险韧性极为脆弱。
-                    """)
+            if is_echarts:
+                render_echarts_personal_saving_rate(df_save, height=450)
+            else:
+                fig_save = create_personal_saving_rate_chart(df_save)
+                if fig_save:
+                    st.plotly_chart(fig_save, use_container_width=True)
+            with st.expander("💡 美国居民个人储蓄率 (PSAVERT) 解读指南", expanded=False):
+                st.markdown("""
+                * **消费终极蓄水池**：美国 GDP 约 70% 由居民消费驱动。储蓄率衡量居民可支配收入中用于储蓄的真实比例。
+                * **3.5% 预警红线**：跌破 3.5% 表明超额储蓄缓冲垫基本耗尽，中低收入群体必须依赖借贷与薪资维系支出，消费抗风险韧性极为脆弱。
+                """)
         else:
             st.info("暂无个人储蓄率数据...")
 
@@ -722,7 +809,7 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在加载核心通胀与时薪数据..."):
             df_inf_w = get_inflation_wages_data()
         if not df_inf_w.empty:
-            fig_inf_w = create_inflation_wages_chart(df_inf_w, timeframe=macro_tf)
+            fig_inf_w = create_inflation_wages_chart(df_inf_w)
             if fig_inf_w:
                 st.plotly_chart(fig_inf_w, use_container_width=True)
                 with st.expander("💡 核心 PCE 通胀同比 vs. 时薪增速解读指南", expanded=False):
@@ -738,7 +825,7 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在从 FRED 加载失业率数据..."):
             df_unrate = get_unemployment_data()
         if not df_unrate.empty:
-            fig_unrate = create_unemployment_chart(df_unrate, timeframe=macro_tf)
+            fig_unrate = create_unemployment_chart(df_unrate)
             if fig_unrate:
                 st.plotly_chart(fig_unrate, use_container_width=True)
                 with st.expander("💡 美国失业率 (UNRATE) 解读指南", expanded=False):
@@ -753,7 +840,7 @@ def _render_theme_recession_economy(macro_tf: str):
         with st.spinner("正在计算金油比历史数据..."):
             df_go = get_gold_oil_ratio_data()
         if not df_go.empty:
-            fig_go = create_gold_oil_ratio_chart(df_go, timeframe=macro_tf)
+            fig_go = create_gold_oil_ratio_chart(df_go)
             if fig_go:
                 st.plotly_chart(fig_go, use_container_width=True)
                 with st.expander("💡 Gold / Oil Ratio (金油比) 解读指南", expanded=False):
@@ -770,14 +857,17 @@ def _render_theme_recession_economy(macro_tf: str):
     with st.spinner("正在加载美元指数数据..."):
         df_dxy = get_dxy_data()
     if not df_dxy.empty:
-        fig_dxy = create_dxy_chart(df_dxy, timeframe=macro_tf)
-        if fig_dxy:
-            st.plotly_chart(fig_dxy, use_container_width=True)
-            with st.expander("💡 美元指数 (DXY) 解读指南", expanded=False):
-                st.markdown("""
-                * **全球金融条件总闸门**：美元走强对全球非美经济体产生汇率紧缩效应，压制跨国企业海外营收折算。
-                * **避险属性 (Dollar Smile)**：在全球流动性危机时呈现强避险上涨特征。
-                """)
+        if is_echarts:
+            render_echarts_dxy_chart(df_dxy, height=450)
+        else:
+            fig_dxy = create_dxy_chart(df_dxy)
+            if fig_dxy:
+                st.plotly_chart(fig_dxy, use_container_width=True)
+        with st.expander("💡 美元指数 (DXY) 解读指南", expanded=False):
+            st.markdown("""
+            * **全球金融条件总闸门**：美元走强对全球非美经济体产生汇率紧缩效应，压制跨国企业海外营收折算。
+            * **避险属性 (Dollar Smile)**：在全球流动性危机时呈现强避险上涨特征。
+            """)
     else:
         st.info("暂无美元指数数据...")
 
@@ -864,24 +954,22 @@ def _render_theme_cicc_quadrant():
     st.caption(f"📊 **当前资产池 ({len(df_quad)} 个标的) 四象限分布统计**：第一象限(戴维斯双击) **{q_counts.get('Q1', 0)}** 个 ｜ 第二象限(动量高估) **{q_counts.get('Q2', 0)}** 个 ｜ 第三象限(双杀回避) **{q_counts.get('Q3', 0)}** 个 ｜ 第四象限(价值洼地) **{q_counts.get('Q4', 0)}** 个 ｜ 💡 散点气泡半径大小严格与「综合投资评分」绑定，评分越高气泡越大。")
     st.markdown("---")
 
-    # 2. 四象限雷达图引擎选择与呈现
-    col_engine, col_note = st.columns([6, 4])
-    with col_engine:
-        radar_engine = st.radio(
-            "🔮 四象限雷达可视化引擎:",
-            [
-                "🚀 方案一：3D 极简琉璃雷达 (清爽无干扰·悬停聚焦放大·推荐)",
-                "📊 方案二：经典 2D 专业统计图表"
-            ],
-            index=0,
-            horizontal=True,
-            key="cicc_radar_engine_mode"
-        )
-    with col_note:
-        st.caption("💡 **方案一特色**：PBR 琉璃晶体质感、静态沉静无干扰。**仅在鼠标光标悬停在指定气泡上时，触发平滑 1.3 倍放大、聚光微光与全息战术 HUD 卡片！**")
+    # 2. 四象限雷达图呈现 (基于全局侧边栏引擎选择)
+    is_echarts = st.session_state.get("global_chart_engine", "echarts") == "echarts"
+    if is_echarts:
+        col_sel1, col_info = st.columns([4, 6])
+        with col_sel1:
+            all_cats = ["🌟 全部板块全景"] + sorted(list(df_quad['category'].unique()))
+            selected_category = st.selectbox(
+                "🔍 聚焦板块分类 (或直接点击图例切换):",
+                all_cats,
+                index=0,
+                key="cicc_category_filter_echarts"
+            )
+        with col_info:
+            st.caption("💡 **ECharts 交互导览**：图例支持**直接点击隐藏/高亮特定板块**。鼠标悬停查看逐资产宏观胜率、估值赔率与 12-1M 经典学术动量。")
 
-    if "方案二" not in radar_engine:
-        render_threejs_cicc_quadrant_ui(df_quad, height=780)
+        render_echarts_cicc_quadrant(df_quad, selected_category=selected_category, height=760)
     else:
         col_sel1, col_sel2, col_info = st.columns([3, 3, 4])
         with col_sel1:
@@ -890,7 +978,7 @@ def _render_theme_cicc_quadrant():
                 "🔍 聚焦板块分类:",
                 all_cats,
                 index=0,
-                key="cicc_category_filter"
+                key="cicc_category_filter_plotly"
             )
         with col_sel2:
             theme_options = [
@@ -902,10 +990,10 @@ def _render_theme_cicc_quadrant():
                 "🎨 气泡视觉渲染风格:",
                 theme_options,
                 index=0,
-                key="cicc_theme_filter"
+                key="cicc_theme_filter_plotly"
             )
         with col_info:
-            st.caption("💡 **视觉导览**：气泡直径非线性跨越 **12px ~ 50px** (高分资产显著放大，自带璀璨柔光 Aura)。严格遵循中金原版坐标：横轴胜率 (0.40~0.80)，纵轴赔率 (0.00~1.00)。")
+            st.caption("💡 **视觉导览**：气泡直径与「综合投资评分」绑定。严格遵循中金原版坐标：横轴胜率 (0.40~0.80)，纵轴赔率 (0.00~1.00)。")
 
         fig_quad = create_cicc_quadrant_chart(df_quad, selected_category=selected_category, render_theme=selected_theme)
         if fig_quad:
@@ -1025,15 +1113,6 @@ def render_macro_tab():
     st.markdown("#### 美联储货币政策、流动性水库、利差与宏观情绪仪表盘")
     render_market_breadth_ui()
 
-    # 侧边栏时间范围控制
-    st.sidebar.header("⚙️ 宏观图表动态 Y 轴自动缩放控制")
-    macro_tf = st.sidebar.radio(
-        "选择宏观图表时间范围 (自动精细缩放 Y 轴):",
-        ["1M", "3M", "6M", "1Y", "3Y", "5Y", "10Y", "ALL"],
-        index=5,
-        key="global_macro_timeframe"
-    )
-
     # 预加载美债收益率基础数据
     with st.spinner("正在获取并转换国债收益率数据..."):
         df_long = load_and_transform_data()
@@ -1075,28 +1154,28 @@ def render_macro_tab():
             "🧭 6. 行业板块与大类资产「胜率 - 赔率」四象限",
         ])
         with t1:
-            _render_theme_liquidity(df_long, macro_tf)
+            _render_theme_liquidity(df_long)
         with t2:
-            _render_theme_volatility(macro_tf)
+            _render_theme_volatility()
         with t3:
-            _render_theme_rates_valuation(macro_tf)
+            _render_theme_rates_valuation()
         with t4:
-            _render_theme_credit_banking(macro_tf)
+            _render_theme_credit_banking()
         with t5:
-            _render_theme_recession_economy(macro_tf)
+            _render_theme_recession_economy()
         with t6:
             _render_theme_cicc_quadrant()
     else:
         # 完整平铺视图
-        _render_theme_liquidity(df_long, macro_tf)
+        _render_theme_liquidity(df_long)
         st.markdown("---")
-        _render_theme_volatility(macro_tf)
+        _render_theme_volatility()
         st.markdown("---")
-        _render_theme_rates_valuation(macro_tf)
+        _render_theme_rates_valuation()
         st.markdown("---")
-        _render_theme_credit_banking(macro_tf)
+        _render_theme_credit_banking()
         st.markdown("---")
-        _render_theme_recession_economy(macro_tf)
+        _render_theme_recession_economy()
         st.markdown("---")
         _render_theme_cicc_quadrant()
 
