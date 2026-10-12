@@ -654,30 +654,11 @@ div[style*="background-color: rgba(240,242,246"] {
     border: 1px solid #223048 !important;
 }
 
-/* 12. 数据表格 (stDataFrame & Glide Data Grid) 强力暗色覆盖 */
-div[data-testid="stDataFrame"],
-div[data-testid="stDataFrame"] > div,
-div[data-testid="stDataFrameResizable"],
-.stDataFrameGlideDataEditor,
-.dvn-scroller {
-    background-color: #0b0f19 !important;
-    color: #f8fafc !important;
-    border-color: #223048 !important;
-    --gdg-bg-cell: #0b0f19 !important;
-    --gdg-bg-cell-medium: #131b2a !important;
-    --gdg-bg-header: #131b2a !important;
-    --gdg-bg-header-has-focus: #1e293b !important;
-    --gdg-bg-header-hovered: #1e293b !important;
-    --gdg-text-dark: #f8fafc !important;
-    --gdg-text-medium: #cbd5e1 !important;
-    --gdg-text-light: #94a3b8 !important;
-    --gdg-text-header: #ffffff !important;
-    --gdg-text-header-selected: #ffffff !important;
-    --gdg-border-color: #223048 !important;
-    --gdg-header-bottom-border-color: #223048 !important;
-    --gdg-horizontal-border-color: #1e293b !important;
-    --gdg-accent-color: #3b82f6 !important;
-    --gdg-accent-light: rgba(59, 130, 246, 0.25) !important;
+/* 12. 数据表格 (stDataFrame & Glide Data Grid) 容器与边框规范 */
+div[data-testid="stDataFrame"] {
+    border: 1px solid #223048 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
 }
 
 /* 13. 原生表格 (stTable) */
@@ -1198,30 +1179,11 @@ div[style*="background-color: rgba(240,242,246"] {
     box-shadow: 0 1px 4px rgba(0,0,0,0.03) !important;
 }
 
-/* 12. 数据表格 (stDataFrame & Glide Data Grid) 浅色规范 */
-div[data-testid="stDataFrame"],
-div[data-testid="stDataFrame"] > div,
-div[data-testid="stDataFrameResizable"],
-.stDataFrameGlideDataEditor,
-.dvn-scroller {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #e2e8f0 !important;
-    --gdg-bg-cell: #ffffff !important;
-    --gdg-bg-cell-medium: #f8fafc !important;
-    --gdg-bg-header: #f8fafc !important;
-    --gdg-bg-header-has-focus: #e2e8f0 !important;
-    --gdg-bg-header-hovered: #e2e8f0 !important;
-    --gdg-text-dark: #0f172a !important;
-    --gdg-text-medium: #334155 !important;
-    --gdg-text-light: #64748b !important;
-    --gdg-text-header: #0f172a !important;
-    --gdg-text-header-selected: #0f172a !important;
-    --gdg-border-color: #e2e8f0 !important;
-    --gdg-header-bottom-border-color: #e2e8f0 !important;
-    --gdg-horizontal-border-color: #f1f5f9 !important;
-    --gdg-accent-color: #2563eb !important;
-    --gdg-accent-light: rgba(37, 99, 235, 0.15) !important;
+/* 12. 数据表格 (stDataFrame & Glide Data Grid) 容器与边框规范 */
+div[data-testid="stDataFrame"] {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
 }
 
 /* 13. 原生表格 (stTable) */

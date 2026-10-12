@@ -1162,7 +1162,7 @@ def render_company_deep_dive_tab():
 
             if df_q_sum is not None and not df_q_sum.empty:
                 st.markdown("##### 季度核心财务指标精选总览 (最近 5 个季度)")
-                st.dataframe(df_q_sum, hide_index=True, use_container_width=True)
+                st.markdown(render_styled_table(df_q_sum), unsafe_allow_html=True)
 
                 if df_q_trend is not None and not df_q_trend.empty and create_financial_trends_chart:
                     fig_q_trend = create_financial_trends_chart(df_q_trend, symbol=active_ticker, period_type="季度")
@@ -1177,7 +1177,7 @@ def render_company_deep_dive_tab():
 
             if df_a_sum is not None and not df_a_sum.empty:
                 st.markdown("##### 年度核心财务指标精选总览 (最近 4 个财年)")
-                st.dataframe(df_a_sum, hide_index=True, use_container_width=True)
+                st.markdown(render_styled_table(df_a_sum), unsafe_allow_html=True)
 
                 if df_a_trend is not None and not df_a_trend.empty and create_financial_trends_chart:
                     fig_a_trend = create_financial_trends_chart(df_a_trend, symbol=active_ticker, period_type="年度")
