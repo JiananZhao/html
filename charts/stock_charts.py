@@ -826,7 +826,7 @@ def create_interactive_reflexivity_radar(
             bgcolor=legend_bg,
             bordercolor=legend_border,
             borderwidth=1,
-            font=dict(color=font_c, size=13, family="sans-serif")
+            font=dict(color=font_c, size=14, family="sans-serif")
         ),
         margin=dict(l=65, r=65, t=70, b=40)
     )

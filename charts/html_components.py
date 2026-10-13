@@ -865,7 +865,7 @@ def render_echarts_macro_chart(
                     left: '130px',
                     right: '130px',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 16,
                 }},
                 grid: {{
@@ -1240,7 +1240,7 @@ def render_echarts_treasury_curve(df_long: pd.DataFrame, height: int = 500):
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 16
                 }},
                 grid: {{ left: '4%', right: '5%', top: '46px', bottom: '10%', containLabel: true }},
@@ -1533,7 +1533,7 @@ def render_echarts_pe_ps_band(
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 14
                 }},
                 grid: {{ left: '4%', right: '4%', top: '44px', bottom: '16%', containLabel: true }},
@@ -1713,7 +1713,7 @@ def render_echarts_max_pain(options_data: dict, current_price: float = None, hei
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '#cbd5e1', fontSize: 13 }},
+                    textStyle: {{ color: '#cbd5e1', fontSize: 14 }},
                     itemGap: 16
                 }},
                 grid: {{ left: '4%', right: '4%', top: '44px', bottom: '16%', containLabel: true }},
@@ -1929,7 +1929,7 @@ def render_echarts_technical_momentum(df_stock: pd.DataFrame, symbol: str, timef
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '#cbd5e1', fontSize: 13 }},
+                    textStyle: {{ color: '#cbd5e1', fontSize: 14 }},
                     itemGap: 14
                 }},
                 axisPointer: {{ link: [{{ xAxisIndex: 'all' }}] }},
@@ -2103,7 +2103,7 @@ def render_echarts_financial_trends(df_stmt: pd.DataFrame, symbol: str = "", per
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '#cbd5e1', fontSize: 13 }},
+                    textStyle: {{ color: '#cbd5e1', fontSize: 14 }},
                     itemGap: 14
                 }},
                 grid: {{ left: '4%', right: '4%', top: '46px', bottom: '12%', containLabel: true }},
@@ -2286,7 +2286,7 @@ def render_echarts_erp_chart(erp_dict: dict, timeframe: str = "3Y", height: int 
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '#cbd5e1', fontSize: 13 }},
+                    textStyle: {{ color: '#cbd5e1', fontSize: 14 }},
                     itemGap: 16
                 }},
                 grid: {{ left: '4%', right: '4%', top: '46px', bottom: '16%', containLabel: true }},
@@ -2796,7 +2796,7 @@ def render_echarts_commercial_loans(df_loans: pd.DataFrame, timeframe: str = "5Y
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 16,
                 }},
                 grid: [
@@ -2831,7 +2831,7 @@ def render_echarts_commercial_loans(df_loans: pd.DataFrame, timeframe: str = "5Y
                         data: {dates_json},
                         boundaryGap: true,
                         axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13 }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                         splitLine: {{ show: false }}
                     }}
                 ],
@@ -2840,13 +2840,13 @@ def render_echarts_commercial_loans(df_loans: pd.DataFrame, timeframe: str = "5Y
                         type: 'value',
                         gridIndex: 0,
                         name: '贷款总额 ($B)',
-                        nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 13, padding: [0, 0, 4, 0] }},
+                        nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, padding: [0, 0, 4, 0] }},
                         scale: true,
                         axisLine: {{ show: false }},
                         splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }},
                         axisLabel: {{
                             color: '{t["axis_label"]}',
-                            fontSize: 13,
+                            fontSize: 14,
                             formatter: '${{value}} B'
                         }}
                     }},
@@ -2854,13 +2854,13 @@ def render_echarts_commercial_loans(df_loans: pd.DataFrame, timeframe: str = "5Y
                         type: 'value',
                         gridIndex: 1,
                         name: 'YoY 增速 (%)',
-                        nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 13, padding: [0, 0, 4, 0] }},
+                        nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, padding: [0, 0, 4, 0] }},
                         scale: true,
                         axisLine: {{ show: false }},
                         splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }},
                         axisLabel: {{
                             color: '{t["axis_label"]}',
-                            fontSize: 13,
+                            fontSize: 14,
                             formatter: '{{value}} %'
                         }}
                     }}
@@ -3190,7 +3190,7 @@ def render_echarts_expense_breakdown(expense_data, rev_base: float = 0.0, symbol
                     orient: 'vertical',
                     right: '15px',
                     top: 'middle',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     formatter: function(name) {{
                         const item = chartData.find(d => d.name === name);
                         if (!item) return name;
@@ -3213,7 +3213,7 @@ def render_echarts_expense_breakdown(expense_data, rev_base: float = 0.0, symbol
                     label: {{
                         show: true,
                         formatter: '{{b}}\\n{{d}}%',
-                        fontSize: 13,
+                        fontSize: 14,
                         color: '{t["text_color"]}'
                     }},
                     labelLine: {{
@@ -3413,12 +3413,22 @@ def render_echarts_pl_waterfall(total_revenue: float, expense_dict: dict, net_in
                     }}
                 }},
                 grid: {{
-                    left: '60px', right: '35px', top: '35px', bottom: '45px'
+                    left: '60px', right: '35px', top: '35px', bottom: '60px', containLabel: true
                 }},
                 xAxis: {{
                     type: 'category',
                     data: categories,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, interval: 0 }},
+                    axisLabel: {{
+                        color: '{t["axis_label"]}',
+                        fontSize: 14,
+                        interval: 0,
+                        formatter: function(val) {{
+                            if (val && val.length > 4) {{
+                                return val.slice(0, 4) + '\n' + val.slice(4);
+                            }}
+                            return val;
+                        }}
+                    }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }}
                 }},
                 yAxis: {{
@@ -3446,7 +3456,7 @@ def render_echarts_pl_waterfall(total_revenue: float, expense_dict: dict, net_in
                         label: {{
                             show: true,
                             position: 'top',
-                            fontSize: 13,
+                            fontSize: 14,
                             color: '{t["text_color"]}',
                             formatter: function(params) {{
                                 const d = params.data;
@@ -3659,7 +3669,7 @@ def render_echarts_chandelier_risk(df_metrics: pd.DataFrame, symbol: str = "", t
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 14
                 }},
                 axisPointer: {{
@@ -3678,7 +3688,7 @@ def render_echarts_chandelier_risk(df_metrics: pd.DataFrame, symbol: str = "", t
                     }},
                     {{
                         type: 'category', gridIndex: 1, data: dates,
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13 }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                         axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
                         splitLine: {{ show: false }}
                     }}
@@ -3688,21 +3698,21 @@ def render_echarts_chandelier_risk(df_metrics: pd.DataFrame, symbol: str = "", t
                         type: 'value', gridIndex: 0, scale: true,
                         name: '价格 ($)',
                         nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '${{value}}' }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '${{value}}' }},
                         splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                     }},
                     {{
                         type: 'value', gridIndex: 1, scale: true,
                         name: '偏离度 (%)',
                         nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                         splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                     }},
                     {{
                         type: 'value', gridIndex: 1, scale: true,
                         name: '带宽 (%)',
                         nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                         splitLine: {{ show: false }}
                     }}
                 ],
@@ -3927,7 +3937,7 @@ def render_echarts_market_breadth(df_breadth: pd.DataFrame = None, height: int =
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 16
                 }},
                 grid: {{
@@ -3936,13 +3946,13 @@ def render_echarts_market_breadth(df_breadth: pd.DataFrame = None, height: int =
                 xAxis: {{
                     type: 'category',
                     data: dates,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13 }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }}
                 }},
                 yAxis: {{
                     type: 'value',
                     min: 0, max: 100,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                     splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                 }},
                 dataZoom: [
@@ -3991,17 +4001,17 @@ def render_echarts_market_breadth(df_breadth: pd.DataFrame = None, height: int =
                                 {{
                                     yAxis: 80,
                                     lineStyle: {{ color: 'rgba(239, 68, 68, 0.7)', type: 'dashed', width: 1.5 }},
-                                    label: {{ show: true, formatter: '80% 超买', color: '#ef4444', fontSize: 13, position: 'insideStartTop' }}
+                                    label: {{ show: true, formatter: '80% 超买', color: '#ef4444', fontSize: 14, position: 'insideStartTop' }}
                                 }},
                                 {{
                                     yAxis: 50,
                                     lineStyle: {{ color: 'rgba(148, 163, 184, 0.5)', type: 'dashed', width: 1.2 }},
-                                    label: {{ show: true, formatter: '50% 多空分界', color: '#94a3b8', fontSize: 13, position: 'insideStartTop' }}
+                                    label: {{ show: true, formatter: '50% 多空分界', color: '#94a3b8', fontSize: 14, position: 'insideStartTop' }}
                                 }},
                                 {{
                                     yAxis: 20,
                                     lineStyle: {{ color: 'rgba(16, 185, 129, 0.7)', type: 'dashed', width: 1.5 }},
-                                    label: {{ show: true, formatter: '20% 超卖', color: '#10b981', fontSize: 13, position: 'insideStartTop' }}
+                                    label: {{ show: true, formatter: '20% 超卖', color: '#10b981', fontSize: 14, position: 'insideStartTop' }}
                                 }}
                             ]
                         }}
@@ -4256,7 +4266,7 @@ def render_echarts_cicc_quadrant(
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 14
                 }},
                 grid: {{
@@ -4270,7 +4280,7 @@ def render_echarts_cicc_quadrant(
                     nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, fontWeight: 600 }},
                     min: 0.35, max: 0.85,
                     axisLabel: {{
-                        color: '{t["axis_label"]}', fontSize: 13,
+                        color: '{t["axis_label"]}', fontSize: 14,
                         formatter: function(val) {{ return (val * 100).toFixed(0) + '%'; }}
                     }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
@@ -4282,7 +4292,7 @@ def render_echarts_cicc_quadrant(
                     nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, fontWeight: 600 }},
                     min: -0.05, max: 1.12,
                     axisLabel: {{
-                        color: '{t["axis_label"]}', fontSize: 13,
+                        color: '{t["axis_label"]}', fontSize: 14,
                         formatter: function(val) {{ return Number(val).toFixed(2); }}
                     }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
@@ -4531,7 +4541,7 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                     nameGap: 30,
                     nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, fontWeight: 600 }},
                     min: -qLim, max: qLim,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
                     splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                 }},
@@ -4540,7 +4550,7 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                     name: '广义动能速度 q1_dot (%/day)',
                     nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14, fontWeight: 600 }},
                     min: -qdLim, max: qdLim,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }},
                     splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                 }},
@@ -4787,7 +4797,7 @@ def render_echarts_brokerage_nav(df: pd.DataFrame, ticker: str = "NOW", timefram
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 16
                 }},
                 grid: {{
@@ -4796,7 +4806,7 @@ def render_echarts_brokerage_nav(df: pd.DataFrame, ticker: str = "NOW", timefram
                 xAxis: {{
                     type: 'category',
                     data: dates,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13 }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }}
                 }},
                 yAxis: {{
@@ -4805,7 +4815,7 @@ def render_echarts_brokerage_nav(df: pd.DataFrame, ticker: str = "NOW", timefram
                     name: hasNav ? '账户总资产 (USD)' : '价格 (USD)',
                     nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                     axisLabel: {{
-                        color: '{t["axis_label"]}', fontSize: 13,
+                        color: '{t["axis_label"]}', fontSize: 14,
                         formatter: function(val) {{ return formatLargeNum(val); }}
                     }},
                     splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
@@ -5127,7 +5137,7 @@ def render_echarts_industry_breadth(df: pd.DataFrame, ticker: str = "IGV", defau
                     top: '6px',
                     left: 'center',
                     type: 'scroll',
-                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 13 }},
+                    textStyle: {{ color: '{t["legend_text"]}', fontSize: 14 }},
                     itemGap: 14
                 }},
                 grid: {{
@@ -5136,7 +5146,7 @@ def render_echarts_industry_breadth(df: pd.DataFrame, ticker: str = "IGV", defau
                 xAxis: {{
                     type: 'category',
                     data: dates,
-                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13 }},
+                    axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                     axisLine: {{ lineStyle: {{ color: '{t["axis_line"]}' }} }}
                 }},
                 yAxis: [
@@ -5145,7 +5155,7 @@ def render_echarts_industry_breadth(df: pd.DataFrame, ticker: str = "IGV", defau
                         name: '站上 50MA 比例 (%)',
                         nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
                         min: 0, max: 100,
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '{{value}}%' }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '{{value}}%' }},
                         splitLine: {{ lineStyle: {{ color: '{t["split_line"]}' }} }}
                     }},
                     {{
@@ -5153,7 +5163,7 @@ def render_echarts_industry_breadth(df: pd.DataFrame, ticker: str = "IGV", defau
                         scale: true,
                         name: '标的价格 ($)',
                         nameTextStyle: {{ color: '{t["axis_label"]}', fontSize: 14 }},
-                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 13, formatter: '${{value}}' }},
+                        axisLabel: {{ color: '{t["axis_label"]}', fontSize: 14, formatter: '${{value}}' }},
                         splitLine: {{ show: false }}
                     }}
                 ],

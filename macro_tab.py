@@ -70,7 +70,6 @@ from visualization import (
     create_personal_saving_rate_chart,
     create_cicc_quadrant_chart,
     render_echarts_cicc_quadrant,
-    render_threejs_cicc_quadrant_ui,
     render_echarts_yield_spreads,
     render_echarts_net_liquidity,
     render_echarts_treasury_curve,

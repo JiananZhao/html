@@ -42,15 +42,18 @@ def _get_theme_palette():
 """
 
 import os
-import io
-import requests
+import sys
 import json
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime
+
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 from visualization import (
     render_echarts_phase_portrait,
     render_echarts_brokerage_nav,

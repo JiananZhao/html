@@ -1521,7 +1521,7 @@ def create_cicc_quadrant_chart(
                 showscale=True,
                 colorbar=dict(
                     title=dict(text="<b>综合评分</b>", font=dict(color=axis_col, size=14, family="sans-serif")),
-                    tickfont=dict(color=axis_col, size=12, family="sans-serif"),
+                    tickfont=dict(color=axis_col, size=14, family="sans-serif"),
                     thickness=16,
                     len=0.75,
                     x=1.01

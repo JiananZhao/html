@@ -536,7 +536,9 @@ class NOWReflexivityRadar:
         print(f"总投入本金:       ${total_injected:,.2f}")
         print(f"基准最终资产:     ${bench_end:,.2f} (总收益: {bench_total_ret:+.2f}%, 年化CAGR: {bench_cagr:.2f}%, 最大回撤: {bench_dd:.2f}%)")
         print(f"策略最终资产:     ${strat_end:,.2f} (总收益: {strat_total_ret:+.2f}%, 年化CAGR: {strat_cagr:.2f}%, 最大回撤: {strat_dd:.2f}%)")
-        print(f"超额收益 Alpha:   {alpha:+.2f}% (净增财富: +${strat_end - bench_end:,.2f})")
+        diff_wealth = strat_end - bench_end
+        sign_wealth = "+$" if diff_wealth >= 0 else "-$"
+        print(f"超额收益 Alpha:   {alpha:+.2f}% (净增财富: {sign_wealth}{abs(diff_wealth):,.2f})")
         print(f"最大回撤改善:     {bench_dd - strat_dd:+.2f}%")
         print(f"交易频次:         共 {len(executor.fills)} 次触发")
         print("---------------------------------------------------------------")
@@ -635,7 +637,9 @@ class NOWReflexivityRadar:
         ax4.plot(dates, df_bt['strat_nav'], label=f"反身性相空间策略 (终值: ${df_bt['strat_nav'].iloc[-1]:,.0f}, CAGR: {self.perf_metrics['strat_cagr']:.1f}%)", color='#d62728', lw=2.2)
         ax4.plot(dates, df_bt['bench_nav'], label=f"买入持有基准 (终值: ${df_bt['bench_nav'].iloc[-1]:,.0f}, CAGR: {self.perf_metrics['bench_cagr']:.1f}%)", color='#7f7f7f', lw=1.5, ls='--')
 
-        ax4.set_title(f"Layer 4: 真实券商记账资产净值曲线对比 (Alpha: {self.perf_metrics['alpha']:+.2f}%, 净超额: +${self.perf_metrics['strat_final'] - self.perf_metrics['bench_final']:,.0f})", fontsize=13, fontweight='bold')
+        diff_final = self.perf_metrics['strat_final'] - self.perf_metrics['bench_final']
+        sign_final = "+$" if diff_final >= 0 else "-$"
+        ax4.set_title(f"Layer 4: 真实券商记账资产净值曲线对比 (Alpha: {self.perf_metrics['alpha']:+.2f}%, 净超额: {sign_final}{abs(diff_final):,.0f})", fontsize=14, fontweight='bold')
         ax4.set_ylabel("账户净资产 (USD)", fontsize=11)
         ax4.grid(True, alpha=0.3)
         ax4.legend(loc='upper left', frameon=True, fontsize=10)

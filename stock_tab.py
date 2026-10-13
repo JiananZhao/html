@@ -6,13 +6,12 @@ import pandas as pd
 import numpy as np
 
 from data_service import (
-    get_stock_historical_data,
-    get_stock_fundamentals,
     get_stock_financial_statements,
     get_stock_option_expirations,
     get_stock_options_sentiment,
     calculate_momentum_metrics,
 )
+from charts.theme import render_styled_table
 from quant_models import calculate_reverse_dcf
 from visualization import (
     create_stock_price_chart,
@@ -444,7 +443,7 @@ def render_stock_tab():
                     if fig_fin_q:
                         st.plotly_chart(fig_fin_q, use_container_width=True)
                 st.markdown(f"##### {ticker_to_analyze} 季度核心财务指标全景明细表 ($M / %)")
-                st.dataframe(df_q_data, use_container_width=True, hide_index=True)
+                st.markdown(render_styled_table(df_q_data), unsafe_allow_html=True)
             else:
                 st.info(f"暂无 {ticker_to_analyze} 季度结构化财务报表明细。")
 
@@ -459,7 +458,7 @@ def render_stock_tab():
                     if fig_fin_a:
                         st.plotly_chart(fig_fin_a, use_container_width=True)
                 st.markdown(f"##### {ticker_to_analyze} 年度核心财务指标全景明细表 ($M / %)")
-                st.dataframe(df_a_data, use_container_width=True, hide_index=True)
+                st.markdown(render_styled_table(df_a_data), unsafe_allow_html=True)
             else:
                 st.info(f"暂无 {ticker_to_analyze} 年度结构化财务报表明细。")
 
