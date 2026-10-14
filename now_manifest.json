@@ -3,19 +3,19 @@
   "asset_name": "ServiceNow (NOW)",
   "metrics": {
     "total_injected": 161000.0,
-    "bench_end": NaN,
-    "strat_end": NaN,
-    "bench_final": NaN,
-    "strat_final": NaN,
-    "bench_total_ret": NaN,
-    "strat_total_ret": NaN,
-    "bench_cagr": NaN,
-    "strat_cagr": NaN,
+    "bench_end": 941292.6375042166,
+    "strat_end": 468584.2520862709,
+    "bench_final": 941292.6375042166,
+    "strat_final": 468584.2520862709,
+    "bench_total_ret": 484.6538121144203,
+    "strat_total_ret": 191.04611930824277,
+    "bench_cagr": 21.864103144374333,
+    "strat_cagr": 13.258868936497251,
     "bench_dd": -64.03446704103993,
     "strat_dd": -60.570263852126025,
-    "alpha": NaN,
+    "alpha": -8.605234207877082,
     "trades_count": 215,
     "rounds_count": 107
   },
-  "updated_at": "2026-10-14T01:04:47.455497"
+  "updated_at": "2026-10-14T23:47:50.184969"
 }
