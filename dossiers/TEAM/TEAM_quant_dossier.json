@@ -1,0 +1,223 @@
+{
+  "meta": {
+    "ticker": "TEAM",
+    "analysis_time": "2026-10-23 13:17:08",
+    "latest_price": 207.75,
+    "company_name": "TEAM",
+    "sector": "N/A",
+    "industry": "N/A",
+    "company_archetype": "HIGH_SBC_GROWTH",
+    "archetype_name": "高股权激励稀释成长模式"
+  },
+  "preflight_audit_card": {
+    "rf_10y_treasury_pct": 5.24,
+    "beta_adjusted": 1.05,
+    "erp_pct": 4.75,
+    "cost_of_equity_re_pct": 10.23,
+    "cost_of_debt_rd_pct": 5.74,
+    "effective_tax_rate_pct": 21.0,
+    "wacc_dynamic_pct": 10.13,
+    "diluted_shares_m": 261.4,
+    "market_cap_b": 54.31
+  },
+  "multi_factor_scoring_and_rating": {
+    "total_quant_score": 31.9,
+    "quant_rating": "AVOID (回避 / 破位清仓)",
+    "pillars_breakdown": {
+      "quality_score_30": 7.5,
+      "valuation_score_25": 4.0,
+      "momentum_score_20": 13.0,
+      "positioning_score_15": 3.5,
+      "health_score_10": 3.9
+    },
+    "dual_track_execution": {
+      "track_1_value_grid": {
+        "safety_buy_line": 42.5,
+        "bear_case_floor": 58.45,
+        "principle": "反现价锚定：严格由扣SBC后DCF公允价×0.8或估值底托硬性决定，股价跌破安全线分批网格吸筹，无视均线破位。"
+      },
+      "track_2_momentum_grid": {
+        "tactical_entry_price": 192.03,
+        "dynamic_atr_stop_loss": 190.89,
+        "is_momentum_divergent": true,
+        "divergence_warning": "⚠️ 当前市价显著高于左侧内在安全建仓线 (>15%)，右侧买入属于高溢价趋势博弈，缺乏内在价值安全垫，一旦跌破 2xATR 止损位必须机械平仓！"
+      }
+    }
+  },
+  "fundamental_quality_and_forensics": {
+    "has_sec_data": true,
+    "ttm_revenues_b": 5.02,
+    "ttm_net_income_b": -0.22,
+    "ttm_ocf_b": 1.65,
+    "ttm_std_fcf_b": 1.61,
+    "ttm_adj_fcf_b": 0.32,
+    "std_fcf_margin": 32.1,
+    "true_fcf_margin": 6.3,
+    "sbc_to_ocf_ratio": 78.4,
+    "sbc_to_rev_ratio": 25.8,
+    "capex_to_rev_ratio": 0.8,
+    "cash_conversion_ratio": NaN,
+    "receivables_yoy_diff": 9.8,
+    "inventory_yoy_diff": NaN,
+    "gross_margin_slope_8q": 0.19,
+    "piotroski_f_score": 5,
+    "net_debt_b": -1.67,
+    "is_net_cash": true,
+    "net_debt_to_ebitda": NaN,
+    "interest_coverage": -2.7,
+    "cash_runway_quarters": NaN,
+    "roic_pct": NaN,
+    "eva_spread_pct": NaN,
+    "net_buyback_yield_pct": -1.04,
+    "dividend_yield_pct": 0.0,
+    "total_shareholder_yield_pct": -1.04,
+    "red_flags": [
+      "股权激励稀释严重 (SBC 占经营现金流高达 78.4%，严重虚高标准 FCF)",
+      "利息保障倍数警戒 (EBIT / 利息支出 = -2.7x < 3.0x)"
+    ],
+    "green_flags": [
+      "资产负债表极度强健 (拥有净现金净额 $1.67 B，无偿债违约风险)"
+    ],
+    "recent_metrics": {
+      "period": "2026-Q3",
+      "date": "2025-03-31",
+      "revenues_b": 1.36,
+      "net_income_b": -0.07,
+      "ocf_b": 0.65,
+      "sbc_b": 0.35,
+      "true_fcf_b": 0.29
+    }
+  },
+  "valuation_and_expectations_gap": {
+    "preflight_audit": {
+      "rf_10y_treasury_pct": 5.24,
+      "beta_adjusted": 1.05,
+      "erp_pct": 4.75,
+      "cost_of_equity_re_pct": 10.23,
+      "cost_of_debt_rd_pct": 5.74,
+      "effective_tax_rate_pct": 21.0,
+      "wacc_dynamic_pct": 10.13,
+      "diluted_shares_m": 261.4,
+      "market_cap_b": 54.31
+    },
+    "company_archetype": "HIGH_SBC_GROWTH",
+    "archetype_name": "高股权激励稀释成长模式",
+    "implied_fcf_cagr_10y": 15.1,
+    "hist_fcf_cagr_3y": 23.3,
+    "expectations_gap": -8.2,
+    "valuation_status": "安全边际/低预期区 (当前股价内含增速显著低于历史交付水平，赔率占优)",
+    "trailing_pe": NaN,
+    "forward_pe": NaN,
+    "ps_ttm": NaN,
+    "pb_ratio": NaN,
+    "analyst_target_mean": NaN,
+    "analyst_upside_pct": NaN,
+    "dcf_standard": {
+      "dcf_fair_price": 244.6,
+      "mos_safety_price_20pct": 195.68,
+      "growth_assumed_5y_pct": 22.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_post_sbc_adj": {
+      "dcf_fair_price": 53.13,
+      "mos_safety_price_20pct": 42.5,
+      "growth_assumed_5y_pct": 22.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_sensitivity_matrix_adj": [
+      {
+        "wacc_label": "9.6%",
+        "gn_2.0%": 54.8,
+        "gn_2.5%": 56.96,
+        "gn_3.0%": 59.45
+      },
+      {
+        "wacc_label": "10.1%",
+        "gn_2.0%": 51.31,
+        "gn_2.5%": 53.13,
+        "gn_3.0%": 55.2
+      },
+      {
+        "wacc_label": "10.6%",
+        "gn_2.0%": 48.24,
+        "gn_2.5%": 49.79,
+        "gn_3.0%": 51.53
+      }
+    ],
+    "pe_band_5y": {},
+    "ps_band_5y": {
+      "mean_ps": 7.77,
+      "minus_2sigma_price": 0.1,
+      "minus_1sigma_price": 58.45,
+      "plus_1sigma_price": 239.98,
+      "plus_2sigma_price": 330.74,
+      "current_percentile_pct": 77.3
+    },
+    "stress_test_floor_price": 58.45,
+    "turnaround_kpis": {}
+  },
+  "reflexivity_phase_space": {
+    "quadrant": 1,
+    "quadrant_name": "象限 I：繁荣主升加速区 (q1 >= 0, q1_dot >= 0)",
+    "composite_score": 79.7,
+    "q1_dist_200ma_pct": 83.03,
+    "q1_dot_velocity": 2.35,
+    "v_dot_lyapunov": 311.58,
+    "reflexive_gap": 1.11,
+    "active_triggers": [],
+    "options_sentiment": {
+      "pcr_oi": NaN,
+      "pcr_vol": NaN,
+      "max_pain_price": NaN,
+      "call_oi_total": 0,
+      "put_oi_total": 0
+    },
+    "short_interest": {
+      "short_percent_of_float": NaN,
+      "short_ratio_days_to_cover": NaN
+    },
+    "momentum_and_alpha": {
+      "sma_20": 192.03,
+      "sma_50": 175.98,
+      "sma_200": 113.51,
+      "ma_alignment": "经典多头顺势排列 (Price > 20D > 50D > 200D)",
+      "bias_20d_pct": 8.19,
+      "bias_200d_pct": 83.03,
+      "mom_12_1_pct": 33.3,
+      "alpha_vs_spy_1m_pct": 5.4,
+      "alpha_vs_spy_3m_pct": 122.8,
+      "alpha_vs_spy_6m_pct": 233.5,
+      "rsi_14": 64.3,
+      "atr_14": 8.43,
+      "atr_pct": 4.06,
+      "atr_stop_loss_price": 190.89
+    }
+  },
+  "historical_analogue_backtest": {
+    "has_analogues": false,
+    "sample_count": 0,
+    "sample_dates_sample": [],
+    "horizon_3m": {
+      "win_rate_pct": NaN,
+      "median_ret_pct": NaN,
+      "max_dd_pct": NaN,
+      "profit_factor": NaN
+    },
+    "horizon_6m": {
+      "win_rate_pct": NaN,
+      "median_ret_pct": NaN,
+      "max_dd_pct": NaN,
+      "profit_factor": NaN
+    },
+    "horizon_12m": {
+      "win_rate_pct": NaN,
+      "median_ret_pct": NaN,
+      "max_dd_pct": NaN,
+      "profit_factor": NaN
+    }
+  },
+  "earnings_guidance_snapshot": {
+    "has_guidance": false,
+    "guidance_excerpt": ""
+  }
+}

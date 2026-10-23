@@ -1,0 +1,61 @@
+{
+  "status": "success",
+  "ticker": "CRM",
+  "timestamp": "2026-10-23 13:15:52",
+  "price_meta": {
+    "is_local_fallback": true,
+    "source_file": "crm_ohlcv_local.csv",
+    "source_label": "CRM 本地全量 OHLCV 主数据集 (支持经典蜡烛图)",
+    "last_date": "2026-10-12",
+    "is_close_only": false,
+    "record_count": 4213,
+    "price_type": "本地全量离线 OHLCV 蜡烛图序列 (截至 2026-10-12)",
+    "status": "SUCCESS_LOCAL",
+    "message": "已加载本地主数据集 (CRM 本地全量 OHLCV 主数据集 (支持经典蜡烛图))"
+  },
+  "latest_close": 235.3800048828125,
+  "profile": {
+    "shortName": "CRM",
+    "sector": "N/A",
+    "industry": "N/A",
+    "marketCap": NaN,
+    "trailingPE": NaN,
+    "forwardPE": NaN,
+    "priceToSales": NaN,
+    "freeCashflow": NaN,
+    "sharesOutstanding": NaN,
+    "beta": NaN,
+    "bookValue": NaN,
+    "priceToBook": NaN,
+    "enterpriseToEbitda": NaN,
+    "enterpriseToRevenue": NaN,
+    "fiftyTwoWeekHigh": NaN,
+    "fiftyTwoWeekLow": NaN,
+    "dividendYield": 0.0,
+    "heldPercentInsiders": NaN,
+    "shortPercentOfFloat": NaN,
+    "shortRatio": NaN,
+    "targetMeanPrice": NaN,
+    "targetHighPrice": NaN,
+    "targetLowPrice": NaN,
+    "recommendationKey": "N/A"
+  },
+  "options_sentiment": {
+    "pcr_oi": NaN,
+    "pcr_vol": NaN,
+    "max_pain_price": NaN,
+    "call_oi_total": 0,
+    "put_oi_total": 0
+  },
+  "macro_backdrop": {
+    "treasury_10y_yield": 5.24,
+    "treasury_3m_yield": 4.25,
+    "treasury_2y_yield": 4.8,
+    "treasury_date": "2026-10-09",
+    "date": "2026-10-21",
+    "HYG_close": 76.9800033569336,
+    "BAA10Y_spread": 1.44,
+    "NFCI": -0.496,
+    "Real_Yield": 2.77
+  }
+}

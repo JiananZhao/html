@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "ticker": "TTD",
+    "analysis_time": "2026-10-23 09:38:10",
+    "latest_price": 11.9399995803833,
+    "company_name": "The Trade Desk, Inc.",
+    "sector": "Communication Services",
+    "industry": "Advertising Agencies"
+  },
+  "fundamental_quality_and_forensics": {
+    "has_sec_data": true,
+    "cash_conversion_ratio": 9.01,
+    "sbc_to_ocf_ratio": 56.3,
+    "true_fcf_margin": 7.2,
+    "receivables_yoy_diff": -153.5,
+    "inventory_yoy_diff": NaN,
+    "piotroski_f_score": 6,
+    "gross_margin_slope_8q": NaN,
+    "red_flags": [
+      "股权激励稀释过高 (SBC 占经营现金流比重高达 56.3%，需扣除稀释效应评估真实利润)"
+    ],
+    "green_flags": [
+      "经营现金流极其充沛 (OCF/净利润=9.01 >= 1.0，盈利含金量极高)",
+      "应收账款周转极佳 (应收账款增速低于营收 153.5%)"
+    ],
+    "recent_metrics": {
+      "period": "2026-Q2",
+      "date": "2025-06-30",
+      "revenues_b": 1.31,
+      "net_income_b": 0.05,
+      "ocf_b": 0.46,
+      "sbc_b": 0.26,
+      "true_fcf_b": 0.09
+    }
+  },
+  "valuation_and_expectations_gap": {
+    "implied_fcf_cagr_10y": -5.9,
+    "hist_fcf_cagr_3y": -13.7,
+    "expectations_gap": 7.8,
+    "valuation_status": "偏乐观透支区 (市场定价要求未来 10 年增速进一步加速)",
+    "trailing_pe": 15.759036,
+    "forward_pe": 13.016091,
+    "ps_ttm": 2.0681853,
+    "analyst_target_mean": 13.53333,
+    "analyst_upside_pct": 13.3
+  },
+  "reflexivity_phase_space": {
+    "quadrant": 2,
+    "quadrant_name": "象限 II：恐慌势阱筑底/回升区 (q1 < 0, q1_dot >= 0)",
+    "composite_score": 24.7,
+    "q1_dist_200ma_pct": -45.35,
+    "q1_dot_velocity": 0.12,
+    "v_dot_lyapunov": -4.06,
+    "reflexive_gap": -1.33,
+    "active_triggers": [
+      "🟢 极度恐慌底反转信号 (Trigger_Panic)",
+      "🟡 熊市反弹衰竭离场预警 (Trigger_Bear_Top)"
+    ],
+    "options_sentiment": {
+      "pcr_oi": 0.32848473618381435,
+      "pcr_vol": 0.2968302658486708,
+      "max_pain_price": 12.5,
+      "call_oi_total": 21587,
+      "put_oi_total": 7091
+    },
+    "short_interest": {
+      "short_percent_of_float": 0.2235,
+      "short_ratio_days_to_cover": 3.25
+    }
+  },
+  "historical_analogue_backtest": {
+    "has_analogues": true,
+    "sample_count": 9,
+    "sample_dates_sample": [
+      "2022-06-28",
+      "2025-03-03",
+      "2025-04-11",
+      "2025-08-08",
+      "2025-09-15",
+      "2025-11-17"
+    ],
+    "horizon_3m": {
+      "win_rate_pct": 33.3,
+      "median_ret_pct": -15.4,
+      "profit_factor": 1.58
+    },
+    "horizon_6m": {
+      "win_rate_pct": 11.1,
+      "median_ret_pct": -45.1,
+      "profit_factor": 0.08
+    },
+    "horizon_12m": {
+      "win_rate_pct": 20.0,
+      "median_ret_pct": -62.5,
+      "profit_factor": 1.15,
+      "max_dd_pct": -75.8
+    }
+  },
+  "earnings_guidance_snapshot": {
+    "has_guidance": true,
+    "guidance_excerpt": "ttd-20260806 0001671933 false 0001671933 2026-08-06 2026-08-06 UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM&#160; 8-K CURRENT REPORT Pursuant to Section 13 OR 15(d) of The Securities Exchange Act of 1934 Date of Report (Date of earliest event reported):&#160; August 6, 2026 THE TRADE DESK, INC. (Exact name of registrant as specified in its charter) Nevada 001-37879 27-1887399 (State or other jurisdiction of incorporation) (Commission File Number) (I.R.S. Employer Identification No.) 42 N. Chestnut Street Ventura ,&#160; California &#160; 93001 (Address of principal executive offices) (Zip Code) ( 805 )&#160; 585-3434 (Registrant&#8217;s telephone number, including area code) Not Applicable (Former name or former address, if changed since last report.) Check the appropriate box below if the Form 8-K filing is intended to simultaneously satisfy the filing obligation of the registrant under any of the following provisions: o Written communications pursuant to Rule 425 under the Securities Act (17 CFR 230.425)&#160; o Soliciting material pursuant to Rule 14a-12 under the Exchange Act (17 CFR 240.14a-12)&#160; o Pre-commencement communications pursuant to"
+  }
+}

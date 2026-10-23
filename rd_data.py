@@ -10,6 +10,7 @@ from semi_tab import render_semi_tab
 from company_tab import render_company_deep_dive_tab
 from reflexivity_tab import render_reflexivity_tab
 from industry_bubble_tab import render_industry_bubble_tab
+from huang_dynamics_tab import render_huang_dynamics_tab
 from charts.theme import get_theme_css
 
 # ------------------------------------------------------------------
@@ -37,7 +38,8 @@ TAB_OPTIONS = [
     "⚡ 芯片半导体全产业链追踪",
     "🏢 财报深度拆解与公司基本面剖析 (Tab 4)",
     "🦅 索罗斯反身性大类配置 (Tab 5)",
-    "📡 行业微观内生泡沫雷达 (Tab 6 · 聚焦 Layer 2 & 3)"
+    "📡 行业微观内生泡沫雷达 (Tab 6 · 聚焦 Layer 2 & 3)",
+    "🌌 黄文政动力学相空间引擎 (Tab 7 · 形式同源与李氏实证)"
 ]
 
 # ------------------------------------------------------------------
@@ -120,6 +122,11 @@ elif selected_tab == TAB_OPTIONS[5]:
         render_industry_bubble_tab()
     except Exception as e:
         st.error(f"行业微观内生泡沫雷达模块加载失败: {e}")
+elif selected_tab == TAB_OPTIONS[6]:
+    try:
+        render_huang_dynamics_tab()
+    except Exception as e:
+        st.error(f"黄文政动力学相空间引擎加载失败: {e}")
 
 print(f"[PERF] Active tab [{selected_tab}] finished in: {time.time() - t_start:.3f}s", flush=True)
 

@@ -34,6 +34,7 @@ def run_universal_reflexivity_radar(ticker: str, df_price: pd.DataFrame, df_macr
                 df_price.rename(columns={'index': 'date'}, inplace=True)
 
     df_price.columns = [str(c).lower() for c in df_price.columns]
+    df_price = df_price.loc[:, ~df_price.columns.duplicated(keep='first')]
     if 'date' not in df_price.columns:
         if 'datetime' in df_price.columns:
             df_price.rename(columns={'datetime': 'date'}, inplace=True)

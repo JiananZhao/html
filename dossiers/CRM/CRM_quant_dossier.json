@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "ticker": "CRM",
+    "analysis_time": "2026-10-23 13:15:56",
+    "latest_price": 235.3800048828125,
+    "company_name": "CRM",
+    "sector": "N/A",
+    "industry": "N/A",
+    "company_archetype": "WHITE_CHIP_COMPOUNDER",
+    "archetype_name": "稳健白马/现金牛成长模式"
+  },
+  "preflight_audit_card": {
+    "rf_10y_treasury_pct": 5.24,
+    "beta_adjusted": 1.05,
+    "erp_pct": 4.75,
+    "cost_of_equity_re_pct": 10.23,
+    "cost_of_debt_rd_pct": 5.74,
+    "effective_tax_rate_pct": 21.0,
+    "wacc_dynamic_pct": 9.89,
+    "diluted_shares_m": 966.0,
+    "market_cap_b": 227.38
+  },
+  "multi_factor_scoring_and_rating": {
+    "total_quant_score": 49.4,
+    "quant_rating": "TRIM (逢高减仓 / 防御收缩)",
+    "pillars_breakdown": {
+      "quality_score_30": 24.5,
+      "valuation_score_25": 0.0,
+      "momentum_score_20": 16.0,
+      "positioning_score_15": 3.5,
+      "health_score_10": 5.4
+    },
+    "dual_track_execution": {
+      "track_1_value_grid": {
+        "safety_buy_line": 72.2,
+        "bear_case_floor": 50.92,
+        "principle": "反现价锚定：严格由扣SBC后DCF公允价×0.8或估值底托硬性决定，股价跌破安全线分批网格吸筹，无视均线破位。"
+      },
+      "track_2_momentum_grid": {
+        "tactical_entry_price": 241.31,
+        "dynamic_atr_stop_loss": 226.44,
+        "is_momentum_divergent": true,
+        "divergence_warning": "⚠️ 当前市价显著高于左侧内在安全建仓线 (>15%)，右侧买入属于高溢价趋势博弈，缺乏内在价值安全垫，一旦跌破 2xATR 止损位必须机械平仓！"
+      }
+    }
+  },
+  "fundamental_quality_and_forensics": {
+    "has_sec_data": true,
+    "ttm_revenues_b": 38.83,
+    "ttm_net_income_b": 6.15,
+    "ttm_ocf_b": 10.09,
+    "ttm_std_fcf_b": 9.44,
+    "ttm_adj_fcf_b": 6.2,
+    "std_fcf_margin": 24.3,
+    "true_fcf_margin": 16.0,
+    "sbc_to_ocf_ratio": 32.1,
+    "sbc_to_rev_ratio": 8.3,
+    "capex_to_rev_ratio": 1.7,
+    "cash_conversion_ratio": 1.64,
+    "receivables_yoy_diff": 8.0,
+    "inventory_yoy_diff": NaN,
+    "gross_margin_slope_8q": 0.51,
+    "piotroski_f_score": 7,
+    "net_debt_b": 7.11,
+    "is_net_cash": false,
+    "net_debt_to_ebitda": 0.81,
+    "interest_coverage": 29.4,
+    "cash_runway_quarters": NaN,
+    "roic_pct": 7.9,
+    "eva_spread_pct": -0.6,
+    "net_buyback_yield_pct": 1.93,
+    "dividend_yield_pct": 0.0,
+    "total_shareholder_yield_pct": 1.93,
+    "red_flags": [],
+    "green_flags": [
+      "经营现金流极其充沛 (OCF/净利润=1.64 >= 1.05，盈利含金量极高)",
+      "利息保障倍数极高 (29.4x)",
+      "积极注销式股票回购 (过去 1 年净减少总股本 1.9%，持续增厚真实每股 EPS)",
+      "毛利率持续扩张 (过去 8 季斜率 +0.51%/季，护城河定价权极强)",
+      "基本面综合评级优秀 (Piotroski F-Score=7/9)"
+    ],
+    "recent_metrics": {
+      "period": "2027-Q2",
+      "date": "2025-07-31",
+      "revenues_b": 10.24,
+      "net_income_b": 1.54,
+      "ocf_b": 0.74,
+      "sbc_b": 0.79,
+      "true_fcf_b": -0.19
+    }
+  },
+  "valuation_and_expectations_gap": {
+    "preflight_audit": {
+      "rf_10y_treasury_pct": 5.24,
+      "beta_adjusted": 1.05,
+      "erp_pct": 4.75,
+      "cost_of_equity_re_pct": 10.23,
+      "cost_of_debt_rd_pct": 5.74,
+      "effective_tax_rate_pct": 21.0,
+      "wacc_dynamic_pct": 9.89,
+      "diluted_shares_m": 966.0,
+      "market_cap_b": 227.38
+    },
+    "company_archetype": "WHITE_CHIP_COMPOUNDER",
+    "archetype_name": "稳健白马/现金牛成长模式",
+    "implied_fcf_cagr_10y": 10.0,
+    "hist_fcf_cagr_3y": 2.5,
+    "expectations_gap": 7.5,
+    "valuation_status": "偏乐观透支区 (市场要求未来 10 年增速进一步提速)",
+    "trailing_pe": NaN,
+    "forward_pe": NaN,
+    "ps_ttm": NaN,
+    "pb_ratio": NaN,
+    "analyst_target_mean": NaN,
+    "analyst_upside_pct": NaN,
+    "dcf_standard": {
+      "dcf_fair_price": 141.21,
+      "mos_safety_price_20pct": 112.97,
+      "growth_assumed_5y_pct": 4.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_post_sbc_adj": {
+      "dcf_fair_price": 90.24,
+      "mos_safety_price_20pct": 72.2,
+      "growth_assumed_5y_pct": 4.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_sensitivity_matrix_adj": [
+      {
+        "wacc_label": "9.4%",
+        "gn_2.0%": 93.43,
+        "gn_2.5%": 97.47,
+        "gn_3.0%": 102.15
+      },
+      {
+        "wacc_label": "9.9%",
+        "gn_2.0%": 86.86,
+        "gn_2.5%": 90.24,
+        "gn_3.0%": 94.13
+      },
+      {
+        "wacc_label": "10.4%",
+        "gn_2.0%": 81.07,
+        "gn_2.5%": 83.94,
+        "gn_3.0%": 87.19
+      }
+    ],
+    "pe_band_5y": {
+      "mean_pe": 22.4,
+      "minus_2sigma_price": 1.0,
+      "minus_1sigma_price": 58.45,
+      "plus_1sigma_price": 226.4,
+      "plus_2sigma_price": 310.37,
+      "current_percentile_pct": 80.9
+    },
+    "ps_band_5y": {
+      "mean_ps": 3.29,
+      "minus_2sigma_price": 0.1,
+      "minus_1sigma_price": 45.35,
+      "plus_1sigma_price": 218.96,
+      "plus_2sigma_price": 305.77,
+      "current_percentile_pct": 82.5
+    },
+    "stress_test_floor_price": 50.92,
+    "turnaround_kpis": {}
+  },
+  "reflexivity_phase_space": {
+    "quadrant": 4,
+    "quadrant_name": "象限 IV：高位滞胀动能衰竭区 (q1 >= 0, q1_dot < 0)",
+    "composite_score": 47.2,
+    "q1_dist_200ma_pct": 17.69,
+    "q1_dot_velocity": -0.07,
+    "v_dot_lyapunov": -2.13,
+    "reflexive_gap": 0.42,
+    "active_triggers": [],
+    "options_sentiment": {
+      "pcr_oi": NaN,
+      "pcr_vol": NaN,
+      "max_pain_price": NaN,
+      "call_oi_total": 0,
+      "put_oi_total": 0
+    },
+    "short_interest": {
+      "short_percent_of_float": NaN,
+      "short_ratio_days_to_cover": NaN
+    },
+    "momentum_and_alpha": {
+      "sma_20": 241.31,
+      "sma_50": 220.13,
+      "sma_200": 200.0,
+      "ma_alignment": "均线交织纠缠整理",
+      "bias_20d_pct": -2.46,
+      "bias_200d_pct": 17.69,
+      "mom_12_1_pct": 11.4,
+      "alpha_vs_spy_1m_pct": -13.4,
+      "alpha_vs_spy_3m_pct": 35.3,
+      "alpha_vs_spy_6m_pct": 13.4,
+      "rsi_14": 31.2,
+      "atr_14": 4.47,
+      "atr_pct": 1.9,
+      "atr_stop_loss_price": 226.44
+    }
+  },
+  "historical_analogue_backtest": {
+    "has_analogues": true,
+    "sample_count": 79,
+    "sample_dates_sample": [
+      "2011-03-31",
+      "2011-05-20",
+      "2011-06-27",
+      "2012-03-09",
+      "2012-04-16",
+      "2012-05-21"
+    ],
+    "horizon_3m": {
+      "win_rate_pct": 54.4,
+      "median_ret_pct": 4.0,
+      "profit_factor": 1.18
+    },
+    "horizon_6m": {
+      "win_rate_pct": 60.8,
+      "median_ret_pct": 6.1,
+      "profit_factor": 1.62
+    },
+    "horizon_12m": {
+      "win_rate_pct": 75.9,
+      "median_ret_pct": 16.0,
+      "profit_factor": 1.79,
+      "max_dd_pct": -25.8
+    }
+  },
+  "earnings_guidance_snapshot": {
+    "has_guidance": false,
+    "guidance_excerpt": ""
+  }
+}

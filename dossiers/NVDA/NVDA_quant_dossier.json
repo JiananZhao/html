@@ -1,0 +1,238 @@
+{
+  "meta": {
+    "ticker": "NVDA",
+    "analysis_time": "2026-10-23 13:16:58",
+    "latest_price": 226.0800018310547,
+    "company_name": "NVDA",
+    "sector": "N/A",
+    "industry": "N/A",
+    "company_archetype": "WHITE_CHIP_COMPOUNDER",
+    "archetype_name": "稳健白马/现金牛成长模式"
+  },
+  "preflight_audit_card": {
+    "rf_10y_treasury_pct": 5.24,
+    "beta_adjusted": 1.05,
+    "erp_pct": 4.75,
+    "cost_of_equity_re_pct": 10.23,
+    "cost_of_debt_rd_pct": 5.74,
+    "effective_tax_rate_pct": 21.0,
+    "wacc_dynamic_pct": 10.22,
+    "diluted_shares_m": 24571.0,
+    "market_cap_b": 5555.01
+  },
+  "multi_factor_scoring_and_rating": {
+    "total_quant_score": 49.2,
+    "quant_rating": "TRIM (逢高减仓 / 防御收缩)",
+    "pillars_breakdown": {
+      "quality_score_30": 21.0,
+      "valuation_score_25": 4.0,
+      "momentum_score_20": 16.0,
+      "positioning_score_15": 3.5,
+      "health_score_10": 4.7
+    },
+    "dual_track_execution": {
+      "track_1_value_grid": {
+        "safety_buy_line": 80.12,
+        "bear_case_floor": 26.41,
+        "principle": "反现价锚定：严格由扣SBC后DCF公允价×0.8或估值底托硬性决定，股价跌破安全线分批网格吸筹，无视均线破位。"
+      },
+      "track_2_momentum_grid": {
+        "tactical_entry_price": 224.01,
+        "dynamic_atr_stop_loss": 216.49,
+        "is_momentum_divergent": true,
+        "divergence_warning": "⚠️ 当前市价显著高于左侧内在安全建仓线 (>15%)，右侧买入属于高溢价趋势博弈，缺乏内在价值安全垫，一旦跌破 2xATR 止损位必须机械平仓！"
+      }
+    }
+  },
+  "fundamental_quality_and_forensics": {
+    "has_sec_data": true,
+    "ttm_revenues_b": 155.93,
+    "ttm_net_income_b": 81.11,
+    "ttm_ocf_b": 74.89,
+    "ttm_std_fcf_b": 69.98,
+    "ttm_adj_fcf_b": 64.48,
+    "std_fcf_margin": 44.9,
+    "true_fcf_margin": 41.4,
+    "sbc_to_ocf_ratio": 7.3,
+    "sbc_to_rev_ratio": 3.5,
+    "capex_to_rev_ratio": 3.2,
+    "cash_conversion_ratio": 0.92,
+    "receivables_yoy_diff": -12.7,
+    "inventory_yoy_diff": 32.9,
+    "gross_margin_slope_8q": -0.57,
+    "piotroski_f_score": 6,
+    "net_debt_b": -2.14,
+    "is_net_cash": true,
+    "net_debt_to_ebitda": NaN,
+    "interest_coverage": 366.8,
+    "cash_runway_quarters": NaN,
+    "roic_pct": 87.3,
+    "eva_spread_pct": 78.8,
+    "net_buyback_yield_pct": 1.28,
+    "dividend_yield_pct": 0.0,
+    "total_shareholder_yield_pct": 1.28,
+    "red_flags": [
+      "存货积压预警 (存货同比增速超越营收 +32.9%，警惕产品滞销与计提跌价减值)"
+    ],
+    "green_flags": [
+      "股权激励控制优异 (SBC 占 OCF 比重仅 7.3%)",
+      "资产负债表极度强健 (拥有净现金净额 $2.14 B，无偿债违约风险)",
+      "利息保障倍数极高 (366.8x)",
+      "投入资本回报率卓越 (ROIC = 87.3%，大幅跑赢资本成本，具备持久经济增加值)",
+      "应收账款周转极佳 (应收账款增速低于营收 12.7%)"
+    ],
+    "recent_metrics": {
+      "period": "2027-Q2",
+      "date": "2025-07-27",
+      "revenues_b": 46.74,
+      "net_income_b": 26.42,
+      "ocf_b": 15.36,
+      "sbc_b": 1.62,
+      "true_fcf_b": 11.85
+    }
+  },
+  "valuation_and_expectations_gap": {
+    "preflight_audit": {
+      "rf_10y_treasury_pct": 5.24,
+      "beta_adjusted": 1.05,
+      "erp_pct": 4.75,
+      "cost_of_equity_re_pct": 10.23,
+      "cost_of_debt_rd_pct": 5.74,
+      "effective_tax_rate_pct": 21.0,
+      "wacc_dynamic_pct": 10.22,
+      "diluted_shares_m": 24571.0,
+      "market_cap_b": 5555.01
+    },
+    "company_archetype": "WHITE_CHIP_COMPOUNDER",
+    "archetype_name": "稳健白马/现金牛成长模式",
+    "implied_fcf_cagr_10y": 27.2,
+    "hist_fcf_cagr_3y": 70.7,
+    "expectations_gap": -43.5,
+    "valuation_status": "安全边际/低预期区 (当前股价内含增速显著低于历史交付水平，赔率占优)",
+    "trailing_pe": NaN,
+    "forward_pe": NaN,
+    "ps_ttm": NaN,
+    "pb_ratio": NaN,
+    "analyst_target_mean": NaN,
+    "analyst_upside_pct": NaN,
+    "dcf_standard": {
+      "dcf_fair_price": 108.7,
+      "mos_safety_price_20pct": 86.96,
+      "growth_assumed_5y_pct": 22.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_post_sbc_adj": {
+      "dcf_fair_price": 100.15,
+      "mos_safety_price_20pct": 80.12,
+      "growth_assumed_5y_pct": 22.0,
+      "terminal_growth_pct": 2.5
+    },
+    "dcf_sensitivity_matrix_adj": [
+      {
+        "wacc_label": "9.7%",
+        "gn_2.0%": 103.71,
+        "gn_2.5%": 108.26,
+        "gn_3.0%": 113.48
+      },
+      {
+        "wacc_label": "10.2%",
+        "gn_2.0%": 96.32,
+        "gn_2.5%": 100.15,
+        "gn_3.0%": 104.52
+      },
+      {
+        "wacc_label": "10.7%",
+        "gn_2.0%": 89.81,
+        "gn_2.5%": 93.07,
+        "gn_3.0%": 96.74
+      }
+    ],
+    "pe_band_5y": {
+      "mean_pe": 29.3,
+      "minus_2sigma_price": 1.0,
+      "minus_1sigma_price": 27.46,
+      "plus_1sigma_price": 166.04,
+      "plus_2sigma_price": 235.33,
+      "current_percentile_pct": 99.1
+    },
+    "ps_band_5y": {
+      "mean_ps": 4.1,
+      "minus_2sigma_price": 0.1,
+      "minus_1sigma_price": 0.1,
+      "plus_1sigma_price": 79.43,
+      "plus_2sigma_price": 132.82,
+      "current_percentile_pct": 99.8
+    },
+    "stress_test_floor_price": 26.41,
+    "turnaround_kpis": {}
+  },
+  "reflexivity_phase_space": {
+    "quadrant": 1,
+    "quadrant_name": "象限 I：繁荣主升加速区 (q1 >= 0, q1_dot >= 0)",
+    "composite_score": 43.3,
+    "q1_dist_200ma_pct": 12.81,
+    "q1_dot_velocity": 0.06,
+    "v_dot_lyapunov": 0.53,
+    "reflexive_gap": 1.82,
+    "active_triggers": [],
+    "options_sentiment": {
+      "pcr_oi": NaN,
+      "pcr_vol": NaN,
+      "max_pain_price": NaN,
+      "call_oi_total": 0,
+      "put_oi_total": 0
+    },
+    "short_interest": {
+      "short_percent_of_float": NaN,
+      "short_ratio_days_to_cover": NaN
+    },
+    "momentum_and_alpha": {
+      "sma_20": 224.01,
+      "sma_50": 218.23,
+      "sma_200": 200.41,
+      "ma_alignment": "经典多头顺势排列 (Price > 20D > 50D > 200D)",
+      "bias_20d_pct": 0.92,
+      "bias_200d_pct": 12.81,
+      "mom_12_1_pct": 21.1,
+      "alpha_vs_spy_1m_pct": -3.3,
+      "alpha_vs_spy_3m_pct": 11.4,
+      "alpha_vs_spy_6m_pct": 13.1,
+      "rsi_14": 65.2,
+      "atr_14": NaN,
+      "atr_pct": 8.99,
+      "atr_stop_loss_price": 216.49
+    }
+  },
+  "historical_analogue_backtest": {
+    "has_analogues": true,
+    "sample_count": 73,
+    "sample_dates_sample": [
+      "2009-05-20",
+      "2009-07-13",
+      "2009-10-15",
+      "2009-11-19",
+      "2010-01-26",
+      "2010-03-03"
+    ],
+    "horizon_3m": {
+      "win_rate_pct": 69.9,
+      "median_ret_pct": 7.8,
+      "profit_factor": 1.23
+    },
+    "horizon_6m": {
+      "win_rate_pct": 74.0,
+      "median_ret_pct": 18.8,
+      "profit_factor": 1.54
+    },
+    "horizon_12m": {
+      "win_rate_pct": 76.8,
+      "median_ret_pct": 28.9,
+      "profit_factor": 2.84,
+      "max_dd_pct": -30.8
+    }
+  },
+  "earnings_guidance_snapshot": {
+    "has_guidance": false,
+    "guidance_excerpt": ""
+  }
+}

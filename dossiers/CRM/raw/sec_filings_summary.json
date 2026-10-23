@@ -1,0 +1,95 @@
+{
+  "latest_10k": {
+    "form": "10-K",
+    "date": "2026-03-02",
+    "accession": "0001108524-26-000060",
+    "primary_doc": "crm-20260131.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000060/crm-20260131.htm",
+    "items": "",
+    "desc": "10-K"
+  },
+  "latest_10q": {
+    "form": "10-Q",
+    "date": "2026-08-27",
+    "accession": "0001108524-26-000190",
+    "primary_doc": "crm-20260731.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000190/crm-20260731.htm",
+    "items": "",
+    "desc": "10-Q"
+  },
+  "recent_8k": [
+    {
+      "form": "8-K",
+      "date": "2026-10-20",
+      "accession": "0001193125-26-425881",
+      "primary_doc": "d516983d8k.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000119312526425881/d516983d8k.htm",
+      "items": "7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-09-17",
+      "accession": "0001108524-26-000210",
+      "primary_doc": "crm-20260916.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000210/crm-20260916.htm",
+      "items": "7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-09-04",
+      "accession": "0001108524-26-000197",
+      "primary_doc": "crm-20260902.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000197/crm-20260902.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-08-26",
+      "accession": "0001108524-26-000187",
+      "primary_doc": "crm-20260826.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000187/crm-20260826.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-08-05",
+      "accession": "0001108524-26-000160",
+      "primary_doc": "crm-20260805.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000160/crm-20260805.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-06-02",
+      "accession": "0001108524-26-000138",
+      "primary_doc": "crm-20260527.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000138/crm-20260527.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-06-01",
+      "accession": "0001108524-26-000131",
+      "primary_doc": "crm-20260528.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000131/crm-20260528.htm",
+      "items": "5.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-05-27",
+      "accession": "0001108524-26-000125",
+      "primary_doc": "crm-20260527.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000125/crm-20260527.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    }
+  ],
+  "recent_form4_count": 67
+}

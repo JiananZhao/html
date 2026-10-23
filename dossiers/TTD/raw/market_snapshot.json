@@ -1,0 +1,48 @@
+{
+  "status": "success",
+  "ticker": "TTD",
+  "timestamp": "2026-10-23 09:38:01",
+  "price_meta": {
+    "is_local_fallback": true,
+    "source_file": "ttd_ohlcv_local.csv",
+    "source_label": "TTD 本地全量 OHLCV 主数据集 (支持经典蜡烛图)",
+    "last_date": "2026-10-12",
+    "is_close_only": false,
+    "record_count": 2528,
+    "price_type": "本地全量离线 OHLCV 蜡烛图序列 (截至 2026-10-12)",
+    "status": "SUCCESS_LOCAL",
+    "message": "已加载本地主数据集 (TTD 本地全量 OHLCV 主数据集 (支持经典蜡烛图))"
+  },
+  "latest_close": 11.9399995803833,
+  "profile": {
+    "shortName": "The Trade Desk, Inc.",
+    "sector": "Communication Services",
+    "industry": "Advertising Agencies",
+    "marketCap": 6184159744,
+    "trailingPE": 15.759036,
+    "forwardPE": 13.016091,
+    "priceToSales": 2.0681853,
+    "freeCashflow": 582992768,
+    "sharesOutstanding": 429686475,
+    "shortPercentOfFloat": 0.2235,
+    "shortRatio": 3.25,
+    "targetMeanPrice": 13.53333,
+    "targetHighPrice": 20.0,
+    "targetLowPrice": 9.0,
+    "recommendationKey": "hold"
+  },
+  "options_sentiment": {
+    "pcr_oi": 0.32848473618381435,
+    "pcr_vol": 0.2968302658486708,
+    "max_pain_price": 12.5,
+    "call_oi_total": 21587,
+    "put_oi_total": 7091
+  },
+  "macro_backdrop": {
+    "date": "2026-10-21",
+    "HYG_close": 76.9800033569336,
+    "BAA10Y_spread": 1.44,
+    "NFCI": -0.496,
+    "Real_Yield": 2.77
+  }
+}

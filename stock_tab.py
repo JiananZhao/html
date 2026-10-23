@@ -28,6 +28,233 @@ from visualization import (
     render_echarts_chandelier_risk,
 )
 
+
+def render_gemini_dossier_panel(ticker: str):
+    """
+    渲染机构级基本面排雷、估值预期差与 Gemini 深度投研中心面板 (GeminiSkills 融合版)
+    """
+    import os
+    import json
+    dossier_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dossiers", ticker.upper().strip())
+    json_path = os.path.join(dossier_dir, f"{ticker.upper().strip()}_quant_dossier.json")
+    report_path = os.path.join(dossier_dir, f"{ticker.upper().strip()}_gemini_report.md")
+
+    st.subheader(f"🛡️ {ticker} 机构级基本面排雷、估值预期差与 Gemini 深度投研中心")
+    st.caption("融合 SEC EDGAR 官方 XBRL 财务历史、真实自由现金流(扣除SBC)、反向 DCF 预期差及索罗斯反身性相空间")
+
+    has_json = os.path.exists(json_path)
+
+    col_btn, col_hint = st.columns([2.5, 5.5])
+    with col_btn:
+        btn_label = "🔄 重新生成/刷新本地量化底稿" if has_json else "⚡ 一键生成该股机构级量化排雷底稿"
+        if st.button(btn_label, key=f"btn_gen_dossier_{ticker}", use_container_width=True):
+            with st.spinner(f"正在聚合 {ticker} SEC 官方财报、电话会纪要与相空间精算..."):
+                from generate_stock_dossier import generate_dossier
+                generate_dossier(ticker, force=True)
+                st.success(f"标的 {ticker} 量化底稿已生成完成！")
+                st.rerun()
+
+    with col_hint:
+        if has_json:
+            st.caption(f"💡 本地已就绪底稿。在 Antigravity 对话框中输入「帮我深度分析 {ticker}」，Gemini 即可全自动生成七维买方投研与红队排雷报告并同步到下方。")
+        else:
+            st.caption(f"💡 点击左侧按钮可快速生成 SEC 官方 XBRL 财务历史与相空间精算数据包。")
+
+    if has_json:
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                d = json.load(f)
+
+            meta = d.get("meta", {})
+            audit = d.get("preflight_audit_card", {})
+            score_data = d.get("multi_factor_scoring_and_rating", {})
+            dt = score_data.get("dual_track_execution", {})
+            fund = d.get("fundamental_quality_and_forensics", {})
+            val = d.get("valuation_and_expectations_gap", {})
+            refl = d.get("reflexivity_phase_space", {})
+            hist = d.get("historical_analogue_backtest", {})
+            h_1y = hist.get("horizon_12m", {})
+
+            # 标的商业模式与宏观前置参数顶通横条
+            archetype = meta.get("company_archetype", val.get("company_archetype", "WHITE_CHIP_COMPOUNDER"))
+            archetype_name = meta.get("archetype_name", val.get("archetype_name", "稳健白马/现金牛成长模式"))
+            wacc_dyn = audit.get("wacc_dynamic_pct", np.nan)
+            rf_10y = audit.get("rf_10y_treasury_pct", np.nan)
+            total_score = score_data.get("total_quant_score", np.nan)
+            quant_rating = score_data.get("quant_rating", "HOLD (持有观望 / 中枢平衡)")
+
+            score_color = "#10b981" if (total_score or 0) >= 68 else ("#3b82f6" if (total_score or 0) >= 52 else ("#f59e0b" if (total_score or 0) >= 38 else "#ef4444"))
+
+            st.markdown(f"""
+            <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <span style="font-size: 17px; font-weight: 700; color: #f8fafc;">🏛️ 商业模式分流：</span>
+                        <span style="font-size: 16px; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 4px 10px; border-radius: 6px;">{archetype_name} ({archetype})</span>
+                    </div>
+                    <div style="font-size: 15px; color: #94a3b8;">
+                        <span>动态 WACC: <b style="color: #f8fafc;">{wacc_dyn:.2f}%</b> (锚定 10Y 美债 Rf: <b style="color: #f8fafc;">{rf_10y:.2f}%</b>)</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 16px; font-weight: 700; color: {score_color}; background: rgba(255, 255, 255, 0.05); padding: 6px 14px; border-radius: 8px; border: 1px solid {score_color};">
+                            综合量化评分: {total_score:.1f} / 100 | {quant_rating}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 4 张核心机构卡片
+            k1, k2, k3, k4 = st.columns(4)
+            dcf_std = val.get("dcf_standard", {})
+            dcf_adj = val.get("dcf_post_sbc_adj", {})
+            adj_mos = dcf_adj.get("mos_safety_price_20pct", np.nan)
+            std_mos = dcf_std.get("mos_safety_price_20pct", np.nan)
+
+            k1.metric(
+                label="扣SBC后 20% 安全边际 (买方DCF)",
+                value=f"${adj_mos:.2f}" if pd.notna(adj_mos) else "N/A",
+                delta=f"标准DCF安全线: ${std_mos:.2f}" if pd.notna(std_mos) else "微利/亏损转正中",
+                delta_color="normal" if pd.notna(adj_mos) else "off"
+            )
+
+            true_fcf_m = fund.get("true_fcf_margin", np.nan)
+            eva_spread = fund.get("eva_spread_pct", np.nan)
+            k2.metric(
+                label="真实 FCF 利润率 (扣SBC稀释)",
+                value=f"{true_fcf_m:.1f}%" if pd.notna(true_fcf_m) else "N/A",
+                delta=f"EVA利差(ROIC-WACC): {eva_spread:+.1f}%" if pd.notna(eva_spread) else ("现金流稳健" if (true_fcf_m or 0) > 15 else "现金流偏紧"),
+                delta_color="normal" if (true_fcf_m or 0) > 20 else "off"
+            )
+
+            conv = fund.get("cash_conversion_ratio", np.nan)
+            f_score = fund.get("piotroski_f_score", np.nan)
+            k3.metric(
+                label="盈利含金量 (OCF / 净利润)",
+                value=f"{conv:.2f}x" if pd.notna(conv) else "N/A",
+                delta=f"Piotroski F-Score: {f_score} / 9" if pd.notna(f_score) else ("优质转化" if (conv or 0) >= 1.0 else "常态平衡"),
+                delta_color="normal" if (conv or 0) >= 0.9 else "inverse"
+            )
+
+            wr_1y = h_1y.get("win_rate_pct", np.nan)
+            alpha_3m = refl.get("momentum_and_alpha", {}).get("alpha_vs_spy_3m_pct", np.nan)
+            k4.metric(
+                label="历史相似相空间 1Y 真实胜率",
+                value=f"{wr_1y:.1f}%" if pd.notna(wr_1y) else "N/A",
+                delta=f"近3M相对SPY Alpha: {alpha_3m:+.1f}%" if pd.notna(alpha_3m) else f"样本: {hist.get('sample_count', 0)}次",
+                delta_color="normal" if (wr_1y or 0) >= 70 else "off"
+            )
+
+            # 反锚定左右侧双轨建仓网格 (Dual-Track Tactical Execution Grids)
+            track_val = dt.get("track_1_value_grid", {})
+            track_mom = dt.get("track_2_momentum_grid", {})
+            v_safety = track_val.get("safety_buy_line", np.nan)
+            v_bear = track_val.get("bear_case_floor", np.nan)
+            m_entry = track_mom.get("tactical_entry_price", np.nan)
+            m_stop = track_mom.get("dynamic_atr_stop_loss", np.nan)
+            is_div = track_mom.get("is_momentum_divergent", False)
+            div_warn = track_mom.get("divergence_warning", "")
+
+            with st.expander("🎯 【反现价锚定】左右侧双轨建仓网格与悖论处置协议 (Dual-Track Playbook)", expanded=True):
+                grid_c1, grid_c2 = st.columns(2)
+                with grid_c1:
+                    st.markdown("##### 🏛️ 轨道一：左侧价值投资者网格 (Value Accumulator)")
+                    st.markdown(f"- **内在安全建仓线 (20% MOS)**: `{'${:.2f}'.format(v_safety) if pd.notna(v_safety) else 'N/A'}`")
+                    st.markdown(f"- **极度悲观底托线 (Bear Case Floor)**: `{'${:.2f}'.format(v_bear) if pd.notna(v_bear) else 'N/A'}`")
+                    st.caption("📌 **执行法则**：反现价锚定，由扣SBC后DCF公允价或历史估值下轨硬性锁定。股价跌破安全线分批网格吸筹，无视短期均线破位。")
+
+                with grid_c2:
+                    st.markdown("##### 🚀 轨道二：右侧趋势动量网格 (Momentum Trend-Follower)")
+                    st.markdown(f"- **战术突破跟进位 (max(SMA20, SMA200))**: `{'${:.2f}'.format(m_entry) if pd.notna(m_entry) else 'N/A'}`")
+                    st.markdown(f"- **动态吊灯止损位 (2x ATR Stop Loss)**: `{'${:.2f}'.format(m_stop) if pd.notna(m_stop) else 'N/A'}`")
+                    st.caption("📌 **执行法则**：右侧动量追随，顺应相空间主升浪。以 2xATR 吊灯止损机械保护本金。")
+
+                if is_div:
+                    st.warning(div_warn)
+                else:
+                    st.success(div_warn)
+
+            # 估值前置核验卡与敏感性矩阵
+            with st.expander("📊 查看 WACC 动态核验参数、三阶段敏感性矩阵与 5Y 估值分位", expanded=False):
+                tab_wacc, tab_matrix, tab_bands = st.tabs(["WACC 测算参数", "DCF 敏感性矩阵", "5Y PE/PS 估值分位"])
+                with tab_wacc:
+                    w1, w2, w3, w4 = st.columns(4)
+                    w1.markdown(f"- **10Y 美债 Rf**: `{audit.get('rf_10y_treasury_pct', 'N/A')}%`")
+                    w1.markdown(f"- **调整后 Beta**: `{audit.get('beta_adjusted', 'N/A')}`")
+                    w2.markdown(f"- **股权风险溢价 ERP**: `{audit.get('erp_pct', 'N/A')}%`")
+                    w2.markdown(f"- **股权成本 Re**: `{audit.get('cost_of_equity_re_pct', 'N/A')}%`")
+                    w3.markdown(f"- **税后债务成本 Rd**: `{audit.get('cost_of_debt_rd_pct', 'N/A')}%`")
+                    w3.markdown(f"- **有效税率**: `{audit.get('effective_tax_rate_pct', 'N/A')}%`")
+                    w4.markdown(f"- **综合动态 WACC**: `**{audit.get('wacc_dynamic_pct', 'N/A')}%**`")
+                    w4.markdown(f"- **稀释股本**: `{audit.get('diluted_shares_m', 'N/A')} M`")
+
+                with tab_matrix:
+                    sens_list = val.get("dcf_sensitivity_matrix_adj", [])
+                    if sens_list:
+                        df_sens = pd.DataFrame(sens_list)
+                        st.table(df_sens)
+                    else:
+                        st.caption("当前标的自由现金流为负或亏损，敏感性矩阵处于困境转正推演状态。")
+
+                with tab_bands:
+                    pe_b = val.get("pe_band_5y", {})
+                    ps_b = val.get("ps_band_5y", {})
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        st.markdown("##### 5 年 PE Band 通道")
+                        st.markdown(f"- **均值 PE**: `{pe_b.get('mean_pe', 'N/A')}`")
+                        st.markdown(f"- **-1σ 支撑价**: `${pe_b.get('minus_1sigma_price', 'N/A')}` | **-2σ 极值价**: `${pe_b.get('minus_2sigma_price', 'N/A')}`")
+                        st.markdown(f"- **+1σ 阻力价**: `${pe_b.get('plus_1sigma_price', 'N/A')}` | **+2σ 极值价**: `${pe_b.get('plus_2sigma_price', 'N/A')}`")
+                        st.markdown(f"- **当前 PE 历史百分位**: `{pe_b.get('current_percentile_pct', 'N/A')}%`")
+                    with b2:
+                        st.markdown("##### 5 年 PS Band 通道")
+                        st.markdown(f"- **均值 PS**: `{ps_b.get('mean_ps', 'N/A')}`")
+                        st.markdown(f"- **-1σ 支撑价**: `${ps_b.get('minus_1sigma_price', 'N/A')}` | **-2σ 极值价**: `${ps_b.get('minus_2sigma_price', 'N/A')}`")
+                        st.markdown(f"- **+1σ 阻力价**: `${ps_b.get('plus_1sigma_price', 'N/A')}` | **+2σ 极值价**: `${ps_b.get('plus_2sigma_price', 'N/A')}`")
+                        st.markdown(f"- **当前 PS 历史百分位**: `{ps_b.get('current_percentile_pct', 'N/A')}%`")
+
+            with st.expander("🔬 查看 SEC 官方排雷细节、应收/存货异动与期权博弈看板", expanded=False):
+                col_sub1, col_sub2 = st.columns(2)
+                with col_sub1:
+                    st.markdown("##### 🚩 机器规则排雷与优势标签")
+                    for rf in fund.get("red_flags", []):
+                        st.markdown(f"- ⚠️ **{rf}**")
+                    if not fund.get("red_flags"):
+                        st.markdown("- ✅ **未触发机器初筛严重排雷预警**")
+                    for gf in fund.get("green_flags", []):
+                        st.markdown(f"- 🌟 {gf}")
+                    st.markdown(f"- **ROIC 资本回报率**: `{fund.get('roic_pct', 'N/A')}%`")
+                    st.markdown(f"- **净股票回购收益率**: `{fund.get('net_buyback_yield_pct', 'N/A')}%`")
+                    st.markdown(f"- **毛利率 8 季回归斜率**: `{fund.get('gross_margin_slope_8q', 'N/A')}% / 季`")
+
+                with col_sub2:
+                    st.markdown("##### 🔮 衍生品微观情绪与相空间状态")
+                    opt = refl.get("options_sentiment", {})
+                    st.markdown(f"- **相空间象限**: `{refl.get('quadrant_name', 'N/A')}`")
+                    st.markdown(f"- **综合动力学评分**: `{refl.get('composite_score', 'N/A')} 分`")
+                    st.markdown(f"- **期权 PCR (OI)**: `{opt.get('pcr_oi', 'N/A')}` | **Max Pain**: `${opt.get('max_pain_price', 'N/A')}`")
+                    st.markdown(f"- **做空拥挤度**: `{refl.get('short_interest', {}).get('short_percent_of_float', 'N/A')}`")
+
+        except Exception as e:
+            st.warning(f"读取本地量化底稿失败: {e}")
+
+    # Gemini 深度投研报告展示区
+    if os.path.exists(report_path):
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                report_content = f.read()
+            st.markdown("---")
+            st.markdown("### 🤖 Gemini 买方投研与红队风险体检报告 (AI Research Committee)")
+            with st.container():
+                st.markdown(report_content)
+        except Exception as e:
+            st.error(f"读取 Gemini 投研报告失败: {e}")
+    elif has_json:
+        st.info(f"💡 标的 `{ticker}` 的最新量化底稿已就绪。在当前 Antigravity 对话框中输入：**「帮我深度分析 {ticker}」**，Gemini 即可自动基于 SEC 财报与电话会纪要为您生成五维投研报告与红队排雷，并实时回写至此处展示！")
+
+    st.markdown("---")
+
+
 def render_stock_tab():
     st.header("🔍 个股深度量化与多因子估值追踪")
     st.markdown("集成实时行情、PE/PS Band 动态估值通道、反向 DCF 市场预期测算、技术动量及财务三张表明细。")
@@ -111,6 +338,9 @@ def render_stock_tab():
         kpi5.metric("每股自由现金流 (FCF/Sh)", f"${fcf_per_share:.2f}" if pd.notna(fcf_per_share) else "N/A")
 
         st.markdown("---")
+
+        # 1.5 机构级基本面排雷与 Gemini 深度投研中心
+        render_gemini_dossier_panel(ticker_to_analyze)
 
         # 2. 个股行情与均线系统 (MA20 / MA50 / MA200 & 成交量副图)
         if has_price_data:

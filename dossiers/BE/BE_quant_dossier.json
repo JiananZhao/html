@@ -1,0 +1,212 @@
+{
+  "meta": {
+    "ticker": "BE",
+    "analysis_time": "2026-10-23 13:20:00",
+    "latest_price": 217.7700042724609,
+    "company_name": "BE",
+    "sector": "N/A",
+    "industry": "N/A",
+    "company_archetype": "TURNAROUND_CYCLICAL",
+    "archetype_name": "困境反转/重资产产能爬坡模式"
+  },
+  "preflight_audit_card": {
+    "rf_10y_treasury_pct": 5.24,
+    "beta_adjusted": 1.05,
+    "erp_pct": 4.75,
+    "cost_of_equity_re_pct": 10.23,
+    "cost_of_debt_rd_pct": 5.74,
+    "effective_tax_rate_pct": 21.0,
+    "wacc_dynamic_pct": 9.99,
+    "diluted_shares_m": 280.0,
+    "market_cap_b": 60.99
+  },
+  "multi_factor_scoring_and_rating": {
+    "total_quant_score": 20.3,
+    "quant_rating": "AVOID (回避 / 破位清仓)",
+    "pillars_breakdown": {
+      "quality_score_30": 3.0,
+      "valuation_score_25": 0.0,
+      "momentum_score_20": 11.5,
+      "positioning_score_15": 3.5,
+      "health_score_10": 2.3
+    },
+    "dual_track_execution": {
+      "track_1_value_grid": {
+        "safety_buy_line": 0.1,
+        "bear_case_floor": 0.1,
+        "principle": "反现价锚定：严格由扣SBC后DCF公允价×0.8或估值底托硬性决定，股价跌破安全线分批网格吸筹，无视均线破位。"
+      },
+      "track_2_momentum_grid": {
+        "tactical_entry_price": 262.07,
+        "dynamic_atr_stop_loss": 181.21,
+        "is_momentum_divergent": true,
+        "divergence_warning": "⚠️ 当前市价显著高于左侧内在安全建仓线 (>15%)，右侧买入属于高溢价趋势博弈，缺乏内在价值安全垫，一旦跌破 2xATR 止损位必须机械平仓！"
+      }
+    }
+  },
+  "fundamental_quality_and_forensics": {
+    "has_sec_data": true,
+    "ttm_revenues_b": 1.55,
+    "ttm_net_income_b": NaN,
+    "ttm_ocf_b": -0.37,
+    "ttm_std_fcf_b": -0.42,
+    "ttm_adj_fcf_b": -0.42,
+    "std_fcf_margin": -27.2,
+    "true_fcf_margin": -27.2,
+    "sbc_to_ocf_ratio": NaN,
+    "sbc_to_rev_ratio": NaN,
+    "capex_to_rev_ratio": 3.1,
+    "cash_conversion_ratio": NaN,
+    "receivables_yoy_diff": -46.5,
+    "inventory_yoy_diff": -39.1,
+    "gross_margin_slope_8q": 3.69,
+    "piotroski_f_score": 3,
+    "net_debt_b": 0.16,
+    "is_net_cash": false,
+    "net_debt_to_ebitda": NaN,
+    "interest_coverage": -0.6,
+    "cash_runway_quarters": 23.3,
+    "roic_pct": NaN,
+    "eva_spread_pct": NaN,
+    "net_buyback_yield_pct": -23.71,
+    "dividend_yield_pct": 0.0,
+    "total_shareholder_yield_pct": -23.71,
+    "red_flags": [
+      "利息保障倍数警戒 (EBIT / 利息支出 = -0.6x < 3.0x)",
+      "股本恶性稀释预警 (过去 1 年总股本净增加 23.7%，老股东价值被稀释)",
+      "基本面综合评级偏弱 (Piotroski F-Score=3/9)"
+    ],
+    "green_flags": [
+      "现金储备充裕 (支持当前烧钱速率 23.3 个季度)",
+      "应收账款周转极佳 (应收账款增速低于营收 46.5%)",
+      "毛利率持续扩张 (过去 8 季斜率 +3.69%/季，护城河定价权极强)"
+    ],
+    "recent_metrics": {
+      "period": "2026-Q3",
+      "date": "2025-09-30",
+      "revenues_b": 0.51,
+      "net_income_b": NaN,
+      "ocf_b": 0.02,
+      "sbc_b": 0.0,
+      "true_fcf_b": 0.01
+    }
+  },
+  "valuation_and_expectations_gap": {
+    "preflight_audit": {
+      "rf_10y_treasury_pct": 5.24,
+      "beta_adjusted": 1.05,
+      "erp_pct": 4.75,
+      "cost_of_equity_re_pct": 10.23,
+      "cost_of_debt_rd_pct": 5.74,
+      "effective_tax_rate_pct": 21.0,
+      "wacc_dynamic_pct": 9.99,
+      "diluted_shares_m": 280.0,
+      "market_cap_b": 60.99
+    },
+    "company_archetype": "TURNAROUND_CYCLICAL",
+    "archetype_name": "困境反转/重资产产能爬坡模式",
+    "implied_fcf_cagr_10y": NaN,
+    "hist_fcf_cagr_3y": NaN,
+    "expectations_gap": NaN,
+    "valuation_status": "未知",
+    "trailing_pe": NaN,
+    "forward_pe": NaN,
+    "ps_ttm": NaN,
+    "pb_ratio": NaN,
+    "analyst_target_mean": NaN,
+    "analyst_upside_pct": NaN,
+    "dcf_standard": {
+      "dcf_fair_price": NaN,
+      "mos_safety_price_20pct": NaN
+    },
+    "dcf_post_sbc_adj": {
+      "dcf_fair_price": NaN,
+      "mos_safety_price_20pct": NaN
+    },
+    "dcf_sensitivity_matrix_adj": [],
+    "pe_band_5y": {},
+    "ps_band_5y": {
+      "mean_ps": 10.11,
+      "minus_2sigma_price": 0.1,
+      "minus_1sigma_price": 0.1,
+      "plus_1sigma_price": 133.6,
+      "plus_2sigma_price": 211.2,
+      "current_percentile_pct": 91.3
+    },
+    "stress_test_floor_price": 0.1,
+    "turnaround_kpis": {
+      "pb_support_price": NaN,
+      "normalized_mid_cycle_eps": 0.52,
+      "normalized_fair_price": 7.87
+    }
+  },
+  "reflexivity_phase_space": {
+    "quadrant": 3,
+    "quadrant_name": "象限 III：熊市自由落体释放区 (q1 < 0, q1_dot < 0)",
+    "composite_score": 36.1,
+    "q1_dist_200ma_pct": -0.5,
+    "q1_dot_velocity": -2.95,
+    "v_dot_lyapunov": 28.7,
+    "reflexive_gap": 0.53,
+    "active_triggers": [],
+    "options_sentiment": {
+      "pcr_oi": NaN,
+      "pcr_vol": NaN,
+      "max_pain_price": NaN,
+      "call_oi_total": 0,
+      "put_oi_total": 0
+    },
+    "short_interest": {
+      "short_percent_of_float": NaN,
+      "short_ratio_days_to_cover": NaN
+    },
+    "momentum_and_alpha": {
+      "sma_20": 262.07,
+      "sma_50": 249.16,
+      "sma_200": 218.86,
+      "ma_alignment": "均线交织纠缠整理",
+      "bias_20d_pct": -16.9,
+      "bias_200d_pct": -0.5,
+      "mom_12_1_pct": 182.6,
+      "alpha_vs_spy_1m_pct": -20.7,
+      "alpha_vs_spy_3m_pct": 12.2,
+      "alpha_vs_spy_6m_pct": -20.3,
+      "rsi_14": 26.0,
+      "atr_14": 18.28,
+      "atr_pct": 8.39,
+      "atr_stop_loss_price": 181.21
+    }
+  },
+  "historical_analogue_backtest": {
+    "has_analogues": true,
+    "sample_count": 10,
+    "sample_dates_sample": [
+      "2023-03-10",
+      "2023-07-14",
+      "2023-11-29",
+      "2024-01-05",
+      "2024-04-09",
+      "2024-05-16"
+    ],
+    "horizon_3m": {
+      "win_rate_pct": 30.0,
+      "median_ret_pct": -7.1,
+      "profit_factor": 3.51
+    },
+    "horizon_6m": {
+      "win_rate_pct": 60.0,
+      "median_ret_pct": 11.3,
+      "profit_factor": 6.06
+    },
+    "horizon_12m": {
+      "win_rate_pct": 80.0,
+      "median_ret_pct": 86.9,
+      "profit_factor": 10.21,
+      "max_dd_pct": -46.8
+    }
+  },
+  "earnings_guidance_snapshot": {
+    "has_guidance": false,
+    "guidance_excerpt": ""
+  }
+}

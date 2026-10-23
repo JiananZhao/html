@@ -1,0 +1,87 @@
+{
+  "latest_10k": null,
+  "latest_10q": {
+    "form": "10-Q",
+    "date": "2026-08-26",
+    "accession": "0001045810-26-000075",
+    "primary_doc": "nvda-20260726.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000075/nvda-20260726.htm",
+    "items": "",
+    "desc": "10-Q"
+  },
+  "recent_8k": [
+    {
+      "form": "8-K",
+      "date": "2026-09-03",
+      "accession": "0001045810-26-000078",
+      "primary_doc": "nvda-20260902.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000078/nvda-20260902.htm",
+      "items": "8.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-08-26",
+      "accession": "0001045810-26-000073",
+      "primary_doc": "nvda-20260826.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000073/nvda-20260826.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-08-17",
+      "accession": "0001045810-26-000069",
+      "primary_doc": "nvda-20260817.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000069/nvda-20260817.htm",
+      "items": "1.01,2.03,7.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-07-02",
+      "accession": "0001045810-26-000060",
+      "primary_doc": "nvda-20260628.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000060/nvda-20260628.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-06-30",
+      "accession": "0001045810-26-000056",
+      "primary_doc": "nvda-20260624.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000056/nvda-20260624.htm",
+      "items": "5.07",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-06-18",
+      "accession": "0001193125-26-275783",
+      "primary_doc": "d48176d8k.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000119312526275783/d48176d8k.htm",
+      "items": "8.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-05-20",
+      "accession": "0001045810-26-000051",
+      "primary_doc": "nvda-20260520.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000051/nvda-20260520.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-05-08",
+      "accession": "0001045810-26-000028",
+      "primary_doc": "nvda-20260507.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000028/nvda-20260507.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    }
+  ],
+  "recent_form4_count": 55
+}

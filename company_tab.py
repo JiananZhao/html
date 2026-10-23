@@ -1066,6 +1066,17 @@ def render_company_deep_dive_tab():
     st.markdown("---")
 
     # =====================================================================
+    # 2.5 机构级基本面排雷与 Gemini 深度投研中心
+    # =====================================================================
+    try:
+        from stock_tab import render_gemini_dossier_panel
+        render_gemini_dossier_panel(active_ticker)
+    except Exception as e:
+        st.warning(f"Gemini 投研面板加载提示: {e}")
+
+    st.markdown("---")
+
+    # =====================================================================
     # 3. 个股微观反身性动能雷达 (Micro Reflexivity Radar)
     # =====================================================================
     st.markdown("### 🔬 3. 个股微观反身性动能雷达 (Micro Reflexivity Radar)")

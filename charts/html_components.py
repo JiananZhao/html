@@ -4357,6 +4357,12 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
     使用 Apache ECharts 渲染二维拉格朗日相空间动力学相图
     横轴：状态位置 q1 (相对 200MA 偏离度 %)
     纵轴：状态速度 q1_dot (10日有限差分变化率 %/day)
+    具备：
+      1. 13年全景历史吸引子散点背景 (柔和低透明度，凸显宏观概率场)
+      2. 近60个交易日发光相轨迹线 (带有顺时针运动方向与动量推演)
+      3. 今日最新状态呼吸信标 (TODAY EffectScatter 脉冲与图钉标注)
+      4. 顶部实时定性 HUD 状态栏 (一秒看懂当前所处象限与交易指引)
+      5. 彻底解决 visualMap 覆盖坐标轴与 Tooltip 字段错乱问题
     """
     t = get_chart_theme_tokens()
     if df is None or df.empty or 'q1' not in df.columns or 'q1_dot' not in df.columns:
@@ -4372,11 +4378,14 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
     sub['dt'] = pd.to_datetime(sub[date_col])
     sub = sub.sort_values('dt')
 
+    price_col = symbol if symbol in sub.columns else ('close' if 'close' in sub.columns else None)
+    prices = sub[price_col].values if price_col else [0.0] * len(sub)
+
     q = sub['q1'].values
     qd = sub['q1_dot'].values
     dates = sub['dt'].dt.strftime('%Y-%m-%d').tolist()
     years = sub['dt'].dt.year.tolist()
-    quads = sub.get('Quadrant', pd.Series([0]*len(sub))).tolist()
+    quads = sub.get('Quadrant', pd.Series([0] * len(sub))).tolist()
 
     q_lim = max(abs(float(np.nanmin(q))), abs(float(np.nanmax(q)))) * 1.10
     qd_lim = max(abs(float(np.nanmin(qd))), abs(float(np.nanmax(qd)))) * 1.10
@@ -4384,13 +4393,101 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
     min_yr = int(min(years)) if years else 2013
     max_yr = int(max(years)) if years else 2026
 
-    # Build scatter points
+    # 1. 历史散点全景数据 [q, qd, date, quad, yr, price]
     scatter_data = []
-    for q_val, qd_val, d_str, yr, q_num in zip(q, qd, dates, years, quads):
+    for q_val, qd_val, d_str, yr, q_num, p_val in zip(q, qd, dates, years, quads, prices):
         if pd.notna(q_val) and pd.notna(qd_val):
-            scatter_data.append([round(float(q_val), 2), round(float(qd_val), 3), d_str, int(q_num), yr])
+            scatter_data.append([
+                round(float(q_val), 2),
+                round(float(qd_val), 3),
+                d_str,
+                int(q_num),
+                yr,
+                round(float(p_val), 2) if pd.notna(p_val) else 0.0
+            ])
+
+    # 2. 近 60 个交易日动力学连续相轨迹 (以展示顺时针演进动量)
+    traj_len = min(60, len(sub))
+    traj_sub = sub.iloc[-traj_len:]
+    trajectory_data = []
+    for _, row in traj_sub.iterrows():
+        p_val = float(row[price_col]) if price_col and pd.notna(row[price_col]) else 0.0
+        trajectory_data.append([
+            round(float(row['q1']), 2),
+            round(float(row['q1_dot']), 3),
+            str(row['dt'])[:10],
+            int(row.get('Quadrant', 0)),
+            int(row['dt'].year),
+            round(p_val, 2)
+        ])
+
+    # 3. 当前最新定位 (TODAY)
+    last_row = sub.iloc[-1]
+    latest_date = str(last_row['dt'])[:10]
+    latest_q = round(float(last_row['q1']), 2)
+    latest_qd = round(float(last_row['q1_dot']), 3)
+    latest_price = round(float(last_row[price_col]), 2) if price_col and pd.notna(last_row[price_col]) else 0.0
+    latest_yr = int(last_row['dt'].year)
+    latest_quad = int(last_row.get('Quadrant', 0))
+    if latest_quad == 0:
+        if latest_q >= 0 and latest_qd >= 0:
+            latest_quad = 1
+        elif latest_q < 0 and latest_qd >= 0:
+            latest_quad = 2
+        elif latest_q < 0 and latest_qd < 0:
+            latest_quad = 3
+        else:
+            latest_quad = 4
+
+    quad_meta = {
+        1: {
+            "name": "正反身性主升浪",
+            "code": "第 I 象限",
+            "color": "#10b981",
+            "bg": "rgba(16, 185, 129, 0.15)",
+            "border": "#10b981",
+            "tip": "牛市主升浪扩张，势能高估且动能加速，顺势持有，切勿盲目恐高"
+        },
+        2: {
+            "name": "底部蓄势重构",
+            "code": "第 II 象限",
+            "color": "#fbbf24",
+            "bg": "rgba(245, 158, 11, 0.15)",
+            "border": "#fbbf24",
+            "tip": "🌟 黄金坑右侧确认，价格超跌但动能转正，左侧杀跌耗竭，建仓良机"
+        },
+        3: {
+            "name": "负反身性死亡螺旋",
+            "code": "第 III 象限",
+            "color": "#ef4444",
+            "bg": "rgba(239, 68, 68, 0.15)",
+            "border": "#ef4444",
+            "tip": "⛔ 熊市主跌浪，价格破位且动能下泻，严禁接飞刀，耐心空仓观望"
+        },
+        4: {
+            "name": "动能衰竭与相变崩塌",
+            "code": "第 IV 象限",
+            "color": "#f97316",
+            "bg": "rgba(249, 115, 22, 0.15)",
+            "border": "#f97316",
+            "tip": "🚨 物理级反身性逃顶，处于高位但速度破零转负，防范断头铡刀，果断止盈"
+        }
+    }
+    curr_quad = quad_meta.get(latest_quad, quad_meta[4])
+
+    active_tag = " <span style='background:#ffffff; color:#0f172a; padding:1px 7px; border-radius:4px; margin-left:6px; font-size:11px; font-weight:800;'>📍 当前所处阶段</span>"
+    b1_tag = active_tag if latest_quad == 1 else ""
+    b2_tag = active_tag if latest_quad == 2 else ""
+    b3_tag = active_tag if latest_quad == 3 else ""
+    b4_tag = active_tag if latest_quad == 4 else ""
+
+    b1_style = f"box-shadow: 0 0 14px {curr_quad['color']}; border: 2px solid {curr_quad['color']} !important;" if latest_quad == 1 else ""
+    b2_style = f"box-shadow: 0 0 14px {curr_quad['color']}; border: 2px solid {curr_quad['color']} !important;" if latest_quad == 2 else ""
+    b3_style = f"box-shadow: 0 0 14px {curr_quad['color']}; border: 2px solid {curr_quad['color']} !important;" if latest_quad == 3 else ""
+    b4_style = f"box-shadow: 0 0 14px {curr_quad['color']}; border: 2px solid {curr_quad['color']} !important;" if latest_quad == 4 else ""
 
     scatter_json = json.dumps(scatter_data, ensure_ascii=False)
+    trajectory_json = json.dumps(trajectory_data, ensure_ascii=False)
 
     html_code = f"""
     <!DOCTYPE html>
@@ -4420,34 +4517,44 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                 flex-direction: column;
             }}
             .chart-header {{
+                padding: 12px 18px 8px 18px;
+                flex-shrink: 0;
+                border-bottom: 1px solid {t["border_color"]};
+                background: rgba(255, 255, 255, 0.02);
+            }}
+            .chart-title-row {{
                 display: flex;
                 justify-content: space-between;
-                align-items: flex-start;
-                padding: 12px 18px 4px 18px;
-                gap: 12px;
-                flex-shrink: 0;
-            }}
-            .chart-title-area {{
-                flex: 1;
-                min-width: 0;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
             }}
             .chart-title {{
                 font-size: 17px;
                 font-weight: 700;
                 color: {t["title_color"]};
                 line-height: 1.35;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+            }}
+            .chart-hud-pill {{
+                font-size: 13px;
+                font-weight: 700;
+                color: {curr_quad['color']};
+                background: {curr_quad['bg']};
+                border: 1px solid {curr_quad['border']};
+                padding: 4px 12px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
             }}
             .chart-subtitle {{
                 font-size: 13px;
                 color: {t["subtitle_color"]};
-                margin-top: 2px;
-                line-height: 1.3;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                margin-top: 5px;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 14px;
             }}
             .chart-body {{
                 width: 100%;
@@ -4458,40 +4565,56 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                 position: absolute; pointer-events: none; padding: 6px 12px;
                 border-radius: 6px; font-weight: 700; z-index: 10;
                 backdrop-filter: blur(4px); font-size: 13px;
+                transition: all 0.3s ease;
             }}
         </style>
     </head>
     <body>
         <div class="chart-card">
             <div class="chart-header">
-                <div class="chart-title-area">
+                <div class="chart-title-row">
                     <div class="chart-title">{symbol} 拉格朗日相空间动力学相图 (Phase Portrait: q1 vs q1_dot)</div>
-                    <div class="chart-subtitle">横轴: 势能位置 q1 (相对200MA偏离度 %) · 纵轴: 动能速度 q1_dot (10日有限差分变化率 %/day) · 时间演化色阶</div>
+                    <div class="chart-hud-pill">
+                        <span>📍 当前最新定位 ({latest_date})：【{curr_quad['code']} · {curr_quad['name']}】</span>
+                    </div>
+                </div>
+                <div class="chart-subtitle">
+                    <span>收盘价: <b style="color: {t['title_color']};">${latest_price:.2f}</b></span>
+                    <span>势能位置 q1: <b style="color: {'#10b981' if latest_q >= 0 else '#ef4444'};">{latest_q:+.1f}%</b> (相对200MA)</span>
+                    <span>动能速度 q1_dot: <b style="color: {'#10b981' if latest_qd >= 0 else '#ef4444'};">{latest_qd:+.2f}%/天</b> (10日变化率)</span>
+                    <span style="color: {curr_quad['color']}; font-weight: 600;">⚡ 动力学指引: {curr_quad['tip']}</span>
                 </div>
             </div>
             <div id="phase_chart" class="chart-body"></div>
             <!-- Quadrant Badges -->
-            <div class="phase-badge" style="top: 85px; right: 45px; background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
-                【第一象限: 正反身性主升浪】q > 0, q_dot > 0 顺势持有
+            <div class="phase-badge" style="top: 96px; right: 90px; background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); {b1_style}">
+                【第一象限: 正反身性主升浪】q > 0, q_dot > 0 顺势持有{b1_tag}
             </div>
-            <div class="phase-badge" style="top: 85px; left: 75px; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">
-                【第二象限: 底部蓄势重构】q < 0, q_dot > 0 🌟 黄金坑右侧确认买点
+            <div class="phase-badge" style="top: 96px; left: 85px; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); {b2_style}">
+                【第二象限: 底部蓄势重构】q < 0, q_dot > 0 🌟 黄金坑右侧确认买点{b2_tag}
             </div>
-            <div class="phase-badge" style="bottom: 70px; left: 75px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">
-                【第三象限: 负反身性死亡螺旋】q < 0, q_dot < 0 ⛔ 严禁左侧接飞刀
+            <div class="phase-badge" style="bottom: 70px; left: 85px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); {b3_style}">
+                【第三象限: 负反身性死亡螺旋】q < 0, q_dot < 0 ⛔ 严禁左侧接飞刀{b3_tag}
             </div>
-            <div class="phase-badge" style="bottom: 70px; right: 45px; background: rgba(249, 115, 22, 0.12); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3);">
-                【第四象限: 动能衰竭与相变崩塌】q > 0, q_dot < 0 🚨 物理级反身性逃顶
+            <div class="phase-badge" style="bottom: 70px; right: 90px; background: rgba(249, 115, 22, 0.12); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); {b4_style}">
+                【第四象限: 动能衰竭与相变崩塌】q > 0, q_dot < 0 🚨 物理级反身性逃顶{b4_tag}
             </div>
         </div>
         <script>
             const scatterData = {scatter_json};
+            const trajectoryData = {trajectory_json};
             const qLim = {q_lim:.2f};
             const qdLim = {qd_lim:.2f};
 
             const chart = echarts.init(document.getElementById('phase_chart'), '{t["echarts_theme"]}');
             const option = {{
                 backgroundColor: '{t["card_bg"]}',
+                legend: {{
+                    top: '10px',
+                    left: 'center',
+                    textStyle: {{ color: '{t["axis_label"]}', fontSize: 13, fontWeight: 500 }},
+                    data: ['历史全景吸引子相点 (2013-2026)', '近60日动力学相轨迹 (Trajectory)', '当前最新状态定位 (TODAY)']
+                }},
                 tooltip: {{
                     trigger: 'item',
                     backgroundColor: '{t["tooltip_bg"]}',
@@ -4499,40 +4622,56 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                     borderWidth: 1,
                     textStyle: {{ color: '{t["tooltip_text"]}', fontSize: 14 }},
                     formatter: function(param) {{
-                        const d = param.data.value;
+                        const d = param.data;
                         if (!d) return '';
-                        const winPct = (d[0] * 100).toFixed(1) + '%';
-                        const oddsVal = Number(d[1]).toFixed(2);
-                        const compScore = Number(d[2]).toFixed(1);
-                        const ticker = d[3];
-                        const name = d[4] || '';
-                        const valTag = d[5] || '正常估值';
-                        const mom = d[6] !== null && d[6] !== undefined ? ((d[6] >= 0 ? '+' : '') + d[6] + '%') : 'N/A';
+                        const val = Array.isArray(d) ? d : (d.value || []);
+                        if (val.length < 2) return '';
+                        const qVal = val[0];
+                        const qdVal = val[1];
+                        const dtStr = val[2] || '';
+                        const qNum = val[3] || (qVal >= 0 ? (qdVal >= 0 ? 1 : 4) : (qdVal >= 0 ? 2 : 3));
+                        const priceVal = (val[5] !== undefined && val[5] > 0) ? ('$' + Number(val[5]).toFixed(2)) : '';
+
+                        const qNames = {{
+                            1: '【第 I 象限: 正反身性主升浪】(顺势持有)',
+                            2: '【第 II 象限: 底部蓄势重构】(黄金坑右侧确认)',
+                            3: '【第 III 象限: 负反身性死亡螺旋】(严禁左侧接飞刀)',
+                            4: '【第 IV 象限: 动能衰竭与相变崩塌】(物理级逃顶信号)'
+                        }};
+                        const qColors = {{
+                            1: '#10b981',
+                            2: '#fbbf24',
+                            3: '#ef4444',
+                            4: '#f97316'
+                        }};
+
                         return '<div style="font-weight:700; font-size:15px; margin-bottom:6px; color:{t["tooltip_text"]};">'
-                            + ticker + (name ? ' (' + name + ')' : '') + ' <span style="font-size:12px; color:{t["subtitle_color"]}; font-weight:400;">[' + param.seriesName + ']</span></div>'
-                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">综合投资评分: <b style="color:#38bdf8;">' + compScore + ' 分</b></div>'
-                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">宏观胜率 (X轴): <b style="color:#10b981;">' + winPct + '</b></div>'
-                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">估值赔率 (Y轴): <b style="color:#fbbf24;">' + oddsVal + '</b></div>'
-                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">估值诊断状态: <b style="color:' + param.color + ';">' + valTag + '</b></div>'
-                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">12-1M 学术动量: <b style="color:#a855f7;">' + mom + '</b></div>';
+                            + '{symbol} 相空间动力学采样 <span style="font-size:12px; color:{t["subtitle_color"]}; font-weight:400;">[' + param.seriesName + ']</span></div>'
+                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">交易日期: <b style="color:{t["tooltip_text"]};">' + dtStr + '</b>' + (priceVal ? ' &nbsp;|&nbsp; 收盘价: <b style="color:#38bdf8;">' + priceVal + '</b>' : '') + '</div>'
+                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">势能位置 q1 (相对200MA): <b style="color:' + (qVal >= 0 ? '#10b981' : '#ef4444') + ';">' + (qVal >= 0 ? '+' : '') + Number(qVal).toFixed(2) + '%</b></div>'
+                            + '<div style="font-size:14px; color:{t["subtitle_color"]};">动能速度 q1_dot (10日变化率): <b style="color:' + (qdVal >= 0 ? '#10b981' : '#ef4444') + ';">' + (qdVal >= 0 ? '+' : '') + Number(qdVal).toFixed(3) + '%/天</b></div>'
+                            + '<div style="font-size:14px; margin-top:5px; color:' + (qColors[qNum] || '#38bdf8') + '; font-weight:700;">' + (qNames[qNum] || '') + '</div>';
                     }}
                 }},
                 visualMap: {{
                     min: {min_yr},
                     max: {max_yr},
                     dimension: 4,
-                    orient: 'horizontal',
-                    left: 'center',
-                    bottom: '12px',
-                    text: ['最新年份', '起始年份'],
-                    textStyle: {{ color: '{t["axis_label"]}', fontSize: 12 }},
+                    seriesIndex: 0,
+                    orient: 'vertical',
+                    right: '15px',
+                    bottom: '40px',
+                    itemWidth: 12,
+                    itemHeight: 85,
+                    text: ['最新', '起始'],
+                    textStyle: {{ color: '{t["axis_label"]}', fontSize: 11 }},
                     inRange: {{
                         color: ['#38bdf8', '#818cf8', '#c084fc', '#f43f5e', '#fbbf24', '#34d399']
                     }},
                     calculable: true
                 }},
                 grid: {{
-                    left: '70px', right: '45px', top: '35px', bottom: '65px'
+                    left: '75px', right: '95px', top: '48px', bottom: '65px'
                 }},
                 xAxis: {{
                     type: 'value',
@@ -4556,9 +4695,10 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                 }},
                 series: [
                     {{
-                        name: '相轨迹点',
+                        name: '历史全景吸引子相点 (2013-2026)',
                         type: 'scatter',
-                        symbolSize: 6,
+                        symbolSize: 5,
+                        itemStyle: {{ opacity: 0.22 }},
                         data: scatterData,
                         markArea: {{
                             silent: true,
@@ -4596,18 +4736,83 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
                                     name: '2021.11 逃顶相变',
                                     coord: [24.6, -0.76],
                                     value: '2021.11 逃顶',
+                                    symbolSize: 46,
                                     itemStyle: {{ color: '#ef4444' }},
-                                    label: {{ show: true, fontSize: 12, fontWeight: 'bold', color: '#ffffff' }}
+                                    label: {{ show: true, fontSize: 11, fontWeight: 'bold', color: '#ffffff' }}
                                 }},
                                 {{
                                     name: '2022.10 黄金坑回补',
                                     coord: [-22.1, 0.42],
                                     value: '2022.10 回补',
+                                    symbolSize: 46,
                                     itemStyle: {{ color: '#10b981' }},
-                                    label: {{ show: true, fontSize: 12, fontWeight: 'bold', color: '#ffffff' }}
+                                    label: {{ show: true, fontSize: 11, fontWeight: 'bold', color: '#ffffff' }}
                                 }}
                             ]
                         }}
+                    }},
+                    {{
+                        name: '近60日动力学相轨迹 (Trajectory)',
+                        type: 'line',
+                        smooth: 0.25,
+                        showSymbol: true,
+                        symbol: 'circle',
+                        symbolSize: function(val, params) {{
+                            if (params.dataIndex === trajectoryData.length - 1) return 0;
+                            return params.dataIndex % 6 === 0 ? 6 : 0;
+                        }},
+                        lineStyle: {{
+                            width: 3.5,
+                            color: '#ec4899',
+                            shadowColor: 'rgba(236, 72, 153, 0.5)',
+                            shadowBlur: 8
+                        }},
+                        data: trajectoryData,
+                        zlevel: 5
+                    }},
+                    {{
+                        name: '当前最新状态定位 (TODAY)',
+                        type: 'effectScatter',
+                        coordinateSystem: 'cartesian2d',
+                        symbolSize: 18,
+                        showEffectOn: 'render',
+                        rippleEffect: {{
+                            brushType: 'stroke',
+                            scale: 4.5,
+                            period: 2.5
+                        }},
+                        itemStyle: {{
+                            color: '{curr_quad["color"]}',
+                            shadowBlur: 16,
+                            shadowColor: '{curr_quad["color"]}'
+                        }},
+                        data: [[{latest_q}, {latest_qd}, '{latest_date}', {latest_quad}, {latest_yr}, {latest_price}]],
+                        markPoint: {{
+                            data: [{{
+                                name: '当前最新状态',
+                                coord: [{latest_q}, {latest_qd}],
+                                value: '📍 最新: {latest_date}
+{curr_quad["code"]}: {curr_quad["name"]}',
+                                symbol: 'pin',
+                                symbolSize: 74,
+                                symbolOffset: [0, -26],
+                                itemStyle: {{
+                                    color: '{curr_quad["color"]}',
+                                    borderColor: '#ffffff',
+                                    borderWidth: 2,
+                                    shadowBlur: 12,
+                                    shadowColor: 'rgba(0,0,0,0.5)'
+                                }},
+                                label: {{
+                                    show: true,
+                                    fontSize: 11,
+                                    fontWeight: 'bold',
+                                    color: '#ffffff',
+                                    lineHeight: 14
+                                }}
+                            }}]
+                        }},
+                        zlevel: 10
                     }}
                 ]
             }};
@@ -4617,7 +4822,7 @@ def render_echarts_phase_portrait(df: pd.DataFrame, symbol: str = "NOW", height:
     </body>
     </html>
     """
-    components.html(html_code, height=height + 25, scrolling=False)
+    components.html(html_code, height=height + 30, scrolling=False)
     return True
 
 

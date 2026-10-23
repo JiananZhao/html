@@ -179,6 +179,15 @@ def get_theme_css(mode: str = "dark") -> str:
     color: #f8fafc !important;
 }
 
+.block-container,
+[data-testid="block-container"],
+[data-testid="stMainBlockContainer"] > div {
+    max-width: 96% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    padding-top: 1.5rem !important;
+}
+
 [data-testid="stSidebar"],
 [data-testid="stSidebarContent"],
 section[data-testid="stSidebar"] {
@@ -267,7 +276,9 @@ div[data-testid="stSegmentedControl"] [role="radio"],
 [data-baseweb="button-group"] button {
     font-size: 15px !important;
     font-weight: 600 !important;
-    padding: 10px 18px !important;
+    flex: 1 1 auto !important;
+    padding: 12px 24px !important;
+    font-size: 16px !important;
     border-radius: 8px !important;
     color: #cbd5e1 !important;
     background: #131b2a !important;
@@ -368,7 +379,9 @@ div[data-testid="stTabs"] [role="tab"] {
     border: 1px solid #223048 !important;
     border-bottom: none !important;
     border-radius: 8px 8px 0 0 !important;
-    padding: 8px 18px !important;
+    flex: 1 1 auto !important;
+    padding: 10px 24px !important;
+    font-size: 16px !important;
     transition: all 0.2s ease !important;
 }
 
@@ -758,6 +771,15 @@ div[data-testid="stTable"] td {
     color: #0f172a !important;
 }
 
+.block-container,
+[data-testid="block-container"],
+[data-testid="stMainBlockContainer"] > div {
+    max-width: 96% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    padding-top: 1.5rem !important;
+}
+
 [data-testid="stSidebar"],
 [data-testid="stSidebarContent"],
 section[data-testid="stSidebar"] {
@@ -835,7 +857,9 @@ div[data-testid="stSegmentedControl"] [role="radiogroup"] button,
 div[data-testid="stSegmentedControl"] [role="radio"] {
     font-size: 15px !important;
     font-weight: 600 !important;
-    padding: 10px 18px !important;
+    flex: 1 1 auto !important;
+    padding: 12px 24px !important;
+    font-size: 16px !important;
     border-radius: 8px !important;
     color: #334155 !important;
     background: #f8fafc !important;
@@ -904,7 +928,9 @@ div[data-testid="stTabs"] [role="tab"] {
     border: 1px solid #e2e8f0 !important;
     border-bottom: none !important;
     border-radius: 8px 8px 0 0 !important;
-    padding: 8px 18px !important;
+    flex: 1 1 auto !important;
+    padding: 10px 24px !important;
+    font-size: 16px !important;
     transition: all 0.2s ease !important;
 }
 

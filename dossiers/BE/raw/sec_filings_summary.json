@@ -1,0 +1,87 @@
+{
+  "latest_10k": null,
+  "latest_10q": {
+    "form": "10-Q",
+    "date": "2026-10-22",
+    "accession": "0001628280-26-066931",
+    "primary_doc": "be-20260930.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026066931/be-20260930.htm",
+    "items": "",
+    "desc": "10-Q"
+  },
+  "recent_8k": [
+    {
+      "form": "8-K",
+      "date": "2026-10-22",
+      "accession": "0001628280-26-066890",
+      "primary_doc": "be-20261022.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026066890/be-20261022.htm",
+      "items": "2.02,7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-07-28",
+      "accession": "0001628280-26-050150",
+      "primary_doc": "be-20260728.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026050150/be-20260728.htm",
+      "items": "2.02,7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-07-09",
+      "accession": "0001628280-26-047734",
+      "primary_doc": "be-20260709.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026047734/be-20260709.htm",
+      "items": "7.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-06-17",
+      "accession": "0001193125-26-274388",
+      "primary_doc": "d100413d8k.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000119312526274388/d100413d8k.htm",
+      "items": "5.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-05-27",
+      "accession": "0001628280-26-038451",
+      "primary_doc": "be-20260521.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026038451/be-20260521.htm",
+      "items": "5.03,5.07,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-04-28",
+      "accession": "0001628280-26-027913",
+      "primary_doc": "be-20260428.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026027913/be-20260428.htm",
+      "items": "2.02,7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-04-27",
+      "accession": "0001193125-26-179381",
+      "primary_doc": "d133915d8k.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000119312526179381/d133915d8k.htm",
+      "items": "8.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-04-13",
+      "accession": "0001628280-26-024896",
+      "primary_doc": "be-20260413.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1664703/000162828026024896/be-20260413.htm",
+      "items": "1.01,3.02,9.01",
+      "desc": "8-K"
+    }
+  ],
+  "recent_form4_count": 48
+}

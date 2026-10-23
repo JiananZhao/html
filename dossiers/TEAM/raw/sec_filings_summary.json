@@ -1,0 +1,68 @@
+{
+  "latest_10k": {
+    "form": "10-K",
+    "date": "2026-08-14",
+    "accession": "0001650372-26-000036",
+    "primary_doc": "team-20260630.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000036/team-20260630.htm",
+    "items": "",
+    "desc": "10-K"
+  },
+  "latest_10q": {
+    "form": "10-Q",
+    "date": "2026-05-01",
+    "accession": "0001650372-26-000027",
+    "primary_doc": "team-20260331.htm",
+    "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000027/team-20260331.htm",
+    "items": "",
+    "desc": "10-Q"
+  },
+  "recent_8k": [
+    {
+      "form": "8-K",
+      "date": "2026-08-06",
+      "accession": "0001650372-26-000031",
+      "primary_doc": "team-20260806.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000031/team-20260806.htm",
+      "items": "2.02,8.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-04-30",
+      "accession": "0001650372-26-000024",
+      "primary_doc": "team-20260430.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000024/team-20260430.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-03-11",
+      "accession": "0001650372-26-000021",
+      "primary_doc": "team-20260311.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000021/team-20260311.htm",
+      "items": "2.05,5.02,7.01,9.01",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-02-18",
+      "accession": "0001650372-26-000017",
+      "primary_doc": "team-20260218.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000017/team-20260218.htm",
+      "items": "5.02",
+      "desc": "8-K"
+    },
+    {
+      "form": "8-K",
+      "date": "2026-02-05",
+      "accession": "0001650372-26-000008",
+      "primary_doc": "team-20260205.htm",
+      "doc_url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000008/team-20260205.htm",
+      "items": "2.02,9.01",
+      "desc": "8-K"
+    }
+  ],
+  "recent_form4_count": 55
+}
