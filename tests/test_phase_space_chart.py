@@ -11,7 +11,10 @@ import unittest
 import json
 import re
 from core_engine.huang_dynamics_engine import HuangDynamicsEngine
-import huang_dynamics_tab
+try:
+    import huang_dynamics_tab
+except ModuleNotFoundError:
+    huang_dynamics_tab = None
 
 
 class TestPhaseSpaceChartAnnotations(unittest.TestCase):
@@ -29,6 +32,8 @@ class TestPhaseSpaceChartAnnotations(unittest.TestCase):
             <p>第二段</p>
         </div>
         """
+        if huang_dynamics_tab is None:
+            self.skipTest('huang_dynamics_tab unavailable without streamlit')
         cleaned = huang_dynamics_tab._clean_html(raw_indented)
         # 每一行都不应该有前导空格
         for line in cleaned.splitlines():
