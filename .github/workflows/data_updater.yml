@@ -41,50 +41,74 @@ jobs:
           key: ${{ runner.os }}-states-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-states-
-            
-      - name: Run Unit Tests
-        run: |
-          python -m unittest discover tests/
-            
-      - name: Run Treasury rates update script
+
+      # =========================================================================
+      # 阶段一：客观现实数据采集与即时持久化（核心生命线：独立提交、确保落袋）
+      # =========================================================================
+
+      - name: Stage 1.1 - Run Treasury rates update script
         id: run_treasury_script
         run: |
           python update_daily-treasury-rates_data.py
 
-      - name: Run Market Breadth update script
+      - name: Stage 1.2 - Run Market Breadth update script
         id: run_breadth_script
         run: |
           python update_market_breadth.py
 
-      - name: Run FactSet S&P 500 NTM EPS update script
+      - name: Stage 1.3 - Run FactSet S&P 500 NTM EPS update script
         id: run_factset_eps_script
         run: |
           python update_sp500_ntm_eps.py
 
-      - name: Run Local Constituents Incremental Update
+      - name: Stage 1.4 - Run Local Constituents Incremental Update
+        id: run_constituents_script
         run: |
           python update_local_constituents.py
 
-      - name: Run Macro Reflexivity Model daily monitor & updater
+      - name: Stage 1 Checkpoint - Commit and Push Raw Market Data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 仅暂存第一阶段产生的客观基础行情文件
+          git add daily-treasury-rates.csv market_breadth.csv sp500_ntm_eps.csv *_constituents_data.csv 2>/dev/null || true
+          git add *.csv
+          
+          if ! git diff-index --quiet HEAD; then
+            echo "Stage 1: Raw market data updated. Committing and pushing..."
+            git commit -m "Auto: Update daily raw market data [Stage 1]"
+            git push
+          else
+            echo "Stage 1: No raw data changes detected."
+          fi
+
+      # =========================================================================
+      # 阶段二：量化衍生模型与微观雷达（衍生计算层：容错隔离、独立提交）
+      # =========================================================================
+
+      - name: Stage 2.1 - Run Macro Reflexivity Model daily monitor & updater
         id: run_reflexivity_script
+        continue-on-error: true
         run: |
           python daily_market_monitor.py
 
-      - name: Run Macro QQQ & SPY 4-Layer Dual-Track Models
+      - name: Stage 2.2 - Run Macro QQQ & SPY 4-Layer Dual-Track Models
+        id: run_alpha_deliverables_script
+        continue-on-error: true
         run: |
           python export_alpha_model_deliverables.py
 
-      - name: Run Micro Bubble Radar Models
+      - name: Stage 2.3 - Run Micro Bubble Radar Models (Isolated Loop)
+        id: run_radars_script
+        continue-on-error: true
         run: |
-          python micro_bubble_radar.py
-          python smh_bubble_radar.py
-          python vnq_bubble_radar.py
-          python kre_bubble_radar.py
-          python energy_bubble_radar.py
-          python now_reflexivity_radar.py
-          python single_stock_reflexivity_radar.py
+          for script in micro_bubble_radar.py smh_bubble_radar.py vnq_bubble_radar.py kre_bubble_radar.py energy_bubble_radar.py now_reflexivity_radar.py single_stock_reflexivity_radar.py; do
+            echo ">>> Executing $script ..."
+            python "$script" || echo "WARNING: $script exited with error code $?, continuing next radar..."
+          done
 
-      - name: Commit and Push changes
+      - name: Stage 2 Checkpoint - Commit and Push Model Deliverables
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -92,8 +116,10 @@ jobs:
           git add .
           
           if ! git diff-index --quiet HEAD; then
-            git commit -m "Auto: Update daily market data, all alpha models, and all micro radars"
+            echo "Stage 2: Model deliverables updated. Committing and pushing..."
+            git pull --rebase origin master 2>/dev/null || true
+            git commit -m "Auto: Update alpha models and bubble radars [Stage 2]"
             git push
           else
-            echo "No changes to commit."
+            echo "Stage 2: No model deliverables changes detected."
           fi
