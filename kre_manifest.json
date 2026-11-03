@@ -2,18 +2,18 @@
   "ticker": "KRE",
   "asset_name": "区域性银行与金融板块综合基准",
   "metrics": {
-    "total_invested": 214000.0,
-    "bench_final": 502138.7995336713,
-    "strat_final": 591923.566116765,
-    "bench_return": 8.845465953721654,
-    "strat_return": 10.44194562073743,
-    "alpha": 1.5964796670157764,
+    "total_invested": 215000.0,
+    "bench_final": 515132.67986332864,
+    "strat_final": 607062.00836202,
+    "bench_return": 9.069138599990168,
+    "strat_return": 10.661077416464602,
+    "alpha": 1.5919388164744337,
     "bench_max_dd": -55.02866111602286,
     "strat_max_dd": -46.98283614609448,
-    "trade_count": 228,
+    "trade_count": 229,
     "trade_rounds": 21,
     "win_rounds": 9,
     "win_rate": 42.857142857142854
   },
-  "updated_at": "2026-11-01T01:02:44.624825"
+  "updated_at": "2026-11-03T03:53:40.847560"
 }
