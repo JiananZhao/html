@@ -72,13 +72,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # 仅暂存第一阶段产生的客观基础行情文件
-          git add daily-treasury-rates.csv market_breadth.csv sp500_ntm_eps.csv *_constituents_data.csv 2>/dev/null || true
-          git add *.csv
+          git add daily-treasury-rates.csv market_breadth.csv sp500_ntm_eps.csv *_constituents_local.csv 2>/dev/null || true
           
-          if ! git diff-index --quiet HEAD; then
+          if ! git diff --cached --quiet; then
             echo "Stage 1: Raw market data updated. Committing and pushing..."
             git commit -m "Auto: Update daily raw market data [Stage 1]"
-            git push
+            git push origin master
           else
             echo "Stage 1: No raw data changes detected."
           fi
@@ -115,11 +114,11 @@ jobs:
           
           git add .
           
-          if ! git diff-index --quiet HEAD; then
+          if ! git diff --cached --quiet; then
             echo "Stage 2: Model deliverables updated. Committing and pushing..."
             git pull --rebase origin master 2>/dev/null || true
             git commit -m "Auto: Update alpha models and bubble radars [Stage 2]"
-            git push
+            git push origin master
           else
             echo "Stage 2: No model deliverables changes detected."
           fi
