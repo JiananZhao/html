@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 import unittest
+import os
 import pandas as pd
 from core_engine.huang_dynamics_engine import HuangDynamicsEngine
 
 
 class TestHuangDynamicsEngine(unittest.TestCase):
     def setUp(self):
-        self.engine = HuangDynamicsEngine(ticker="NOW")
+        # 优先使用基准冻结数据集进行回归测试，彻底避免每日增量数据导致统计指标漂移 (Rule 2 & 防脆弱断言规范)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        frozen_dir = os.path.join(base_dir, 'audit_artifacts', 'gemini_review_20260923', 'v2_3_independent_review', 'frozen_inputs')
+        ohlcv = os.path.join(frozen_dir, 'now_ohlcv_local.csv') if os.path.exists(frozen_dir) else None
+        macro = os.path.join(frozen_dir, 'market_data_local.csv') if os.path.exists(frozen_dir) else None
+        self.engine = HuangDynamicsEngine(ticker="NOW", ohlcv_file=ohlcv, macro_file=macro)
         self.engine.load_and_compute()
 
     def test_dynamics_computation(self):
@@ -32,7 +38,7 @@ class TestHuangDynamicsEngine(unittest.TestCase):
         # 2. 交易信噪比测试 (13年配对轮次不得超过 15 轮，防止高频均线磨损)
         self.assertLessEqual(rep["总交易配对轮次"], 15)
         
-        # 3. 现金拖累测试 (全周期持股比例 >= 85%)
+        # 3. 现金拖累测试 (验证持股比例 >= 50%)
         self.assertGreaterEqual(rep["全周期持股比例(%)"], 50.0)
         
         # 4. 样本外泛化超额收益 (2019-2026 OOS Alpha > 0)
@@ -74,4 +80,3 @@ class TestHuangDynamicsEngine(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
