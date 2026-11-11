@@ -1,6 +1,6 @@
 {
-  "latest_checkpoint_id": "ckpt_2026-11-09",
-  "prefix_hash": "7613408667009260157",
-  "snapshot_path": ".states/energy_radar/XLE/energy_v2_dcfd8633/snapshots/energy_radar_7613408667009260157.json",
-  "updated_at": "2026-11-10T04:01:53.967305"
+  "latest_checkpoint_id": "ckpt_2026-11-10",
+  "prefix_hash": "13115010603869663931",
+  "snapshot_path": ".states/energy_radar/XLE/energy_v2_dcfd8633/snapshots/energy_radar_13115010603869663931.json",
+  "updated_at": "2026-11-11T01:10:30.596233"
 }
