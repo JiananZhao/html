@@ -1,113 +1,190 @@
-"""
-Semiconductor Industry & Peer Comparison Tab (Tab 3)
-"""
+# semi_tab.py
+# 芯片与算力硬件全产业链景气度领先指标追踪引擎
+
 import streamlit as st
 import pandas as pd
-import numpy as np
-
-from data_service import (
-    get_semiconductor_comparative_prices,
-    get_semiconductor_matrix_data,
-)
-from visualization import create_relative_performance_chart
-from charts.theme import render_styled_table
 
 def render_semi_tab():
-    st.header("⚡ 芯片半导体产业链深度追踪")
-    st.markdown("全产业链龙头标的相对超额收益、多因子估值比选矩阵与行业周期深度分析。")
+    st.markdown("## ⚡ 芯片与算力硬件：全产业链景气度领先指标追踪")
+    st.caption("遵循「物理瓶颈优先」与「供应链时间差」原则，通过上游晶圆/封装排期、中游整机代工月度营收、下游云厂资本开支，提前 1~2 个季度预判 AI 与半导体周期拐点。")
+    
+    # 顶部核心方法论提示框
+    st.info(
+        "💡 **核心投研逻辑（时间差套利）**：美股芯片巨头（如 NVDA, AMD, AVGO）的财报按**季度**披露且存在滞后；"
+        "而全球算力制造底座集中在**中国台湾（台积电、鸿海、广达、纬颖）**与**韩国（SK海力士、三星）**。"
+        "**台湾上市公司按法律规定必须在每月 10 日前强制披露上月精确营收**，这为我们提供了全球最敏锐的「高频月度领先雷达」。"
+    )
 
-    # 1. 相对收益表现对比
-    st.subheader("📈 半导体龙头多股累计收益率对比 (Relative Performance)")
-    col_semi_tf, col_semi_select = st.columns([2, 5])
-    with col_semi_tf:
-        semi_timeframe = st.selectbox(
-            "选择相对收益观察周期:",
-            ["1M", "3M", "6M", "1Y", "2Y", "3Y", "5Y"],
-            index=3,
-            key="semi_perf_tf"
-        )
+    st.markdown("---")
 
-    semi_default_universe = ["NVDA", "TSM", "ASML", "AVGO", "AMD", "SOXX", "SMH"]
-    semi_all_candidates = ["NVDA", "TSM", "ASML", "AVGO", "AMD", "AMAT", "LRCX", "KLAC", "ARM", "SNPS", "CDNS", "MRVL", "MU", "TXN", "ADI", "QCOM", "SOXX", "SMH"]
-
-    with col_semi_select:
-        selected_semi_tickers = st.multiselect(
-            "选择对比展示的标的 (默认包含行业龙头与基准 ETF):",
-            options=semi_all_candidates,
-            default=semi_default_universe,
-            key="semi_tickers_multiselect"
-        )
-
-    if selected_semi_tickers:
-        with st.spinner("正在获取半导体标的历史收盘价并归一化计算..."):
-            semi_prices_df = get_semiconductor_comparative_prices(selected_semi_tickers, period="5y")
-
-        if not semi_prices_df.empty:
-            fig_semi_perf = create_relative_performance_chart(
-                semi_prices_df,
-                selected_semi_tickers,
-                timeframe=semi_timeframe
+    # ==========================================
+    # 模块一：五大核心高频领先指标矩阵
+    # ==========================================
+    st.subheader("🧭 一、 产业链五大高频领先指标与观测锚点")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        with st.container(border=True):
+            st.markdown("#### 1️⃣ 需求总阀门：四大云厂 (CSP) CapEx 与 ROI")
+            st.markdown(
+                """
+                - **追踪标的**：Microsoft, Meta, Google, Amazon (合占全球 AI 算力采购超 50%)。
+                - **核心指标**：季度资本开支 (CapEx) 同比/环比增速、管理层全年 CapEx 指引。
+                - **领先意义**：全产业链的「水源」。只要四巨头在财报电话会中继续上调 CapEx 且未遭华尔街用脚投票，上游算力硬件至少未来 2 个季度无系统性崩盘风险。
+                - **警惕信号**：云厂开始大谈「提升现有算力利用率」、「延长服务器折旧年限」（如从 4 年延至 6 年），或 AI 软件货币化收入远低于市场预期。
+                """
             )
-            if fig_semi_perf:
-                st.plotly_chart(fig_semi_perf, use_container_width=True)
-        else:
-            st.info("正在聚合半导体行情数据...")
+            
+        with st.container(border=True):
+            st.markdown("#### 2️⃣ 产能物理瓶颈：台积电 (TSMC) CoWoS 与月度营收")
+            st.markdown(
+                """
+                - **公布时间**：**每月 10 日前**公布上月合并营收；每季度法说会更新 CoWoS 产能。
+                - **核心指标**：月度营收 YoY/MoM 增速、先进制程 (3nm/5nm) 占比、**CoWoS 先进封装扩产进度**。
+                - **领先意义**：不管是英伟达的 GPU 还是博通/Marvell 的 ASIC，100% 依赖台积电代工与 CoWoS 封装。台积电的排产就是未来 3~6 个月全球 AI 芯片的真实出货上限。
+                """
+            )
+
+        with st.container(border=True):
+            st.markdown("#### 3️⃣ 存储先行金丝雀：HBM 产能锁定期与 DRAM 合约价")
+            st.markdown(
+                """
+                - **追踪标的**：SK Hynix (海力士), Micron (美光), Samsung (三星)；韩国每月 1 日公布的半导体出口数据。
+                - **核心指标**：**HBM (高带宽内存) 次年产能售罄状态**、DRAM/NAND 现货与合约价格走势 (TrendForce)。
+                - **领先意义**：HBM 是高算力芯片的刚需伴生品，且扩产周期极长。一旦海力士或美光在季报中暗示「HBM 客户拉货节奏放缓」或「标准型 DRAM 合约价见顶回落」，往往是硬件周期见顶的最早信号。
+                """
+            )
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("#### 4️⃣ 出货高频验证：台湾 AI 服务器 ODM 四大天王月度营收")
+            st.markdown(
+                """
+                - **追踪标的**：**鸿海 (Foxconn/2317.TW)**、**广达 (Quanta/2382.TW)**、**纬颖 (Wiwynn/6669.TW)**、**纬创 (Wistron/3231.TW)**。
+                - **公布时间**：**每月 5~10 日**强制披露上月营收。
+                - **核心指标**：ODM 厂商月度营收环比 (MoM) 跃升幅度、机柜 (如 GB200/GB300 NVL72) 良率与出货放量节点。
+                - **领先意义**：芯片造出来必须组装成服务器机柜才能交付给微软/Meta。**看懂广达和鸿海 1~12 月的月度营收曲线，就能在英伟达发财报前 1 个月精准算出其数据中心业务到底有没有超预期！**
+                """
+            )
+
+        with st.container(border=True):
+            st.markdown("#### 5️⃣ 网络与互连脉搏：光模块 (800G/1.6T) 与交换机芯片")
+            st.markdown(
+                """
+                - **追踪标的**：Arista Networks (ANET), Coherent (COHR), Lumentum (LITE), 中际旭创/新易盛, 信骅 (Aspeed/5274.TW - BMC服务器远端管理芯片绝对龙头)。
+                - **核心指标**：800G/1.6T 光模块订单能见度、**信骅 (Aspeed) 月度营收**。
+                - **领先意义**：每台服务器无论是否插满 GPU，都必须配备 BMC 管理芯片（信骅市占率超 70%）。信骅的月度营收被称为全球服务器（含通用服务器与 AI 服务器）出货量的「绝对温度计」。
+                """
+            )
 
     st.markdown("---")
 
-    # 2. 多因子估值与财务指标比选矩阵
-    st.subheader("📊 半导体全产业链核心标的估值与财务比选矩阵")
-    with st.spinner("正在抓取并聚合半导体产业链公司核心估值与财务指标..."):
-        df_semi_matrix = get_semiconductor_matrix_data(semi_all_candidates[:-2])
-
-    if not df_semi_matrix.empty:
-        df_formatted = df_semi_matrix.copy()
-        format_rules = {
-            "Price ($)": lambda x: f"${float(x):.2f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "Trailing PE": lambda x: f"{float(x):.1f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "Forward PE": lambda x: f"{float(x):.1f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "P/S (TTM)": lambda x: f"{float(x):.2f}" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "YoY Rev Growth (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "Gross Margin (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "Operating Margin (%)": lambda x: f"{float(x):.1f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "FCF Yield (%)": lambda x: f"{float(x):.2f}%" if pd.notna(x) and str(x) != "N/A" else "N/A",
-            "Market Cap ($B)": lambda x: f"${float(x):.1f}B" if pd.notna(x) and str(x) != "N/A" else "N/A"
+    # ==========================================
+    # 模块二：产业链上下游传导与监控全景表
+    # ==========================================
+    st.subheader("📊 二、 芯片半导体全产业链传导链条与监控日历")
+    
+    chain_data = [
+        {
+            "产业链环节": "1. EDA 与核心 IP (最上游)",
+            "代表企业": "Synopsys (SNPS), Cadence (CDNS), ARM",
+            "核心监控指标": "RPO (剩余履约义务)、授权收入 (Licensing) 增速",
+            "数据频率": "季度财报",
+            "周期位置与信号属性": "反映芯片设计公司「研发开案」意愿，对短期算力出货不敏感，属长周期抗跌底座。"
+        },
+        {
+            "产业链环节": "2. 半导体设备与材料 (扩产先行)",
+            "代表企业": "ASML, Applied Materials (AMAT), Lam Research (LRCX), KLA, 东京电子",
+            "核心监控指标": "ASML 新增订单额 (Net Bookings)、EUV 出货量、WFE (晶圆厂设备支出) 指引",
+            "数据频率": "季度财报 / 行业协会月报",
+            "周期位置与信号属性": "反映晶圆厂对 **1~2 年后** 终端需求的信心。若 ASML 订单大幅萎缩，预示远期扩产放缓。"
+        },
+        {
+            "产业链环节": "3. 晶圆代工与先进封装 (核心瓶颈)",
+            "代表企业": "台积电 (TSM), 日月光 (ASX), Amkor",
+            "核心监控指标": "TSMC 月度营收、CoWoS/SoIC 产能规划、3nm/5nm 稼动率、资本开支指引",
+            "数据频率": "⚡ 每月 10 日 / 季度法说会",
+            "周期位置与信号属性": "全产业链最硬的刚性约束，直接决定未来 1~2 个季度 AI 芯片实际交付天花板。"
+        },
+        {
+            "产业链环节": "4. 核心算力芯片与存储 (价值核心)",
+            "代表企业": "NVIDIA, AMD, Broadcom (AVGO), Marvell (MRVL), SK Hynix, Micron (MU)",
+            "核心监控指标": "数据中心营收环比增量、毛利率 (Gross Margin > 70%)、HBM 产能锁定与合约价",
+            "数据频率": "季度财报 / 韩国每旬出口数据",
+            "周期位置与信号属性": "主升浪利润最丰厚环节。需高度警惕毛利率下滑（价格战或良率问题）与库存天数激增。"
+        },
+        {
+            "产业链环节": "5. 整机组装与配套组件 (出货验证)",
+            "代表企业": "鸿海, 广达, 纬颖, Supermicro (SMCI), Vertiv (VRT-液冷电源), 信骅 (BMC)",
+            "核心监控指标": "台厂每月营收 YoY/MoM、Vertiv 在手订单 (Backlog) 与订单出货比 (Book-to-Bill)",
+            "数据频率": "⚡ 每月 5~10 日 / 季度财报",
+            "周期位置与信号属性": "检验芯片是否真正转化为机房可用算力的「验钞机」，组装厂营收放量滞后芯片出货约 1~2 个月。"
+        },
+        {
+            "产业链环节": "6. 终端云厂与 AI 应用 (买单金主)",
+            "代表企业": "Microsoft, Meta, Google, Amazon, Oracle, CoreWeave",
+            "核心监控指标": "季度 CapEx 实际支出、云业务 (Azure/AWS/GCP) AI 贡献增速、Copilot/API 商业化 ARR",
+            "数据频率": "季度财报 / 开发者大会",
+            "周期位置与信号属性": "决定整条算力牛市生死的终极买单方。一旦云厂削减 CapEx，全产业链将面临戴维斯双杀。"
         }
-        for col, fmt_func in format_rules.items():
-            if col in df_formatted.columns:
-                def safe_apply(val, fn=fmt_func):
-                    try:
-                        return fn(val)
-                    except Exception:
-                        return str(val)
-                df_formatted[col] = df_formatted[col].apply(safe_apply)
-        st.markdown(render_styled_table(df_formatted), unsafe_allow_html=True)
-    else:
-        st.info("正在加载半导体矩阵比选数据...")
+    ]
+    
+    df_chain = pd.DataFrame(chain_data)
+    st.dataframe(df_chain, use_container_width=True, hide_index=True)
+
+    # 底部实战监控口诀
+    st.success(
+        "🎯 **实战月度跟踪日历（每月必看三个时间点）**：\n"
+        "1. **每月 1 日**：看**韩国贸易部公布的月度半导体出口数据**（验证 HBM 与存储景气度）。\n"
+        "2. **每月 5 日 ~ 10 日**：看**台积电 (2330.TW)、鸿海 (2317.TW)、广达 (2382.TW)、纬颖 (6669.TW)、信骅 (5274.TW)** 的月度营收公告（提前锁定英伟达与博通当季业绩底牌）。\n"
+        "3. **每季末次月（1/4/7/10月）下旬**：紧盯 **微软、Meta、谷歌、亚马逊** 财报中的 CapEx 指引与 **台积电法说会**，完成下一季度的仓位定调。"
+    )
 
     st.markdown("---")
 
-    # 3. 半导体投研框架深度解析
-    with st.expander("📖 查看《半导体产业周期、制程节点与 WFE 资本开支》投研分析指南", expanded=False):
-        st.markdown("""
-        ### 一、 半导体产业四大周期演进规律
+    # ==========================================
+    # 模块三：AI 投资「验证期」硬件噪音过滤、ASIC 良率与 Neocloud 债务/电力硬约束
+    # ==========================================
+    st.subheader("🔬 三、 AI 算力进入「验证期」：真假砍单甄别、自研 ASIC 良率与 2028 电力并网监控")
+    st.caption(
+        "结合周默（丰搭 AI）《AI 投资进入验证期》硬件与基建融资链实证框架（[视频链接](http://www.youtube.com/watch?v=MIUNgTlyjXw)），"
+        "在台积电、ODM 与光模块常规跟踪之上，新增 **「整机 vs 组件噪音过滤」、「自研 ASIC 良率与会计确认拆解」、「Neocloud 净债务/EBITDA 反身性」、「2028 德州 ERCOT 电力审批与 100% 离网发电 (BTM)」** 四大硬核验证维度。"
+    )
 
-        #### 1. 硅周期的四大阶段 (The Silicon Cycle)
-        * **衰退出清期 (Downturn)**：下游消费电子/PC/手机需求萎缩，晶圆厂去库存降稼动率，存储芯片价格暴跌（如 2022H2–2023H1）。
-        * **周期筑底期 (Bottoming)**：原厂主动削减资本开支 (Capex Cut) 与减产，渠道库存回归健康水位，现货价格企稳。
-        * **复苏扩张期 (Expansion)**：新一轮科技创新周期（如 GenAI / 数据中心算力激增）拉动先进制程与 HBM 高价值量芯片需求，量价齐升。
-        * **繁荣过热期 (Peak/Overheating)**：全产业链产能供不应求，原厂激进扩产，交期大幅拉长；需警惕双重下单 (Double Booking) 后的需求高位回落。
+    v_col1, v_col2 = st.columns(2)
+    with v_col1:
+        with st.container(border=True):
+            st.markdown("#### 🛡️ 1. 砍单传言验钞机：台湾 ODM 整机出货 vs 光模块/CPU 节奏微调")
+            st.markdown(
+                """
+                - **核心实证结论**：台湾四大服务器整机代工厂（**鸿海 2317.TW、广达 2382.TW、纬创 3231.TW、纬颖 6669.TW**）及超微（**SMCI**）整机订单**零砍单**；台积电年内三次上调全年指引（毛利率 **~60%**），ASML 光刻机排期直达 **2029~2030 年**，存储/HBM 毛利率高达 **80%**。
+                - **为什么市场总有砍单传闻？** 源于前期超额备货的零组件（如 800G/1.6T 光模块或 CPU）拉货节奏微调。只要每月 10 日前 [台湾证交所公开资讯观测站 (MOPS)](https://mops.twse.com.tw) 披露的 ODM 整机月度营收未降，零组件噪音即可证伪。
+                """
+            )
+        with st.container(border=True):
+            st.markdown("#### 🧩 2. 云厂自研 ASIC (TPU / Trainium) 排产良率与收入确认玄机")
+            st.markdown(
+                """
+                - **Google TPU 良率下修与会计乘数**：谷歌 GCP Q3 同比暴增 **+103%**，核心驱动之一是向客户直接出售 TPU（**会计上一次性确认 5 年收入，每多卖 10 万张卡直接拉动 GCP 增速约 10~12 个百分点**）。但受供应商良率制约，明年 TPU 排产已从 **1000 万张下调至 850 万张**，迫使谷歌高价外租算力。
+                - **AWS Trainium 换代空窗**：亚马逊 Q3 处于 **Trainium 2 向 Trainium 3 过渡的换代空窗期**（AWS Q3 +39%，指引未来两年维持 40%），并计划于 **2027 年底**开始对外销售自研芯片。
+                """
+            )
 
-        #### 2. 先进制程与设备前置指标 (WFE Capex as Leading Indicator)
-        * **光刻与薄膜沉积设备 (ASML / AMAT / LRCX / KLAC)**：设备订单与出货通常**领先晶圆代工厂量产 6–12 个月**。
-        * **台积电资本开支 (TSMC Capex)**：全球半导体景气度的绝对风向标，其中先进制程 (2nm/3nm) 与 CoWoS 先进封装产能分配直接决定 AI 算力供给上限。
-
-        #### 3. 存储芯片高弹性杠杆 (DRAM / NAND & HBM Supercycle)
-        * **存储芯片 (Micron / Samsung / SK Hynix)** 属于典型的大宗重资产周期品。在下行期由于固定资产折旧产生巨额亏损，但在景气上行期具备极强 EPS 盈利爆发弹性。
-        * **HBM (高带宽内存)** 占用了大量 DRAM 晶圆晶片面积，对传统 DDR5 产生产能挤占效应，支撑整体存储价格中枢结构性上移。
-
-        #### 4. 定制化芯片 ASIC vs 通用 GPU 架构博弈
-        * **通用 GPU (NVDA / AMD)**：凭借 CUDA 生态与最高灵活性垄断大模型前沿训练与复杂推理。
-        * **定制 ASIC (AVGO / MRVL)**：云厂商 (CSP) 为降低单 Token 成本自研推理芯片（如 Google TPU, AWS Trainium/Inferentia, Meta MTIA），博通作为芯片物理设计与 SerDes IP 独家合作伙伴长期受益。
-        """)
-
+    with v_col2:
+        with st.container(border=True):
+            st.markdown("#### 💣 3. 资金链最脆弱一环：Neocloud (CoreWeave) 净债务/EBITDA 反身性")
+            st.markdown(
+                """
+                - **风险敞口结构**：二线算力租赁商（如 CoreWeave）约 **20% 的增量算力**租给了尚无收入的新兴实验室（Pre-revenue Neolabs，一级市场估值高达 200x~2000x P/S）。
+                - **索罗斯负向反身性触发器**：华尔街债权人最看重 **`Net Debt / EBITDA`（净债务/EBITDA）**。一旦 **美联储维持高利率（10Y 美债破 5.0% / HY OAS 走阔）** 或 **[Shadeform](https://www.shadeform.ai) / vast.ai 上的 GPU 现货租金下跌** 导致分母 EBITDA 缩水，债权人收紧信贷将迫使 Neocloud 缩减购卡，向上游传导。
+                """
+            )
+        with st.container(border=True):
+            st.markdown("#### ⚡ 4. 2028 电网并网大考：德州 ERCOT 18GW 队列与 100% 离网发电 (BTM)")
+            st.markdown(
+                """
+                - **2027 锁定 vs 2028 换届博弈**：2027 年数据中心电力指标已基本锁定；但美国州长换届直接影响 **2028 年全美约 60GW 并网申请（其中德州 ERCOT 占 18GW，市场担忧砍掉 15GW 导致 2028 年 CapEx 走平）**。
+                - **100% 离网自建电源 (Behind-the-Meter) 胜出**：在美国县级自下而上审批博弈中，承诺不推高居民电价的 **100% 离网发电方案（燃气轮机 GE Vernova `GEV`、燃料电池 Bloom Energy `BE`、康明斯 `CMI`）** 获批最快，外加 2028 年约 **1GW 太空算力**补充。
+                """
+            )
