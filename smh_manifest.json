@@ -3,17 +3,17 @@
   "asset_name": "VanEck 半导体 ETF",
   "metrics": {
     "total_invested": 215000.0,
-    "bench_final": 4396460.116209584,
-    "strat_final": 3922173.974738436,
-    "bench_return": 28.833476983844353,
-    "strat_return": 27.796429276127004,
-    "alpha": -1.037047707717349,
+    "bench_final": 3571918.235218004,
+    "strat_final": 3497449.2188546164,
+    "bench_return": 26.947306266146754,
+    "strat_return": 26.7561208595951,
+    "alpha": -0.1911854065516536,
     "bench_max_dd": -45.30263611076934,
     "strat_max_dd": -34.44143125284529,
-    "trade_count": 207,
+    "trade_count": 208,
     "trade_rounds": 4,
     "win_rounds": 3,
     "win_rate": 75.0
   },
-  "updated_at": "2026-11-17T04:23:07.231523"
+  "updated_at": "2026-11-17T05:21:27.257650"
 }

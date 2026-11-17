@@ -3,17 +3,17 @@
   "asset_name": "iShares 扩展科技软件与云计算 ETF",
   "metrics": {
     "total_invested": 179000.0,
-    "bench_final": 9.675881156872586,
-    "strat_final": 4.334571570413546,
+    "bench_final": 9.43570002172384,
+    "strat_final": 4.421672932356571,
     "bench_return": NaN,
     "strat_return": NaN,
     "alpha": NaN,
     "bench_max_dd": -45.85041373696459,
     "strat_max_dd": -38.74281429243381,
-    "trade_count": 77,
+    "trade_count": 78,
     "trade_rounds": 6,
     "win_rounds": 2,
     "win_rate": 33.33333333333333
   },
-  "updated_at": "2026-11-17T04:22:59.036010"
+  "updated_at": "2026-11-17T05:21:13.754746"
 }
