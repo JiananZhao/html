@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-========================================================================================
+================================================================================
 项目名称：宏观反身性阿尔法模型 (方案 B_Plus: 双轨制雷达看板版)
 文件名称：reflexivity_tab.py
 跨平台支持：本地 Windows / Linux / Streamlit Community Cloud (云端原生与 GitHub 直读)
-========================================================================================
+================================================================================
 """
 
 import os
 import streamlit as st
 import pandas as pd
 
-# 基础目录与跨平台相对路径定义 (杜绝绝对路径 e:/ 硬编码)
+# 基础目录与跨平台相对路径定义（杜绝绝对路径 e:/ 硬编码）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCAL_CSV_PATH = os.path.join(BASE_DIR, "market_data_local.csv")
 GITHUB_RAW_CSV_URL = "https://raw.githubusercontent.com/JiananZhao/html/master/market_data_local.csv"
@@ -21,42 +21,47 @@ QQQ_CHART_LOCAL = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A
 SPY_CHART_LOCAL = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A_Plus_SPY买卖信号与净值对比图.png")
 EXCEL_DELIVERABLE_LOCAL = os.path.join(BASE_DIR, "宏观反身性阿尔法模型_模型A_Plus_真实对账全证据.xlsx")
 
-# GitHub Raw 备用 URL (云端环境图谱与数据自动 Fallback)
+# GitHub Raw 备用 URL（云端环境图谱与数据自动 Fallback）
 GITHUB_RAW_QQQ_CHART = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_%E6%A8%A1%E5%9E%8BA_Plus_QQQ%E4%B9%B0%E5%8D%96%E4%BF%A1%E5%8F%B7%E4%B8%8E%E5%87%80%E5%80%BC%E5%AF%B9%E6%AF%94%E5%9B%BE.png"
 GITHUB_RAW_SPY_CHART = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_%E6%A8%A1%E5%9E%8BA_Plus_SPY%E4%B9%B0%E5%8D%96%E4%BF%A1%E5%8F%B7%E4%B8%8E%E5%87%80%E5%80%BC%E5%AF%B9%E6%AF%94%E5%9B%BE.png"
-GITHUB_RAW_EXCEL = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_%E6%A8%A1%E5%9E%8BA_Plus_%E7%9C%9F%E5%AE%9E%E5%AF%B9%E8%83%80%E5%85%A8%E8%AF%81%E6%8D%AE.xlsx"
+GITHUB_RAW_EXCEL = "https://raw.githubusercontent.com/JiananZhao/html/master/%E5%AE%8F%E8%A7%82%E5%8F%8D%E8%BA%AB%E6%80%A7%E9%98%BF%E5%B0%94%E6%B3%95%E6%A8%A1%E5%9E%8B_%E6%A8%A1%E5%9E%8BA_Plus_%E7%9C%9F%E5%AE%9E%E5%AF%B9%E8%B4%A6%E5%85%A8%E8%AF%81%E6%8D%AE.xlsx"
 
 # 导入每日监控模块
 try:
-    from daily_market_monitor import sync_latest_market_data, compute_latest_signals
+    from daily_market_monitor import sync_latest_market_data, compute_latest_signals, heal_market_dataframe
 except ImportError:
     sync_latest_market_data = None
     compute_latest_signals = None
-
+    heal_market_dataframe = None
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_market_data_cross_platform():
     """
-    跨平台双模数据加载器：
+    跨平台双模数据加载器（内置历史空洞自愈）：
     1. 优先从本地仓库相对路径读取；
-    2. 若本地文件不存在（如在 Streamlit Community Cloud 容器内），直接从 GitHub Raw 极速拉取。
+    2. 若本地文件不存在（如在 Streamlit Community Cloud 容器内），直接从 GitHub Raw 极速拉取；
+    3. 自动执行 heal_market_dataframe 消除任何历史 NaN 空洞。
     """
     if os.path.exists(LOCAL_CSV_PATH):
         try:
             df = pd.read_csv(LOCAL_CSV_PATH)
             if not df.empty and 'date' in df.columns:
-                return df, "本地相对路径"
+                if heal_market_dataframe is not None:
+                    df, _ = heal_market_dataframe(df)
+                return df, "本地相对路径 (已自愈核验)"
         except Exception:
             pass
-            
+
     # 从 GitHub Raw 直读
     try:
         df = pd.read_csv(GITHUB_RAW_CSV_URL)
         if not df.empty and 'date' in df.columns:
-            return df, "GitHub 远端直读"
+            if heal_market_dataframe is not None:
+                df, _ = heal_market_dataframe(df)
+            return df, "GitHub 远端直读 (已自愈核验)"
     except Exception as e:
         st.error(f"从 GitHub 读取数据失败: {e}")
-        
+
     return pd.DataFrame(), "无可用数据源"
 
 
@@ -71,20 +76,20 @@ except ImportError:
 @st.cache_data(show_spinner=False)
 def get_cached_simulation(df, ticker, result_id="P1-B_v1.3"):
     if run_reflexivity_simulation is not None and not df.empty:
-        # P1-B 新执行引擎要求强制显式传入 cost_config，并返回 SimulationResult
+        # P1-B 新执行引擎要求强制显式传入 cost_config, 并返回 SimulationResult
         return run_reflexivity_simulation(df, ticker, cost_config=0.001)
     return None
 
 
 def render_reflexivity_tab():
-    st.header("🦅 索罗斯宏观反身性阿尔法模型 (双轨制雷达看板版)")
+    st.header("🦅 索罗斯宏观反身性阿尔法模型（双轨制雷达看板版）")
     st.caption("【机构级纯现货大类资产配置】信用先导熊市出清 · 动态扩展分位数自适应 · 0~100分宏观过热预警雷达")
-    
-    # -------------------------------------------------------------
-    # 1. 顶部控制栏与一键同步数据按钮 (支持本地与 GitHub 状态)
-    # -------------------------------------------------------------
+
+    # ------------------------------------------------------------
+    # 1. 顶部控制栏与一键同步数据按钮（支持本地与 GitHub 状态）
+    # ------------------------------------------------------------
     col_sync, col_status = st.columns([2, 5])
-    
+
     with col_sync:
         if st.button("🔄 立即同步最新数据", use_container_width=True, help="增量更新数据并重新计算信号"):
             if sync_latest_market_data is not None:
@@ -94,7 +99,7 @@ def render_reflexivity_tab():
                     if res.get("status") == "updated":
                         st.success(f"同步成功！追加 {res.get('new_rows')} 行，最新日期: {res.get('last_date')}")
                     elif res.get("status") == "up_to_date":
-                        st.info(f"数据库已是最新（基准日: {res.get('last_date')}），无需更新。")
+                        st.info(f"数据库已是最新 (基准日: {res.get('last_date')})，无需更新。")
                     else:
                         st.warning(f"同步状态: {res.get('status')}")
                     st.rerun()
@@ -115,13 +120,13 @@ def render_reflexivity_tab():
                 f"**配置版本 (result_id=P1-A_v1.0):** `strategy=A_Plus` | `execution=NEXT_CLOSE` | `accounting=Unitized` | `cost=0.001`"
             )
         else:
-            st.error(f"数据库加载失败，请检查网络或 GitHub 链接: {GITHUB_RAW_CSV_URL}")
+            st.error(f"数据库加载失败，请检查网络或 GitHub 链接：{GITHUB_RAW_CSV_URL}")
 
     st.markdown("---")
 
-    # -------------------------------------------------------------
+    # ------------------------------------------------------------
     # 2. 今日双轨决策雷达监控卡片 (SPY & QQQ)
-    # -------------------------------------------------------------
+    # ------------------------------------------------------------
     st.subheader("📡 今日收盘实时决策雷达看板 (Daily Decision Dashboard)")
 
     signals = {}
@@ -133,27 +138,28 @@ def render_reflexivity_tab():
 
     if signals:
         col_qqq, col_spy = st.columns(2)
-        
+
         # QQQ 卡片
         with col_qqq:
             q = signals.get('QQQ', {})
             st.markdown("### 💻 QQQ (纳斯达克100 ETF)")
-            
-            tag = q.get('status_tag', '🟢 健康常态持仓')
-            if "🔴" in tag:
+
+            tag = q.get('status_tag', '⚪ 数据缺失/同步异常')
+            if "🔴" in tag or "⚪" in tag:
                 st.error(f"**系统信号:** {tag}")
-            elif "🟡" in tag:
+            elif "🟠" in tag or "🟡" in tag:
                 st.warning(f"**系统信号:** {tag}")
             else:
                 st.success(f"**系统信号:** {tag}")
-                
+
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("收盘价 (USD)", f"${q.get('price', 0.0):.2f}")
             m2.metric("年线乖离率", f"{q.get('dist_200', 0.0):+.1f}%")
             m3.metric("反身性 Gap", f"{q.get('gap', 0.0):.2f}", f"阈值: {q.get('gap_upper', 0.0):.2f}")
             score_q = q.get('overheat_score', 0.0)
-            m4.metric("过热雷达分", f"{score_q:.1f}/100", "[高危 >= 70]" if score_q >= 70 else "安全区")
-            
+            q_badge = "[高危 >= 70]" if score_q >= 70 else ("趋势转弱/收紧" if ("🟠" in tag or "🔴" in tag) else "安全区")
+            m4.metric("过热雷达分", f"{score_q:.1f}/100", q_badge)
+
             st.markdown(f"**💡 实操行为指引:** {q.get('action_desc', '')}")
             st.markdown(
                 f"<small style='color:gray;'>均线参考: MA20=${q.get('ma20',0):.1f} | MA50=${q.get('ma50',0):.1f} | MA200=${q.get('ma200',0):.1f} | 建议仓位: <b>{q.get('rec_pos',1)*100:.0f}%</b></small>",
@@ -164,22 +170,23 @@ def render_reflexivity_tab():
         with col_spy:
             s = signals.get('SPY', {})
             st.markdown("### 🇺🇸 SPY (标普500 ETF)")
-            
-            tag_s = s.get('status_tag', '🟢 健康常态持仓')
-            if "🔴" in tag_s:
+
+            tag_s = s.get('status_tag', '⚪ 数据缺失/同步异常')
+            if "🔴" in tag_s or "⚪" in tag_s:
                 st.error(f"**系统信号:** {tag_s}")
-            elif "🟡" in tag_s:
+            elif "🟠" in tag_s or "🟡" in tag_s:
                 st.warning(f"**系统信号:** {tag_s}")
             else:
                 st.success(f"**系统信号:** {tag_s}")
-                
+
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("收盘价 (USD)", f"${s.get('price', 0.0):.2f}")
             m2.metric("年线乖离率", f"{s.get('dist_200', 0.0):+.1f}%")
             m3.metric("反身性 Gap", f"{s.get('gap', 0.0):.2f}", f"阈值: {s.get('gap_upper', 0.0):.2f}")
             score_s = s.get('overheat_score', 0.0)
-            m4.metric("过热雷达分", f"{score_s:.1f}/100", "[高危 >= 70]" if score_s >= 70 else "安全区")
-            
+            s_badge = "[高危 >= 70]" if score_s >= 70 else ("趋势转弱/收紧" if ("🟠" in tag_s or "🔴" in tag_s) else "安全区")
+            m4.metric("过热雷达分", f"{score_s:.1f}/100", s_badge)
+
             st.markdown(f"**💡 实操行为指引:** {s.get('action_desc', '')}")
             st.markdown(
                 f"<small style='color:gray;'>均线参考: MA20=${s.get('ma20',0):.1f} | MA50=${s.get('ma50',0):.1f} | MA200=${s.get('ma200',0):.1f} | 建议仓位: <b>{s.get('rec_pos',1)*100:.0f}%</b></small>",
@@ -188,9 +195,9 @@ def render_reflexivity_tab():
 
     st.markdown("---")
 
-    # -------------------------------------------------------------
+    # ------------------------------------------------------------
     # 3. 动态可缩放 4 层双轨制决策交互图谱 (支持滚轮缩放与一键聚焦)
-    # -------------------------------------------------------------
+    # ------------------------------------------------------------
     st.subheader("📈 4 层双轨制决策与净值动态全景图谱 (可自由缩放 / 聚焦任意时段)")
     st.caption("💡 **交互指引**：支持鼠标滚轮放大/缩小、按住左键拖拽框选、底部时间滑块拉伸；点击右上角一键聚焦最近几个月或几年，鼠标悬停可穿透查看该日全部指标。")
 
@@ -205,7 +212,7 @@ def render_reflexivity_tab():
     col_preset, col_slider = st.columns([1.2, 2.8])
     with col_preset:
         preset_choice = st.selectbox(
-            "⏱️ 快捷预设周期：",
+            "⏱ 快捷预设周期：",
             ["近6个月 (最新细节)", "近1个月", "近3个月", "近1年", "近3年", "近5年", "全历史 17.6 年全景", "自定义拖动"],
             index=0,
             key="tab5_radar_preset"
@@ -258,8 +265,8 @@ def render_reflexivity_tab():
                     sim_q, ticker='QQQ', start_date=start_s, end_date=end_s
                 )
                 st.plotly_chart(fig_q, use_container_width=True)
-            
-            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图 (长图版)"):
+
+            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图（长图版）"):
                 chart_src_q = QQQ_CHART_LOCAL if os.path.exists(QQQ_CHART_LOCAL) else GITHUB_RAW_QQQ_CHART
                 st.image(chart_src_q, caption="QQQ 宏观反身性双轨制雷达看板出版级高清长图", use_container_width=True)
         else:
@@ -275,8 +282,8 @@ def render_reflexivity_tab():
                     sim_s, ticker='SPY', start_date=start_s, end_date=end_s
                 )
                 st.plotly_chart(fig_s, use_container_width=True)
-            
-            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图 (长图版)"):
+
+            with st.expander("🖼️ 查看 17.6 年出版级 4 层高清静态图（长图版）"):
                 chart_src_s = SPY_CHART_LOCAL if os.path.exists(SPY_CHART_LOCAL) else GITHUB_RAW_SPY_CHART
                 st.image(chart_src_s, caption="SPY 宏观反身性双轨制雷达看板出版级高清长图", use_container_width=True)
         else:
@@ -298,7 +305,7 @@ def render_reflexivity_tab():
             "波段胜率": ["60.0%", "50.0%"]
         }
         st.table(pd.DataFrame(perf_data))
-        
+
         # 交付物下载 (Excel底稿 + 数学白皮书 Word/MD)
         if os.path.exists(EXCEL_DELIVERABLE_LOCAL):
             with open(EXCEL_DELIVERABLE_LOCAL, "rb") as f:
@@ -335,4 +342,3 @@ def render_reflexivity_tab():
                         mime="text/markdown",
                         use_container_width=True
                     )
-

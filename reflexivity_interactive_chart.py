@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-========================================================================================
-项目名称：宏观反身性阿尔法模型 —— 动态可交互 4 层全景图谱引擎
+===========================================================================
+项目名称：宏观反身性阿尔法模型 — 动态可交互 4 层全景图谱引擎
 文件名称：reflexivity_interactive_chart.py
-技术选型：Plotly 动态微件 (毫秒级响应、局部滚轮放大、时间滑块、一键聚焦近期)
-========================================================================================
+技术选型：Plotly 动态微件（毫秒级响应、局部滚轮放大、时间滑块、一键聚焦近期）
+===========================================================================
 """
 
 import pandas as pd
@@ -18,33 +18,42 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     轻量化、脱机闭环的纯现货双轨制反身性模型仿真
     返回 sub (包含所有技术与宏观指标、雷达分、净值曲线) 与 trades (逐笔买卖交易记录)
     """
-    sub = df_raw[['date', ticker, 'HYG', 'NFCI', 'BAA10Y', 'Real_Yield']].copy()
+    try:
+        from daily_market_monitor import heal_market_dataframe
+        df_clean, _ = heal_market_dataframe(df_raw)
+    except Exception:
+        df_clean = df_raw.copy()
+
+    sub = df_clean[['date', ticker, 'HYG', 'NFCI', 'BAA10Y', 'Real_Yield']].copy()
     sub['date'] = pd.to_datetime(sub['date']).dt.tz_localize(None)
-    sub = sub.sort_values('date').reset_index(drop=True)
-    
-    # 1. 均线体系
-    sub['MA10'] = sub[ticker].rolling(10).mean()
-    sub['MA20'] = sub[ticker].rolling(20).mean()
-    sub['MA50'] = sub[ticker].rolling(50).mean()
-    sub['MA200'] = sub[ticker].rolling(200).mean()
+    sub = sub.sort_values('date').dropna(subset=[ticker, 'HYG']).reset_index(drop=True)
+
+    # 1. 均线体系 (带 min_periods 防御单点缺失传染)
+    sub['MA10'] = sub[ticker].rolling(10, min_periods=5).mean()
+    sub['MA20'] = sub[ticker].rolling(20, min_periods=10).mean()
+    sub['MA50'] = sub[ticker].rolling(50, min_periods=25).mean()
+    sub['MA200'] = sub[ticker].rolling(200, min_periods=150).mean()
     sub['Dist_200MA'] = (sub[ticker] - sub['MA200']) / sub['MA200'] * 100.0
 
     # 2. 宏观信用大趋势与实际利率
-    sub['HYG_MA200'] = sub['HYG'].rolling(200).mean()
-    sub['BAA_MA60'] = sub['BAA10Y'].rolling(60).mean()
+    sub['HYG_MA50'] = sub['HYG'].rolling(50, min_periods=25).mean()
+    sub['HYG_MA200'] = sub['HYG'].rolling(200, min_periods=150).mean()
+    sub['BAA_MA60'] = sub['BAA10Y'].rolling(60, min_periods=30).mean()
     sub['BAA_Stress'] = sub['BAA10Y'] > sub['BAA_MA60']
-    sub['RY_Surge'] = (sub['Real_Yield'] - sub['Real_Yield'].rolling(60).min()) > 0.40
+    sub['RY_Surge'] = (sub['Real_Yield'] - sub['Real_Yield'].rolling(60, min_periods=30).min()) > 0.35
 
     # 3. NFCI 滚动 252 天 Z-Score
-    sub['NFCI_Roll_Mean'] = sub['NFCI'].rolling(252).mean()
-    sub['NFCI_Roll_Std'] = sub['NFCI'].rolling(252).std()
+    sub['NFCI_Roll_Mean'] = sub['NFCI'].rolling(252, min_periods=120).mean()
+    sub['NFCI_Roll_Std'] = sub['NFCI'].rolling(252, min_periods=120).std()
     sub['NFCI_Z'] = (sub['NFCI'] - sub['NFCI_Roll_Mean']) / (sub['NFCI_Roll_Std'] + 1e-8)
 
     # 4. 反身性偏离度 Gap (动态 Beta 定价)
-    sub['Price_Z'] = (sub[ticker] - sub[ticker].rolling(200).mean()) / (sub[ticker].rolling(200).std() + 1e-8)
-    sub['Macro_Z'] = (sub['HYG'] - sub['HYG'].rolling(200).mean()) / (sub['HYG'].rolling(200).std() + 1e-8)
-    roll_cov = sub['Price_Z'].rolling(252).cov(sub['Macro_Z'])
-    roll_var = sub['Macro_Z'].rolling(252).var()
+    p_std = sub[ticker].rolling(200, min_periods=150).std()
+    m_std = sub['HYG'].rolling(200, min_periods=150).std()
+    sub['Price_Z'] = (sub[ticker] - sub['MA200']) / (p_std + 1e-8)
+    sub['Macro_Z'] = (sub['HYG'] - sub['HYG_MA200']) / (m_std + 1e-8)
+    roll_cov = sub['Price_Z'].rolling(252, min_periods=120).cov(sub['Macro_Z'])
+    roll_var = sub['Macro_Z'].rolling(252, min_periods=120).var()
     sub['Dynamic_Beta'] = (roll_cov / (roll_var + 1e-8)).clip(lower=-2.0, upper=2.0)
     sub['Expected_Price_Z'] = sub['Macro_Z'] * sub['Dynamic_Beta']
     sub['Gap'] = sub['Price_Z'] - sub['Expected_Price_Z']
@@ -52,6 +61,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     # 45 天记忆窗口与自适应 85% 分位数阈值
     sub['Gap_Max_45'] = sub['Gap'].rolling(45, min_periods=1).max()
     sub['PriceZ_Max_45'] = sub['Price_Z'].rolling(45, min_periods=1).max()
+    sub['Dist200_Max_45'] = sub['Dist_200MA'].rolling(45, min_periods=1).max()
     sub['Gap_Median'] = sub['Gap'].rolling(252, min_periods=20).median()
     sub['Gap_Upper'] = sub['Gap'].expanding(min_periods=20).quantile(0.85)
 
@@ -69,26 +79,31 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
         E_t = (s_valid == val).sum()
         N_t = len(s_valid)
         return (L_t + 0.5 * E_t) / N_t * 30.0
-        
+
     gap_score = sub['Gap'].rolling(252, min_periods=60).apply(mid_rank_pct, raw=False)
     sub['Overheat_Score'] = z_score + dist_score + gap_score
     sub['Overheat_Alert'] = sub['Overheat_Score'] >= 70.0
 
-    # 6. 右侧破位判定与确认
+    # 6. 右侧破位判定与确认 (45日高位记忆窗口 + 信用/高收益债/利率复合确认)
+    macro_tightening_cond = (
+        sub['BAA_Stress']
+        | (sub['HYG'] < sub['HYG_MA50'])
+        | (sub['NFCI'] > -0.50)
+        | (sub['NFCI_Z'] > 0.5)
+        | sub['RY_Surge']
+    )
     sub['Cond_Bubble'] = (
-        (sub['Gap_Max_45'] > sub['Gap_Upper']) & 
-        (sub['PriceZ_Max_45'] > 1.5) & 
-        (sub['Dist_200MA'] > 5.0) & 
-        (sub['NFCI'] > -0.50) & 
-        sub['BAA_Stress'] & 
+        (sub['Gap_Max_45'] > sub['Gap_Upper']) &
+        (sub['PriceZ_Max_45'] > 1.3) &
+        (sub['Dist200_Max_45'] > 5.0) &
+        macro_tightening_cond &
         (sub[ticker] < sub['MA20'])
     )
 
     sub['Macro_Crisis'] = (
-        (sub['HYG'] < sub['HYG_MA200']) & 
-        sub['RY_Surge'] & 
-        (sub['NFCI_Z'] > 1.2) & 
-        (sub['NFCI'] > -0.50)
+        (sub['HYG'] < sub['HYG_MA200']) &
+        (sub['RY_Surge'] | sub['BAA_Stress']) &
+        ((sub['NFCI_Z'] > 1.0) | (sub['NFCI'] > -0.50))
     )
     sub['Cond_Bear'] = sub['Macro_Crisis'] & (sub[ticker] < sub['MA50']) & (sub[ticker] < sub['MA200'])
     sub['Sell_Signal'] = sub['Cond_Bubble'] | sub['Cond_Bear']
@@ -102,20 +117,20 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     # No dropna() here to preserve the timeline
     sub = sub[sub['date'] >= '2009-01-01'].reset_index(drop=True)
 
-    # 7. 接入共享执行器与单位化核算 (T+1 延迟执行, 新版账户)
+    # 7. 接入共享执行器与单位化核算 (T+1 延迟执行，新版账户)
     from true_accounting import UnitizedAccount
     from shared_executor import SharedExecutor
-    
+
     acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
     bench_acc = UnitizedAccount(initial_cash=0.0, initial_date=sub['date'].iloc[0])
-    
+
     executor = SharedExecutor(acc, fee_rate=cost_config, account_type='strat')
     bench_executor = SharedExecutor(bench_acc, fee_rate=0.0, account_type='bench')
-    
+
     curr_m = -1
     exit_regime = None
     pos = 1.0 # 初始目标满仓
-    
+
     bench_eqs = []
     strat_eqs = []
     bench_navs = []
@@ -156,7 +171,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                 executor.submit_order(0.0, r_reason, dt)
                 pos = 0.0
                 action_taken = True
-            
+
             # 买入逻辑
             elif pos == 0.0:
                 can_buy = False
@@ -170,7 +185,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
                     is_panic = sub['Cond_Panic'].iloc[i]
                     gap_cooled = (gap < gap_med)
                     trend_conf = sub['Above_MA20_Conf'].iloc[i] and sub['Above_MA50_Conf'].iloc[i]
-                    
+
                     # 必须使用已实际成交的 last_sell_p
                     last_sell_p = executor.last_sell_p
                     if last_sell_p is not None:
@@ -217,7 +232,7 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
     # 将账户每日状态汇总
     all_states = executor.daily_states + bench_executor.daily_states
     daily_accounts = pd.DataFrame(all_states)
-    
+
     sub['Strat_Equity'] = strat_eqs
     sub['Bench_Equity'] = bench_eqs
     sub['Strat_NAV'] = strat_navs
@@ -241,11 +256,11 @@ def run_reflexivity_simulation(df_raw, ticker='QQQ', dca_monthly=1000.0, allow_b
 
 
 def build_interactive_4layer_chart(
-    sim_result, 
-    ticker='QQQ', 
+    sim_result,
+    ticker='QQQ',
     default_range='6M',
     start_date=None,
-    end_date=None
+    end_date=None,
 ):
     """
     构建 4 层上下严格对齐、时间轴联动缩放、Y 轴自适应价格极值的 Plotly 交互图表
@@ -253,7 +268,7 @@ def build_interactive_4layer_chart(
     sub = sim_result.features
     fills_df = pd.DataFrame(sim_result.fills) if sim_result.fills else pd.DataFrame()
     orders_df = pd.DataFrame(sim_result.orders) if sim_result.orders else pd.DataFrame()
-    
+
     trades = []
     if not fills_df.empty and not orders_df.empty:
         merged = pd.merge(fills_df, orders_df, on='order_id', how='left')
@@ -264,7 +279,7 @@ def build_interactive_4layer_chart(
                 'price': row['price'],
                 'reason': row['reason'] if pd.notna(row['reason']) else 'System Executed'
             })
-            
+
     import streamlit as st
     curr_theme = st.session_state.get("theme_mode", "dark")
     if curr_theme == "dark":
@@ -293,7 +308,7 @@ def build_interactive_4layer_chart(
         ma200_c = '#8e44ad'
         overheat_c = '#6c5ce7'
         bench_c = '#7f8c8d'
-    
+
     last_dt = sub['date'].iloc[-1]
     first_dt = sub['date'].iloc[0]
 
@@ -396,7 +411,7 @@ def build_interactive_4layer_chart(
                     mode='markers', name='🟡 过热黄色预警',
                     marker=dict(symbol='circle', size=6.5, color='#f1c40f', line=dict(width=1, color='#2c3e50'), opacity=0.9),
                     customdata=alerts[['Overheat_Score', 'Gap', 'Dist_200MA']],
-                    hovertemplate="<b>[🟡 过热预警]</b><br>价格: $%{y:.2f}<br>雷达分: %{customdata[0]:.1f}<br>Gap: %{customdata[1]:.2f}<br>乖离率: %{customdata[2]:+.1f}%<extra></extra>"
+                    hovertemplate="<b>🟡 过热预警</b><br>价格: $%{y:.2f}<br>雷达分: %{customdata[0]:.1f}<br>Gap: %{customdata[1]:.2f}<br>乖离率: %{customdata[2]:+.1f}%<extra></extra>"
                 ), row=1, col=1
             )
 
@@ -508,7 +523,6 @@ def build_interactive_4layer_chart(
             ), row=4, col=1
         )
 
-    # =========================================================================
     # =========================================================================
     # 动态极值计算：严格根据可见切片自适应全部 4 层 Y 轴
     # =========================================================================
