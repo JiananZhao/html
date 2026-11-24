@@ -3,11 +3,11 @@
   "asset_name": "能源全产业链综合基准",
   "metrics": {
     "total_invested": 215000.0,
-    "bench_final": 547391.0177930683,
-    "strat_final": 662655.4123434492,
-    "bench_return": 9.616871952358922,
-    "strat_return": 11.450067608749883,
-    "alpha": 1.833195656390961,
+    "bench_final": 541601.3974492527,
+    "strat_final": 655646.6688099673,
+    "bench_return": 9.50671236112549,
+    "strat_return": 11.340420509924629,
+    "alpha": 1.833708148799138,
     "bench_max_dd": -71.26277311066879,
     "strat_max_dd": -51.79168312014553,
     "trade_count": 283,
@@ -15,5 +15,5 @@
     "win_rounds": 20,
     "win_rate": 40.0
   },
-  "updated_at": "2026-11-21T03:06:06.443755"
+  "updated_at": "2026-11-24T05:13:59.473369"
 }
