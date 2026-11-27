@@ -3,11 +3,11 @@
   "asset_name": "房地产与REITs板块综合基准",
   "metrics": {
     "total_invested": 215000.0,
-    "bench_final": 436048.8587149794,
-    "strat_final": 466682.6828815892,
-    "bench_return": 7.38115330321756,
-    "strat_return": 8.05072597093703,
-    "alpha": 0.6695726677194704,
+    "bench_final": 438692.6575861202,
+    "strat_final": 469512.21706227557,
+    "bench_return": 7.437092594890384,
+    "strat_return": 8.105897210095144,
+    "alpha": 0.6688046152047598,
     "bench_max_dd": -42.39817938591478,
     "strat_max_dd": -41.847667973336385,
     "trade_count": 223,
@@ -15,5 +15,5 @@
     "win_rounds": 2,
     "win_rate": 25.0
   },
-  "updated_at": "2026-11-27T04:00:57.924886"
+  "updated_at": "2026-11-27T22:13:06.208234"
 }
